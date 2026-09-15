@@ -29,6 +29,17 @@ export type Watch = {
   saidSame?: number;
   /** Filled in when we stop a run, so the reason survives for us to read. */
   stopped?: string;
+  /**
+   * Seconds and tokens spent in each stage.
+   *
+   * Here because the question "why did that take twelve minutes" had no answer
+   * anywhere in the product. A total is not an answer: it cannot tell you
+   * whether the time went on reading pages politely or on a model writing
+   * thirty thousand words, and those two have opposite fixes. Recorded on every
+   * run, successful or not, so a decision about speed is made from measurements
+   * rather than from whichever cause is easiest to imagine.
+   */
+  cost?: Record<string, { seconds: number; input: number; output: number; pages: number }>;
 };
 
 /**
@@ -70,10 +81,32 @@ export const CAPS: Record<string, number> = {
 const STUCK =
   "We got stuck partway through and stopped rather than keep going. Start it again.";
 
+/** What one step actually cost. */
+export type Spent = { seconds: number; input: number; output: number; pages: number };
+
 /** Record one completed step. Returns the updated record, nothing mutated. */
-export function note(watch: Watch, stage: string, progress: string): Watch {
+export function note(
+  watch: Watch,
+  stage: string,
+  progress: string,
+  spentHere?: Spent,
+): Watch {
   const spent = { ...(watch.spent ?? {}) };
   spent[stage] = (spent[stage] ?? 0) + 1;
+
+  // Added to what the stage already cost, not assigned over it. A stage that
+  // takes four steps has to show the total of the four, or reading looks cheap
+  // for the same reason it is slow.
+  const cost = { ...(watch.cost ?? {}) };
+  if (spentHere) {
+    const had = cost[stage] ?? { seconds: 0, input: 0, output: 0, pages: 0 };
+    cost[stage] = {
+      seconds: Math.round((had.seconds + spentHere.seconds) * 10) / 10,
+      input: had.input + spentHere.input,
+      output: had.output + spentHere.output,
+      pages: had.pages + spentHere.pages,
+    };
+  }
 
   // The same stage saying the same thing is the only case that counts as still.
   // A stage change resets it, so checking and fixing alternating during a normal
@@ -84,6 +117,7 @@ export function note(watch: Watch, stage: string, progress: string): Watch {
   return {
     ...watch,
     spent,
+    cost,
     saidLast: said,
     saidSame: repeated ? (watch.saidSame ?? 1) + 1 : 1,
   };

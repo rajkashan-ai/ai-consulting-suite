@@ -7,6 +7,7 @@ import { advance, type RunState, type Stage } from "@/tools/competitor-tracker/s
 import { EMPTY, learn, type Playbook } from "@/tools/competitor-tracker/playbook";
 import type { Business, ToolContext } from "@/tools/types";
 import { check, note, type Watch } from "@/lib/watchdog";
+import { buildBody, hollow } from "@/tools/competitor-tracker/document";
 
 /**
  * Advances one run by one step, and stops.
@@ -275,6 +276,7 @@ export async function step(runId: string): Promise<Progress | null> {
   };
 
   let result;
+  const startedStep = Date.now();
   try {
     result = await advance(run.stage as Stage, state, business, ctx);
   } catch (e) {
@@ -289,7 +291,12 @@ export async function step(runId: string): Promise<Progress | null> {
    * fixing spends a step in each every time round, and counting the destination
    * would credit the work to the wrong one and never trip a cap.
    */
-  result.state.watch = note(watch, run.stage as Stage, result.progress);
+  result.state.watch = note(watch, run.stage as Stage, result.progress, {
+    seconds: (Date.now() - startedStep) / 1000,
+    input: spent.input,
+    output: spent.output,
+    pages,
+  });
 
   /**
    * Fold what this run learned back into the trade's playbook.
@@ -328,18 +335,35 @@ export async function step(runId: string): Promise<Progress | null> {
   // A finished run becomes a document, and the document is what the screen
   // reads from then on. The run row is the machinery; the document is the work.
   let documentId: string | null = null;
-  if (result.stage === "done" && result.state.card) {
+  if (result.stage === "done") {
+    const body = buildBody(result.state);
+
+    /**
+     * Do not store a document that is not worth opening.
+     *
+     * A run that reaches here has already been paid for, so refusing costs
+     * nothing that is not already spent, and it is the last place we can catch
+     * a card that passed every check on the way and still has nothing in it.
+     * The alternative is a page that says "done" above an empty table.
+     */
+    const why = hollow(body);
+    if (why) {
+      return fail(
+        db,
+        runId,
+        `We could not finish this properly: ${why}. Nothing has been saved. Start it again.`,
+        spent,
+        pages,
+      );
+    }
+
     const { data: doc } = await db
       .from("documents")
       .insert({
         workspace_id: business.id,
         tool: "competitor-tracker",
         title: `Competitor Tracker, ${new Date().toLocaleDateString("en-GB")}`,
-        body: {
-          ...result.state.card,
-          standing: result.state.standing,
-          grid: result.state.grid,
-        } as never,
+        body: body as never,
       })
       .select("id")
       .single();
