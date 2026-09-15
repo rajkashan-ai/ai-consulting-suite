@@ -1,0 +1,113 @@
+# Getting this running
+
+Four accounts, about twenty minutes. Labels move around, so this says what to
+achieve rather than exactly what to click.
+
+Nothing below asks you to send me a key. Put them in `.env.local` yourself.
+
+---
+
+## 1. Supabase
+
+Create a project. Pick **London** or **Ireland** as the region: our customers
+are UK businesses and so is their data.
+
+Then open the SQL editor and run these two files, in order:
+
+- `supabase/001_schema.sql` — the tables, and the isolation
+- `supabase/002_seed.sql` — puts your email on the allowlist
+
+Stop after the first statement of `002_seed.sql`. The `update ... is_staff` line
+only works once you have signed in for the first time, because your profile row
+is created at that moment. Come back and run it then.
+
+From Project Settings, API, copy three values:
+
+| What the dashboard calls it | Also called | Goes in |
+|---|---|---|
+| Project URL | | `NEXT_PUBLIC_SUPABASE_URL` |
+| Publishable key | `anon` | `NEXT_PUBLIC_SUPABASE_ANON_KEY` |
+| Secret key | `service_role` | `SUPABASE_SERVICE_ROLE_KEY` |
+
+**One template change.** In Authentication, Email Templates, open *Magic Link*
+and replace the link with `{{ .Token }}`. That turns the email into a six digit
+code instead of a link. We want the code: mail scanners in company inboxes
+follow links before a person reads them, which spends a one-time login and
+produces a failure nobody can explain.
+
+## 2. Google
+
+Create a Google Cloud project. Set up an OAuth consent screen as **External**.
+
+Ask for `email`, `profile` and `openid` only. Those are non-sensitive, which
+means you skip Google's app verification review completely. Ask for anything
+more and you are into a review that takes weeks.
+
+Then create an **OAuth client ID**, type **Web application**, with this
+authorised redirect URI, putting your own project reference in:
+
+```
+https://<your-project-ref>.supabase.co/auth/v1/callback
+```
+
+That gives you a Client ID and a Client Secret. Google charges nothing for any
+of this.
+
+## 3. Back in Supabase
+
+Authentication, Providers, Google. Turn it on, paste in the Client ID and
+Client Secret. That is the Google button working.
+
+## 4. Anthropic
+
+An API key from the console. Use a key that nothing else uses, so this
+product's spend can be read on its own.
+
+---
+
+## Run it
+
+```bash
+cp .env.local.example .env.local   # then fill in the four values
+npm install
+npm run dev
+```
+
+Open http://localhost:3000. You should be sent to the sign-in screen.
+
+Sign in with Google. Then go back to Supabase and run the `is_staff` line from
+`002_seed.sql`, so you can point the tools at any company rather than only your
+own.
+
+## Put it on the internet
+
+Vercel, connect the repository, set the root directory to `web`. Add the same
+four environment variables. The keys without `NEXT_PUBLIC_` must be added as
+server variables and never as build-time public ones.
+
+Then add your Vercel URL to two places, or Google sign-in will refuse:
+
+- Supabase, Authentication, URL Configuration: site URL and redirect URLs
+- Google Cloud, your OAuth client: authorised JavaScript origins
+
+---
+
+## Adding a tester
+
+```sql
+insert into public.allowed_emails (email, note)
+values ('them@example.com', 'who they are');
+```
+
+Nobody else can create an account. Removing the row stops a new sign-in but
+does not end a session someone already holds, so also delete their user under
+Authentication if you mean it immediately.
+
+## A site asks us to stop
+
+```sql
+insert into public.blocked_domains (domain, reason)
+values ('example.co.uk', 'emailed 15 Sep');
+```
+
+Takes effect within a minute, everywhere, for everyone.
