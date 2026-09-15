@@ -279,9 +279,6 @@ export async function step(runId: string): Promise<Progress | null> {
       state: result.state as never,
       progress: result.progress,
       leased_until: null,
-      pages_fetched: (run.state?.pagesFetched ?? 0) + pages,
-      input_tokens: spent.input,
-      output_tokens: spent.output,
       ...(result.stage === "done" || result.stage === "failed"
         ? {
             finished_at: new Date().toISOString(),
@@ -292,6 +289,27 @@ export async function step(runId: string): Promise<Progress | null> {
         : {}),
     })
     .eq("id", runId);
+
+  /**
+   * Added, never overwritten, and added in the database.
+   *
+   * Each step used to write its own spend over the last one, and the final step
+   * makes no model calls, so every finished run recorded zero. The page count
+   * was worse: it added to run.state.pagesFetched, which nothing has ever
+   * written.
+   *
+   * Done as one statement in Postgres because the open page and the scheduled
+   * tick can both advance a run, and a read-modify-write from two places loses
+   * one of them. This is the number the fair use cap will be set from.
+   */
+  if (spent.input || spent.output || pages) {
+    await db.rpc("add_run_cost", {
+      run: runId,
+      add_input: spent.input,
+      add_output: spent.output,
+      add_pages: pages,
+    });
+  }
 
   return {
     stage: result.stage,
@@ -317,10 +335,19 @@ async function fail(
       ok: false,
       finished_at: new Date().toISOString(),
       leased_until: null,
-      pages_fetched: pages,
-      input_tokens: spent.input,
-      output_tokens: spent.output,
     })
     .eq("id", runId);
+
+  // A failed run still spent money, and hiding that is how a bill becomes a
+  // surprise. Added the same way as a successful one.
+  if (spent.input || spent.output || pages) {
+    await db.rpc("add_run_cost", {
+      run: runId,
+      add_input: spent.input,
+      add_output: spent.output,
+      add_pages: pages,
+    });
+  }
+
   return { stage: "failed", progress: reason, documentId: null, reason };
 }

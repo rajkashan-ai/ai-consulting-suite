@@ -51,6 +51,7 @@ alter table public.playbooks enable row level security;
 -- Readable by anyone signed in, because it is knowledge about a trade and
 -- contains nothing about any customer. Written only by the secret key, so one
 -- customer's run cannot poison what every other customer relies on.
+drop policy if exists "anyone signed in may read a playbook" on public.playbooks;
 create policy "anyone signed in may read a playbook"
   on public.playbooks for select
   to authenticated

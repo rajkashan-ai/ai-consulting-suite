@@ -65,6 +65,7 @@ create table if not exists public.profiles (
 
 alter table public.profiles enable row level security;
 
+drop policy if exists "read your own profile" on public.profiles;
 create policy "read your own profile"
   on public.profiles for select
   using (auth.uid() = id);
@@ -154,6 +155,7 @@ create index if not exists workspaces_owner_idx on public.workspaces(owner_id);
 
 alter table public.workspaces enable row level security;
 
+drop policy if exists "your own businesses" on public.workspaces;
 create policy "your own businesses"
   on public.workspaces for all
   using (owner_id = auth.uid())
@@ -265,16 +267,19 @@ as $$
   );
 $$;
 
+drop policy if exists "documents in your own business" on public.documents;
 create policy "documents in your own business"
   on public.documents for all
   using (public.owns_workspace(workspace_id))
   with check (public.owns_workspace(workspace_id));
 
+drop policy if exists "sources in your own business" on public.sources;
 create policy "sources in your own business"
   on public.sources for all
   using (public.owns_workspace(workspace_id))
   with check (public.owns_workspace(workspace_id));
 
+drop policy if exists "runs in your own business" on public.runs;
 create policy "runs in your own business"
   on public.runs for all
   using (public.owns_workspace(workspace_id))

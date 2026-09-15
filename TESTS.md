@@ -40,6 +40,26 @@ biggest gap.
 good is an eval, not a test. The dividing line is in TESTING.md: whether a fault
 *can* happen is a test, how *often* it happens is an eval.
 
+## The database
+
+`npm run db` applies any SQL file that has never been run, or has changed since
+it was. `npm run db -- --check` says what is outstanding and changes nothing.
+The pre-commit hook runs the check and warns, but does not block: the database
+may simply be unreachable.
+
+It goes through the Supabase CLI on the linked project, so it needs
+`npx supabase login` once and no database password ever.
+
+Two things were wrong with the first version and both are worth remembering.
+
+**`create policy` has no "if not exists" in Postgres**, so every file with a
+policy in it failed on a second run. They now drop first.
+
+**The Supabase CLI exits 0 when the SQL fails.** It prints the error as JSON on
+stdout and reports success. Anything trusting the exit code says "applied" for a
+statement the database refused, which is exactly what my first few apply
+messages did. The runner reads the answer now, not the exit code.
+
 ## A pattern worth knowing
 
 Three times now, a pure function has been untestable because it sat in a file

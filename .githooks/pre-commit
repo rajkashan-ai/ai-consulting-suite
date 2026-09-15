@@ -39,4 +39,19 @@ for (const f of readdirSync('supabase').filter(x => x.endsWith('.sql'))) {
 process.exit(bad ? 1 : 0);
 "
 
+# A warning, not a refusal. The database may be unreachable, or somebody may be
+# committing a migration before running it, and neither is a reason to block a
+# commit. But nothing said a file had never been run, and that cost an
+# afternoon: everything built that day sat against a database without the
+# columns, and the only symptom was a column-not-found error deep in a script.
+if node db.mjs --check > /tmp/db-check.txt 2>&1; then
+  :
+else
+  if grep -q "not applied" /tmp/db-check.txt; then
+    printf '\n  NOTE: some SQL files have not been applied to the database.\n'
+    grep -E "never run|changed" /tmp/db-check.txt | sed 's/^/  /'
+    printf '  Run: npm run db\n'
+  fi
+fi
+
 printf '\n  All good.\n\n'

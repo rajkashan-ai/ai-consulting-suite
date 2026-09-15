@@ -11,7 +11,8 @@
     "key": "node set-key.mjs",
     "code": "node get-code.mjs",
     "typecheck": "rm -rf .next && tsc --noEmit",
-    "check": "npm run typecheck && npm test"
+    "check": "npm run typecheck && npm test",
+    "db": "node db.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",
