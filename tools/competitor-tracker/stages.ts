@@ -866,6 +866,20 @@ THE THREE ACTIONS are the point of the whole thing. Each one attacks a weakness
 you have evidence for, is something the owner could start this week, and carries
 the claims it rests on.
 
+SAYING SOMETHING IS ABSENT MEANS SAYING WHERE YOU LOOKED, IN THE SAME SENTENCE.
+
+"Your website shows none" gets refused, and rightly: a reader cannot tell
+whether we checked one page or twenty. Name the sources inside the sentence.
+
+  No.   None. / They have no reviews. / Your website shows none.
+  Yes.  We looked at Booksy, Fresha and your own site, and found no reviews.
+  Yes.  None of the five publishes a price.
+  Yes.  4 of the 9 reviews we read name the barber.
+  Yes.  No price appears on any page we read.
+
+The same goes for every number. "Most of them" and "several" are not countable.
+Write "4 of 5", or do not write it.
+
 EVERY CLAIM YOU USE AS EVIDENCE FOR AN ACTION MUST HAVE A REAL VALUE AND A REAL
 SOURCE. A claim whose value is null means we looked and could not see it, and an
 action built on one is an action built on a hole. Those claims still belong in
