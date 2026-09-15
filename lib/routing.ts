@@ -12,7 +12,16 @@
  */
 
 /** Reachable without signing in. Everything else needs a session. */
-export const PUBLIC_PATHS = ["/", "/sign-in", "/not-invited", "/auth", "/preview"];
+export const PUBLIC_PATHS = [
+  "/",
+  "/sign-in",
+  "/not-invited",
+  "/auth",
+  "/preview",
+  // Development only, and it refuses itself on a deployed site. Listed here so
+  // it is reachable without an account, which is the entire point of it.
+  "/try",
+];
 
 export type Decision =
   | { go: "through" }
@@ -55,3 +64,13 @@ export function safeNext(next: string | null | undefined, fallback = "/workspace
   if (next.startsWith("/\\") || next.includes("\\")) return fallback;
   return next;
 }
+
+/**
+ * Pages that must still work before Supabase exists.
+ *
+ * /preview is example content with nothing behind it. /try is the website
+ * reader: it needs an Anthropic key and no database, and it refuses itself on
+ * a deployed site. Everything else answers "not set up yet", which is right,
+ * because everything else needs the database to mean anything.
+ */
+export const WORKS_WITHOUT_SUPABASE = ["/preview", "/try"];

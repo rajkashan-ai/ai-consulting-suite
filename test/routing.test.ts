@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { decide, isPublic, safeNext } from "../lib/routing.ts";
+import { decide, isPublic, safeNext, WORKS_WITHOUT_SUPABASE } from "../lib/routing.ts";
 
 /**
  * Step 2 of the build: sign-in to workspace. These are the rules that decide
@@ -74,4 +74,13 @@ test("no next at all falls back rather than throwing", () => {
   assert.equal(safeNext(null), "/workspace");
   assert.equal(safeNext(undefined), "/workspace");
   assert.equal(safeNext(""), "/workspace");
+});
+
+test("the pages that must work before Supabase exists are public", () => {
+  // /try is the whole answer to "can I test this without authentication".
+  // If it ever stops being public, that answer silently becomes no.
+  for (const path of WORKS_WITHOUT_SUPABASE) {
+    assert.equal(isPublic(path), true, path);
+    assert.deepEqual(decide(path, false), { go: "through" }, path);
+  }
 });

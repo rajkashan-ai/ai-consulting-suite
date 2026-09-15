@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { decide } from "@/lib/routing";
+import { decide, WORKS_WITHOUT_SUPABASE } from "@/lib/routing";
 
 /**
  * Runs before every page. Two jobs.
@@ -27,9 +27,14 @@ export default async function proxy(request: NextRequest) {
   // Nothing configured yet. Say so in one sentence rather than throwing a stack
   // trace on every route, and serve nothing at all rather than serving pages
   // with the auth check quietly skipped.
-  // The preview page is example content with nothing behind it, so it is the
-  // one thing worth looking at before any of the accounts exist.
-  if ((!url || !key) && request.nextUrl.pathname.startsWith("/preview")) {
+  // Two pages are meant to work before Supabase exists, so the not-set-up
+  // answer must not reach them. /preview is example content with nothing
+  // behind it. /try is the website reader, which needs an Anthropic key and no
+  // database at all, and refuses itself on a deployed site.
+  if (
+    (!url || !key) &&
+    WORKS_WITHOUT_SUPABASE.some((p) => request.nextUrl.pathname.startsWith(p))
+  ) {
     return NextResponse.next({ request });
   }
 

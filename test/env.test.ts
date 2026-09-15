@@ -69,3 +69,15 @@ test("the secret key never appears in a client component", () => {
     );
   }
 });
+
+test("the no-sign-in reader refuses itself on a deployed site", () => {
+  // It spends real money on whatever URL it is handed. On a public deployment
+  // that is a bill anybody could run up. The guard is on the server action as
+  // well as the page, because hiding a button is not refusing.
+  for (const f of ["app/try/page.tsx", "app/try/actions.ts"]) {
+    const text = readFileSync(join(ROOT, f), "utf8");
+    assert.match(text, /NODE_ENV === "production"/, f);
+    assert.match(text, /process\.env\.VERCEL/, f);
+    assert.match(text, /notFound\(\)/, f);
+  }
+});
