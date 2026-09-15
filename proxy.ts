@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { decide } from "@/lib/routing";
 
 /**
  * Runs before every page. Two jobs.
@@ -16,8 +17,6 @@ import { NextResponse, type NextRequest } from "next/server";
  * loading a page that would be empty anyway, and it is written that way round
  * on purpose. Never move a real access decision into this file.
  */
-
-const PUBLIC_PATHS = ["/", "/sign-in", "/not-invited", "/auth", "/preview"];
 
 export default async function proxy(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -67,21 +66,16 @@ export default async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const path = request.nextUrl.pathname;
-  const isPublic = PUBLIC_PATHS.some(
-    (p) => path === p || path.startsWith(`${p}/`),
-  );
+  const decision = decide(request.nextUrl.pathname, Boolean(user));
 
-  if (!user && !isPublic) {
+  if (decision.go === "sign-in") {
     const url = request.nextUrl.clone();
     url.pathname = "/sign-in";
-    // Where they were going, so they land there after signing in rather than
-    // on a home screen having forgotten why they came.
-    url.searchParams.set("next", path);
+    url.searchParams.set("next", decision.next);
     return NextResponse.redirect(url);
   }
 
-  if (user && (path === "/sign-in" || path === "/")) {
+  if (decision.go === "workspace") {
     const url = request.nextUrl.clone();
     url.pathname = "/workspace";
     url.search = "";

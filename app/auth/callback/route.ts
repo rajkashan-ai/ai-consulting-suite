@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { safeNext } from "@/lib/routing";
 
 /**
  * Where Google sends people back to.
@@ -46,9 +47,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Only ever redirect inside our own site. `next` comes off the URL, so
-  // without this someone could send a link that signs a person in and then
-  // bounces them to a site of the attacker's choosing, carrying our name.
-  const safe = next.startsWith("/") && !next.startsWith("//") ? next : "/workspace";
-  return NextResponse.redirect(`${origin}${safe}`);
+  // Only ever inside our own site. See safeNext, and test/routing.test.ts for
+  // the shapes that have to be refused.
+  return NextResponse.redirect(`${origin}${safeNext(next)}`);
 }
