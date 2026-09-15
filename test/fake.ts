@@ -20,6 +20,10 @@ export type Recorded = {
   ownPage: { url: string; text: string };
   listed: { name: string; reviews: number | null; rating: number | null;
     reviewedDaysAgo: number | null; area: string | null; price: number | null; url: string | null }[];
+  /** A grid and a narrative shaped the way the model returns them, so a test
+   *  that does not care about them still exercises a complete card. */
+  grid: unknown[];
+  battlecard: Record<string, unknown>;
 };
 
 export type Calls = {
@@ -60,19 +64,32 @@ export function fakeContext(
         fetchedAt: at, note: "" };
     },
 
+    /**
+     * A shape nobody gave an answer for is a test that is not testing anything.
+     *
+     * This used to fall through to `return {}` for any shape it did not
+     * recognise. When the comparison grid was added, every test carried on
+     * passing while the grid came back empty, which is exactly the bug that
+     * then cost a live run of 196,000 tokens and ten minutes.
+     *
+     * A permissive fake hides the thing it exists to catch. It throws now, so
+     * adding a stage to the pipeline breaks the tests until somebody says what
+     * that stage should return.
+     */
     think: async ({ system, prompt, shape }) => {
       calls.think.push({ system, prompt, shape: shape?.name });
+
       const given = shape?.name ? answers.think?.[shape.name] : undefined;
       if (given !== undefined) return given;
 
-      // Sensible defaults, so a test only has to say what it cares about.
-      if (shape?.name === "businesses") {
-        return { businesses: recorded.listed };
-      }
-      if (shape?.name === "battlecard") {
-        return { competitors: [], where_you_win: [], where_they_win: [], actions: [] };
-      }
-      return {};
+      if (shape?.name === "businesses") return { businesses: recorded.listed };
+      if (shape?.name === "comparison") return { comparison: recorded.grid ?? [] };
+      if (shape?.name === "battlecard") return recorded.battlecard;
+
+      throw new Error(
+        `No answer was given for the shape "${shape?.name ?? "(none)"}". ` +
+          `Add one to fakeContext, or a test will pass while that step returns nothing.`,
+      );
     },
 
     search: async (terms) => {

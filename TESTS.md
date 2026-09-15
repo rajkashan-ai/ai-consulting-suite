@@ -95,6 +95,23 @@ only thing that catches that.
 
 Each one was checked by putting the bug back and watching the test fail.
 
+## Two things the tests got wrong, and what changed
+
+**A permissive fake hides the thing it exists to catch.** The stand-in for the
+model returned an empty object for any shape it did not recognise. When the
+comparison grid was added, every test carried on passing while the grid came
+back empty, and the fault surfaced on a live run that cost 196,000 tokens and
+ten minutes. It now throws when nobody has said what a step should return, so
+adding a stage breaks the tests until somebody answers for it.
+
+**Every pipeline test checked the stages and none checked the output.** They
+asserted which stage came next, so a battlecard could be built, stored and shown
+with no comparison in it and the run would report "done". Stages are the
+machinery; there is now one test for the product: five businesses, a grid whose
+rows match its columns, the customer first, three actions, and sources.
+
+Both were checked by putting the bug back and watching them fail.
+
 ## A pattern worth knowing
 
 Three times now, a pure function has been untestable because it sat in a file

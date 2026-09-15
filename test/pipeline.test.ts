@@ -166,3 +166,62 @@ test("an American barber never reaches a British battlecard", async () => {
     assert.ok(!names.includes(american), `an American barber got in: ${names}`);
   }
 });
+
+test("a finished card is whole: five businesses, a grid and three actions", async () => {
+  /**
+   * The assertion that was missing.
+   *
+   * Every pipeline test checked which stage came next and none checked what
+   * came out. So when the grid call started returning nothing, every test kept
+   * passing while a battlecard was built, stored, and shown with an empty
+   * comparison in it. The run said "done".
+   *
+   * Stages are the machinery. This is the product.
+   */
+  const { ctx } = fakeContext(recorded, {});
+  let stage: Stage = "searching";
+  let state: RunState = {};
+  for (let i = 0; i < 25; i++) {
+    const step = await advance(stage, state, aBusiness(), ctx);
+    stage = step.stage;
+    state = step.state;
+    if (stage === "done" || stage === "failed") break;
+  }
+
+  assert.equal(stage, "done", `ended at ${stage}: ${state.reason ?? ""}`);
+
+  const card = state.card!;
+  assert.ok(card, "no card");
+  assert.ok(card.competitors.length >= 2, `only ${card.competitors.length} businesses`);
+  assert.equal(card.actions.length, 3, "three actions is the shape of this product");
+  assert.ok(card.sources.length > 0, "a card with no sources cannot be checked");
+
+  // The grid is the comparison. A card without one is a list of facts.
+  assert.ok(state.grid?.length, "the card was finished with no comparison in it");
+  assert.ok(state.grid![0].rows.length > 0, "the grid has no rows");
+  // Every row has exactly one cell per column, or the table is shifted and a
+  // business's figures appear under somebody else's name.
+  for (const row of state.grid![0].rows) {
+    assert.equal(
+      row.cells.length,
+      state.grid![0].columns.length,
+      `"${row.attribute}" has ${row.cells.length} cells for ${state.grid![0].columns.length} columns`,
+    );
+  }
+
+  // And the customer is in it, first, with their own data.
+  assert.equal(state.grid![0].columns[0], "The Barber Shop Shrewsbury");
+});
+
+test("adding a step nobody has answered for fails the tests, loudly", async () => {
+  /**
+   * The fake used to return an empty object for any shape it did not know. When
+   * the comparison grid was added, every test carried on passing while the grid
+   * came back empty. A permissive fake hides the thing it exists to catch.
+   */
+  const { ctx } = fakeContext(recorded, {});
+  await assert.rejects(
+    () => ctx.think({ system: "", prompt: "", shape: { name: "something-new", description: "", input_schema: {} } }),
+    /No answer was given for the shape/,
+  );
+});
