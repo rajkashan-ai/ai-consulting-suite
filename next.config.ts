@@ -11,6 +11,24 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   turbopack: { root: path.join(import.meta.dirname, "..") },
   outputFileTracingRoot: path.join(import.meta.dirname, ".."),
+
+  /**
+   * The landing page is served as it was designed, byte for byte, from
+   * public/landing.html. It is a single self-contained file with its images
+   * inlined, so rebuilding it as components would mean maintaining the design
+   * twice and it would drift within a week. `python3 sync-landing.py` copies it
+   * across and points its buttons at the real sign-in.
+   *
+   * beforeFiles, so this wins over anything in app/. Nothing in app/ claims "/"
+   * any more, and this is the reason why.
+   */
+  async rewrites() {
+    return {
+      beforeFiles: [{ source: "/", destination: "/landing.html" }],
+      afterFiles: [],
+      fallback: [],
+    };
+  },
 };
 
 export default nextConfig;
