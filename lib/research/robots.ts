@@ -1,7 +1,10 @@
-import "server-only";
-
 /**
  * robots.txt, parsed properly.
+ *
+ * No `server-only` guard here, unlike its neighbours. There is nothing secret
+ * in this file, and the guard made the matching rules impossible to test
+ * outside Next. The rules below are the ones with legal weight, so being able
+ * to test them matters more than a guard that was protecting nothing.
  *
  * CLAUDE.md 1.5 rule 1: robots.txt is the gate. Disallowed means we do not
  * fetch it. Not "we fetch it and feel bad", and not "we fetch it because the

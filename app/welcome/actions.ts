@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { detectBusiness } from "@/lib/research/detect";
+import { assertNoContactDetails, redact } from "@/lib/privacy/redact";
 
 export type WelcomeState =
   | { stage: "start"; error?: string }
@@ -62,7 +63,10 @@ export async function detect(
         fetched_at: s.fetchedAt,
         robots_ok: s.robotsOk,
         status: s.status,
-        summary: s.ok ? s.title : s.note,
+        // A page title is usually a business name and sometimes a person's.
+        // Redacted on the way in rather than on the way out, so a contact
+        // detail is never in the database to leak in the first place.
+        summary: s.ok ? redact(s.title ?? "").text || null : s.note,
       })),
     );
   }
@@ -85,6 +89,14 @@ export async function detect(
     await supabase.from("workspaces").delete().eq("id", workspace.id);
     return { stage: "start", error: found.problem };
   }
+
+  // Last gate before anything the model wrote reaches the database. Throws
+  // rather than cleaning: at this point something upstream is wrong, and
+  // quietly fixing it would hide the bug that caused it.
+  assertNoContactDetails(
+    { name: found.name, town: found.town, oneLiner: found.oneLiner },
+    "what we detected from a website",
+  );
 
   await supabase
     .from("workspaces")

@@ -90,3 +90,12 @@
 .kv{display:grid; grid-template-columns:auto 1fr; gap:var(--s2) var(--s5); margin:0}
 .kv dt{align-self:baseline}
 .kv dd{margin:0}
+
+/* The one destructive control in the product. Red outline rather than a red
+   fill: a filled red button is the loudest thing on a page and this should not
+   be. It also carries the word "Delete", because colour is never the only
+   signal, and it sits behind a typed confirmation. */
+.btn--danger{border-color:var(--bad); color:var(--bad)}
+@media (any-hover:hover){
+  .btn--danger:not(:disabled):hover{background:var(--bad-wash)}
+}
