@@ -326,3 +326,25 @@ test("a playbook makes discovery faster, never narrower", () => {
     "the broad searches are not being run alongside the targeted ones",
   );
 });
+
+test("every model call is streamed", () => {
+  /**
+   * 15 September. The SDK refuses a non-streaming request whose token budget
+   * could take it past ten minutes: "Streaming is required for operations that
+   * may take longer than 10 minutes". Raising the grid's budget to 32,000 to
+   * stop it being truncated walked straight into that, and a run died after
+   * reading eight pages.
+   *
+   * Streaming costs nothing and removes the whole class.
+   */
+  const engine = readFileSync(join(ROOT, "lib/engine.ts"), "utf8");
+  assert.ok(
+    !/anthropic\.messages\.create\(/.test(engine),
+    "a model call is back to non-streaming and will fail on a long answer",
+  );
+  assert.equal(
+    (engine.match(/\.finalMessage\(\)/g) ?? []).length,
+    (engine.match(/anthropic\.messages\.stream\(/g) ?? []).length,
+    "every stream must be awaited with finalMessage",
+  );
+});

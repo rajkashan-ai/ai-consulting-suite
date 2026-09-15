@@ -125,7 +125,7 @@ export async function step(runId: string): Promise<Progress | null> {
      * nothing.
      */
     search: async (terms, toolConfig) => {
-      const response = await anthropic.messages.create({
+      const response = await anthropic.messages.stream({
         model: SMALL,
         max_tokens: 8000,
         system:
@@ -139,7 +139,7 @@ export async function step(runId: string): Promise<Progress | null> {
             content: "Search for each of these:\n\n" + terms.map((t) => `- ${t}`).join("\n"),
           },
         ],
-      });
+      }).finalMessage();
 
       spent.input += response.usage.input_tokens;
       spent.output += response.usage.output_tokens;
@@ -174,7 +174,20 @@ export async function step(runId: string): Promise<Progress | null> {
     },
 
     think: async ({ system, prompt, shape, tools, hard, maxTokens }) => {
-      const response = await anthropic.messages.create({
+      /**
+       * Streamed, always.
+       *
+       * The SDK refuses a non-streaming request whose token budget could take
+       * it past ten minutes: "Streaming is required for operations that may
+       * take longer than 10 minutes". Raising the grid's budget to 32,000 to
+       * stop it being truncated walked straight into that, and a run died
+       * after reading eight pages.
+       *
+       * Streaming costs nothing here. finalMessage() waits for the whole answer
+       * and hands back the same object the non-streaming call did, so nothing
+       * below changes.
+       */
+      const response = await anthropic.messages.stream({
         model: hard ? BIG : SMALL,
         max_tokens: maxTokens ?? 4000,
         system,
@@ -192,7 +205,7 @@ export async function step(runId: string): Promise<Progress | null> {
           ? { tool_choice: { type: "tool" as const, name: shape.name } }
           : {}),
         messages: [{ role: "user", content: prompt }],
-      });
+      }).finalMessage();
 
       spent.input += response.usage.input_tokens;
       spent.output += response.usage.output_tokens;
