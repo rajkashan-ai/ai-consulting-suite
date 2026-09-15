@@ -47,8 +47,10 @@ console.log("\n" + key.name);
 console.log("  " + key.why);
 console.log("  Get it from: " + key.from + "\n");
 
-let value = fromClipboard();
+const copied = fromClipboard();
+let value = extract(copied, key);
 let how = "clipboard";
+const tidied = Boolean(copied && value && copied.trim() !== value);
 
 const clipboardProblem = value ? check(value, key) : null;
 if (clipboardProblem) {
@@ -61,9 +63,9 @@ if (clipboardProblem) {
 }
 
 if (!value) {
-  console.log("  Nothing usable on the clipboard, so type it instead.");
+  console.log("  No Anthropic key on the clipboard, so type it instead.");
   console.log("  It will not appear as you type.\n");
-  value = await typeIt();
+  value = extract(await typeIt(), key) ?? "";
   how = "typed";
 }
 
@@ -81,6 +83,9 @@ const next = new RegExp("^" + key.name + "=", "m").test(existing)
 
 writeFileSync(ENV, next.replace(/^\n+/, ""), { mode: 0o600 });
 
+if (tidied) {
+  console.log("  Found the key inside what you copied, and ignored the rest.");
+}
 console.log("  Saved from your " + how + ".");
 console.log("  " + value.length + " characters, which is the right length. Not shown.");
 console.log("  .env.local is readable only by you and is never committed.\n");
@@ -88,6 +93,25 @@ console.log("  Now:   npm run dev");
 console.log("  Then:  http://localhost:3000/try\n");
 
 // ---------------------------------------------------------------------------
+
+/**
+ * Find the key inside whatever was copied.
+ *
+ * Rejecting anything with a space in it was strict where it should have been
+ * helpful. A key copied out of a browser regularly arrives wrapped across two
+ * lines, or with a label in front of it, or with a stray newline on the end.
+ * None of that is a broken key, it is a normal copy, and refusing it sends
+ * somebody back to the website for no reason.
+ *
+ * A key has no spaces inside it, so whitespace is removed and then the key is
+ * picked out of whatever is left. Anything before or after it is ignored.
+ */
+function extract(text, key) {
+  if (!text) return null;
+  const squashed = text.replace(/\s+/g, "");
+  const found = squashed.match(new RegExp(key.starts + "[A-Za-z0-9_-]+"));
+  return found ? found[0] : null;
+}
 
 /** macOS puts the clipboard on stdout. Nothing is printed, it goes to a string. */
 function fromClipboard() {
@@ -130,10 +154,11 @@ function typeIt() {
 
 /** Every way this goes wrong, each saying what to do about it. */
 function check(value, key) {
-  if (!value) return "  Nothing was given.";
-  if (/\s/.test(value)) return "  That has a space or a line break in it, so something came with it.";
-  if (!value.startsWith(key.starts)) {
-    return "  That does not start with " + key.starts + ", so the front is missing.";
+  if (!value) {
+    return (
+      "  No Anthropic key found in it. A key starts with " + key.starts + "\n" +
+      "  and is about 100 characters with no spaces."
+    );
   }
   if (value.length < key.minLength) {
     // Nearly always the same cause, so name it rather than describing the
