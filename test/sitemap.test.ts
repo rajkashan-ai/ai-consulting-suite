@@ -70,3 +70,31 @@ test("another site's pages are not followed", async () => {
   );
   assert.deepEqual(out, []);
 });
+
+test("it works on stripped text, not only on raw xml", () => {
+  // The reader hands back a page's visible words, so the <loc> tags are already
+  // gone by the time this sees them. Looking only for the tag found nothing
+  // every time, and it silently fell back to guessing paths.
+  return pagesFrom(
+    "https://www.shrewsburybarber.co.uk",
+    async (url) =>
+      url.endsWith("/sitemap.xml")
+        ? {
+            ok: true,
+            // Exactly what visibleText produces from a real sitemap index.
+            text: "https://www.shrewsburybarber.co.uk/pages-sitemap.xml",
+          }
+        : {
+            ok: true,
+            text:
+              "https://www.shrewsburybarber.co.uk/price-menu\n" +
+              "https://www.shrewsburybarber.co.uk/products\n" +
+              "https://www.shrewsburybarber.co.uk",
+          },
+  ).then((out) => {
+    assert.ok(
+      out.includes("https://www.shrewsburybarber.co.uk/price-menu"),
+      `found: ${out.join(", ")}`,
+    );
+  });
+});

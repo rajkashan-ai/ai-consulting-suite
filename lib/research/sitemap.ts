@@ -64,8 +64,21 @@ export async function pagesFrom(
     .slice(0, want);
 }
 
+/**
+ * The addresses in a sitemap, whether or not the tags survived.
+ *
+ * The reader hands back a page's visible words, so `<loc>https://x</loc>`
+ * arrives as `https://x` with the tags already gone. Looking only for the tag
+ * found nothing every time, the sitemap looked empty, and it fell back to
+ * guessing paths as though the site had no sitemap at all.
+ *
+ * Both forms are accepted, because it should not matter which end of the pipe
+ * this is called from.
+ */
 function locs(xml: string): string[] {
-  return [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi)].map((m) => m[1]);
+  const tagged = [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi)].map((m) => m[1]);
+  if (tagged.length) return tagged;
+  return [...xml.matchAll(/https?:\/\/[^\s<>"')]+/gi)].map((m) => m[0]);
 }
 
 function sameSite(url: string, origin: string): boolean {
