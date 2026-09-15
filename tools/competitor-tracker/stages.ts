@@ -281,7 +281,12 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
         "You are reading a booking platform's listing page for one town and writing down " +
         "the businesses named on it. Copy each name exactly as printed. Take nothing that " +
         "is not a business on this page: not the platform, not a category, not a heading, " +
-        "not a place name. If it is not a listing, return nothing.",
+        "not a place name. If it is not a listing, return nothing.\n\n" +
+        "Links are written in the text as: the words, then the address in round " +
+        "brackets. When a business name carries one, copy that address into its url " +
+        "field exactly. It is how we read their own page rather than only this listing, " +
+        "and a business with no url is one we can say much less about. Never repair or " +
+        "shorten an address, and never invent one: a made-up address is a made-up source.",
       prompt: `Town: ${profile.town}. Trade: ${profile.trade}.\n\n${got.text.slice(0, 20_000)}`,
       shape: {
         name: "businesses",

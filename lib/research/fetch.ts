@@ -155,7 +155,8 @@ export async function fetchPage(input: string): Promise<Fetched> {
         domain,
         ok: true,
         status: response.status,
-        text: visibleText(html).slice(0, MAX_TEXT),
+        // The page's own address, so relative links become followable ones.
+        text: visibleText(html, response.url || url.href).slice(0, MAX_TEXT),
         title: titleOf(html),
         fetchedAt: at,
         robotsOk: true,
