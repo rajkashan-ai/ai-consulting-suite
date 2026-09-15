@@ -29,12 +29,32 @@ go first on the day you are in a hurry.
 | Environment settings | That no file reads them through a variable, and no browser file touches the secret key |
 | SQL | That all seven files parse against the real Postgres grammar |
 
+## The research pipeline
+
+`test/pipeline.test.ts` runs every stage from searching to checking, with no web
+and no model. It works because each stage takes its context as an argument,
+which was not an accident: a tool that cannot reach the web except through
+something handed to it is also a tool that can be run without the web.
+
+The pages it runs on were captured from a real run on 15 September, trimmed and
+not invented. A fixture I write tests my idea of what Booksy returns, which is
+the thing most likely to be wrong.
+
+It found a real bug on its first run. With an empty listing the pipeline falls
+back to search candidates, which is correct, and that fallback was putting
+American barbers into a British battlecard: "The Barbers At Shrewsbury" and
+"Mason Dixon Barbershop" are both Shrewsbury, Pennsylvania. The country filter
+was reading the business name, and the country is in the search result's title,
+which was being thrown away.
+
+It also corrected two things I believed and had never checked: an empty listing
+does not stop a run, and a refused listing does not either.
+
 ## What is not covered, and why
 
-**The engine and the stages end to end.** They need a database and an Anthropic
-key, so they are integration tests rather than unit tests. Today they are
-covered by running the thing and watching. That is not good enough and it is the
-biggest gap.
+**The engine itself**, meaning the part that talks to Supabase and Anthropic.
+Its job is plumbing: claim a run, call a stage, add up what it spent, store the
+result. The interesting logic is in the stages, which are now covered.
 
 **Anything that needs the model to answer well.** Whether a battlecard is any
 good is an eval, not a test. The dividing line is in TESTING.md: whether a fault

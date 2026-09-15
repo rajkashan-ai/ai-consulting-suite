@@ -405,8 +405,29 @@ async function choose(state: RunState, business: Business): Promise<Step> {
   const already = state.competitors ?? [];
   const raw = candidatesFromSearch(seen, profile, already.map((c) => c.name));
 
+  /**
+   * Everything the search said about this business, not just its name.
+   *
+   * WRONG_COUNTRY was being tested against the extracted name alone, and the
+   * country is almost never in the name. It is in the result's title: "The
+   * Barbers At Shrewsbury | Shrewsbury PA | Facebook". So a Pennsylvania barber
+   * arrived in a Shropshire battlecard with nothing to catch it, which is the
+   * exact failure the whole location effort exists to prevent.
+   */
+  const saidAbout = (name: string): string => {
+    const key = name.toLowerCase();
+    const bits: string[] = [];
+    for (const { results } of seen) {
+      for (const r of results) {
+        const hay = `${r.title} ${r.url}`.toLowerCase();
+        if (hay.includes(key)) bits.push(`${r.title} ${r.url}`);
+      }
+    }
+    return bits.join(" ");
+  };
+
   const candidates = raw.filter((c) => {
-    const where = `${c.url} ${c.name}`;
+    const where = `${c.url} ${c.name} ${saidAbout(c.name)}`;
     if (NEVER_A_BUSINESS.some((host) => c.url.toLowerCase().includes(host))) return false;
     if (WRONG_COUNTRY.test(where)) return false;
     // A page whose title announces it is a list is a list, however many
@@ -420,7 +441,7 @@ async function choose(state: RunState, business: Business): Promise<Step> {
   const fromListing = sift(
     (state.fromListings ?? [])
       .filter((n) => !NEVER_A_BUSINESS.some((h) => n.toLowerCase().includes(h)))
-      .filter((n) => !WRONG_COUNTRY.test(n))
+      .filter((n) => !WRONG_COUNTRY.test(`${n} ${saidAbout(n)}`))
       .map((name) => ({ name })),
     { you: profile.name, trade: business.trade },
   ).map((r) => r.name);
