@@ -310,3 +310,19 @@ test("the customer's own prices reach the comparison", () => {
   assert.match(engine, /services: workspace\.services/, "the engine does not carry them through");
   assert.match(engine, /headline_price, services/, "the engine does not even select them");
 });
+
+test("a playbook makes discovery faster, never narrower", () => {
+  /**
+   * 15 September. The playbook held one host, so the run made exactly one
+   * search. It came back without a listing page and the run died with "we could
+   * only find 0 other barbers in Shrewsbury" while the real listing sat there
+   * untouched. A good playbook should make us faster, not put a whole run on
+   * one throw.
+   */
+  const stages = readFileSync(join(ROOT, "tools/competitor-tracker/stages.ts"), "utf8");
+  assert.match(
+    stages,
+    /\[\.\.\.targeted, \.\.\.buildSearchTerms\(profile\)\]/,
+    "the broad searches are not being run alongside the targeted ones",
+  );
+});

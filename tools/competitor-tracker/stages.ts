@@ -203,12 +203,25 @@ async function search(state: RunState, business: Business, ctx: ToolContext): Pr
     ...startWith(state.playbook ?? null),
   ].filter((v, i, all) => all.indexOf(v) === i);
 
-  const terms = known.length
-    ? known.slice(0, 3).map((host) => ({
-        term: `${profile.trade} ${profile.town} site:${host}`,
-        why: `${host} lists this trade, from a previous run`,
-      }))
-    : buildSearchTerms(profile);
+  /**
+   * The targeted searches AND the broad ones, always.
+   *
+   * It used to be one or the other. With a playbook holding a single host that
+   * meant exactly one search, and when that search came back without a listing
+   * page the run died with "we could only find 0 other barbers" while the real
+   * listing sat there. A good playbook should make us faster, not put the whole
+   * run on one throw.
+   *
+   * The targeted ones go first so the useful results are found early. The broad
+   * ones are the floor: they are what worked before any playbook existed, and
+   * they cost a few pence against a run that otherwise fails entirely.
+   */
+  const targeted = known.slice(0, 2).map((host) => ({
+    term: `${profile.trade} ${profile.town} site:${host}`,
+    why: `${host} lists this trade, from a previous run`,
+  }));
+
+  const terms = [...targeted, ...buildSearchTerms(profile)].slice(0, 5);
 
   // The search tool config comes from the agent because it carries
   // user_location. Without it this same search returns Shrewsbury Pennsylvania
@@ -303,9 +316,14 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
   }
 
   if (!wanted.size) {
-    // No listing found. Carry on with whatever search turned up, which can
-    // still be enough for a trade whose businesses have their own websites.
-    return { stage: "choosing", state, progress: "Looking at who came up" };
+    // No listing anywhere. Carry on with whatever the searches turned up: for a
+    // trade whose businesses have their own websites that is often enough, and
+    // for one that lives on a platform the next stage will say so plainly.
+    return {
+      stage: "choosing",
+      state,
+      progress: `No list of ${profile.trade}s in ${profile.town}. Working from the searches`,
+    };
   }
 
   const names: string[] = [];
