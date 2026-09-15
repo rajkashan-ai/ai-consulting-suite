@@ -40,7 +40,7 @@ export async function step(runId: string): Promise<Progress | null> {
 
   const { data: workspace } = await db
     .from("workspaces")
-    .select("id, website, name, trade, town, address, headline_price, one_liner, reach, found_via, known_competitor")
+    .select("id, website, name, trade, town, address, headline_price, services, one_liner, reach, found_via, known_competitor")
     .eq("id", run.workspace_id)
     .single();
 
@@ -54,6 +54,7 @@ export async function step(runId: string): Promise<Progress | null> {
     town: workspace.town,
     address: workspace.address,
     headlinePrice: workspace.headline_price,
+    services: workspace.services ?? [],
     oneLiner: workspace.one_liner,
     reach: workspace.reach,
     foundVia: workspace.found_via ?? [],

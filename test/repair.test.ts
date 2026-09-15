@@ -16,7 +16,7 @@ import type { Business, ToolContext } from "../tools/types.ts";
 
 const business: Business = {
   id: "1", website: "https://x.co.uk", name: "The Barber Shop", trade: "barber",
-  town: "Shrewsbury", address: null, headlinePrice: null, oneLiner: null,
+  town: "Shrewsbury", address: null, headlinePrice: null, services: [], oneLiner: null,
   reach: "nearby", foundVia: [], knownCompetitor: null,
 };
 

@@ -315,7 +315,7 @@ function Area({
         <table className="grid">
           <thead>
             <tr>
-              <th>&nbsp;</th>
+              <th className="grid__what" />
               {grid.columns.map((name, i) => (
                 <th key={name} className={i === 0 ? "grid__you" : undefined}>
                   {i === 0 ? "You" : name}

@@ -94,6 +94,7 @@ export const aBusiness = (p: Partial<Business> = {}): Business => ({
   town: "Shrewsbury",
   address: "37 Smithfield Road, Shrewsbury SY1 1PW",
   headlinePrice: 8,
+  services: [{ name: "Classic cut", price: "£15" }],
   oneLiner: null,
   reach: "nearby",
   foundVia: ["booking"],

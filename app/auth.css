@@ -228,7 +228,10 @@
 .grid th[scope="row"]{font-size:15px; line-height:20px; font-weight:600;
   text-transform:none; letter-spacing:-.006em; color:var(--ink);
   background:var(--card); white-space:normal; vertical-align:top}
-.grid__what{min-width:170px}
+/* The corner cell and the row headers are the same column, so they need the
+   same width. The corner had none, so the header sat visibly out of line with
+   the rows beneath it. */
+.grid__what,.grid thead th:first-child{min-width:170px; width:170px}
 /* The customer's column, marked once in the header and once down the side, so
    you can find yourself without counting across. */
 .grid__you{background:var(--card-2)}

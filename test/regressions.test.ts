@@ -293,3 +293,20 @@ test("where customers find you is not where competitors are listed", async () =>
   assert.ok(platformsFrom(["booking"]).includes("booksy.com"));
   assert.ok(platformsFrom(["trades"]).includes("checkatrade.com"));
 });
+
+test("the customer's own prices reach the comparison", () => {
+  /**
+   * 15 September. Their price menu was read at sign-up and all five services
+   * stored, and then never handed to the tool. The comparison showed five
+   * competitors' prices and "Not published" down the customer's own column, on
+   * a business whose prices we had in full. The one column we always have was
+   * the one that was empty.
+   */
+  const stages = readFileSync(join(ROOT, "tools/competitor-tracker/stages.ts"), "utf8");
+  assert.match(stages, /business\.services/, "the tool never looks at their own services");
+  assert.match(stages, /What \$\{profile\.name\} publishes/, "and never tells the model about them");
+
+  const engine = readFileSync(join(ROOT, "lib/engine.ts"), "utf8");
+  assert.match(engine, /services: workspace\.services/, "the engine does not carry them through");
+  assert.match(engine, /headline_price, services/, "the engine does not even select them");
+});

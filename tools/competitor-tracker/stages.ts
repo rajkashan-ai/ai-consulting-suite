@@ -737,25 +737,78 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
    */
   const theFive = competitors.map((c) => c.name);
 
+  /**
+   * Two calls, not one.
+   *
+   * One call had to return the competitors, a comparison grid, both columns and
+   * three actions. It ran out of output partway through and came back with no
+   * actions at all, so the card failed on "wrong count" and the repair, handed
+   * a card with nothing to repair, failed the same way. Raj saw two refusals in
+   * a row whose real cause was a token budget.
+   *
+   * The grid is the big one and it is structured data. The narrative is the
+   * part that needs judgement. Splitting them means neither can crowd out the
+   * other, and a failure in one does not lose the other.
+   */
+  /**
+   * What the customer publishes, put in front of the writing step.
+   *
+   * It was read off their own site at sign-up and stored, and then never handed
+   * to the tool. So the comparison had five competitors' prices and "Not
+   * published" down the customer's own column, on a business whose price menu
+   * we had already read in full. The one column we always have was the one
+   * column that was empty.
+   */
+  const yourOwn = business.services.length
+    ? `What ${profile.name} publishes, read from their own site:\n` +
+      business.services.map((s) => `  - ${s.name}${s.price ? ` ${s.price}` : " (no price shown)"}`).join("\n") +
+      `\n${business.address ? `  Address: ${business.address}\n` : ""}`
+    : `${profile.name} publishes no prices on their own site that we could read.\n`;
+
+  const evidencePrompt =
+      `The business: ${profile.name}, a ${profile.trade} in ${profile.town}.\n` +
+      `Their website: ${business.website}\n\n` +
+      `${yourOwn}\n` +
+      `THE COMPARISON IS ABOUT THESE ${theFive.length} AND NOBODY ELSE:\n` +
+      theFive.map((n) => `  - ${n}`).join("\n") +
+      `\n\nAnything else in the pages below is the town, not the comparison.\n\n` +
+      `Everything we read:\n\n${evidence}`;
+
+  const grid = (await ctx.think({
+    hard: true,
+    system: BATTLECARD_RULES,
+    prompt: `${evidencePrompt}\n\nBuild the comparison grid only.`,
+    shape: GRID_SHAPE,
+    maxTokens: 20_000,
+  })) as { comparison?: Grid[] };
+
   const built = (await ctx.think({
     hard: true,
     system: BATTLECARD_RULES,
     prompt:
-      `The business: ${profile.name}, a ${profile.trade} in ${profile.town}.\n` +
-      `Their website: ${business.website}\n\n` +
-      `THE COMPARISON IS ABOUT THESE ${theFive.length} AND NOBODY ELSE:\n` +
-      theFive.map((n) => `  - ${n}`).join("\n") +
-      `\n\nAnything else in the pages below is the town, not the comparison.\n\n` +
-      `Everything we read:\n\n${evidence}`,
-    shape: BATTLECARD_SHAPE,
-    maxTokens: 16_000,
+      `${evidencePrompt}\n\n` +
+      `The comparison grid is already written and is below. Do not repeat it. ` +
+      `Write the per-business claims, the two columns and the three actions.\n\n` +
+      JSON.stringify(grid.comparison ?? []),
+    shape: NARRATIVE_SHAPE,
+    maxTokens: 20_000,
   })) as {
     competitors?: unknown;
-    comparison?: Grid[];
     actions?: unknown;
     where_you_win?: Side[];
     where_they_win?: Side[];
   };
+
+  // Three actions is the shape of this product. None means the writing failed,
+  // and saying so beats letting the guards report "wrong count" for a fault
+  // that has nothing to do with the words.
+  if (!Array.isArray(built.actions) || built.actions.length === 0) {
+    return stop(
+      state,
+      "We read the pages and could not turn them into anything worth doing. " +
+        "Nothing is shown rather than half a battlecard.",
+    );
+  }
 
   const sources: Source[] = [...Object.values(pages).flat(), ...(state.listingPages ?? [])]
     .filter((p) => p.ok)
@@ -786,7 +839,7 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
     state: {
       ...state,
       card,
-      grid: shapeGrid(built.comparison, profile.name, competitors.map((c) => c.name)),
+      grid: shapeGrid(grid.comparison, profile.name, competitors.map((c) => c.name)),
       standing: {
         winning: (built.where_you_win ?? []).slice(0, 4),
         losing: (built.where_they_win ?? []).slice(0, 4),
@@ -1383,6 +1436,34 @@ const REPAIR_SHAPE = {
       where_they_win: BATTLECARD_SHAPE.input_schema.properties.where_they_win,
     },
     required: ["competitors", "actions", "where_you_win", "where_they_win"],
+    $defs: BATTLECARD_SHAPE.input_schema.$defs,
+  },
+};
+
+/** The grid alone: the big, structured half. */
+const GRID_SHAPE = {
+  name: "comparison",
+  description: "One grid per area, a row per comparable thing and a column per business.",
+  input_schema: {
+    type: "object",
+    properties: { comparison: BATTLECARD_SHAPE.input_schema.properties.comparison },
+    required: ["comparison"],
+  },
+};
+
+/** The words: what each business is, where you stand, and what to do. */
+const NARRATIVE_SHAPE = {
+  name: "battlecard",
+  description: "The claims per business, the two columns, and the three actions.",
+  input_schema: {
+    type: "object",
+    properties: {
+      competitors: BATTLECARD_SHAPE.input_schema.properties.competitors,
+      where_you_win: BATTLECARD_SHAPE.input_schema.properties.where_you_win,
+      where_they_win: BATTLECARD_SHAPE.input_schema.properties.where_they_win,
+      actions: BATTLECARD_SHAPE.input_schema.properties.actions,
+    },
+    required: ["competitors", "where_you_win", "where_they_win", "actions"],
     $defs: BATTLECARD_SHAPE.input_schema.$defs,
   },
 };

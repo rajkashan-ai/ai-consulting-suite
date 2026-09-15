@@ -22,6 +22,10 @@ export type Business = {
   address: string | null;
   /** Their cheapest published price, used to judge who sells to the same person. */
   headlinePrice: number | null;
+  /** What they sell, with prices, read off their own site at sign-up. Every
+   *  tool gets this: reading their website again per tool would be rude and
+   *  slow, and it is the one column of a comparison we always have. */
+  services: { name: string; price: string | null }[];
   oneLiner: string | null;
   /** Where their customers are: nearby, town, county, uk, world. */
   reach: string | null;
