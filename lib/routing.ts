@@ -68,9 +68,18 @@ export function safeNext(next: string | null | undefined, fallback = "/workspace
 /**
  * Pages that must still work before Supabase exists.
  *
- * /preview is example content with nothing behind it. /try is the website
- * reader: it needs an Anthropic key and no database, and it refuses itself on
- * a deployed site. Everything else answers "not set up yet", which is right,
- * because everything else needs the database to mean anything.
+ * "/" is a static file with nothing behind it and "/sign-in" is a form. Blanket
+ * 503ing them was easy and wrong: it meant the whole journey was unwalkable
+ * until the database existed, and it replaced a screen that explains itself
+ * with a bare line of text that explains nothing.
+ *
+ * The sign-in form already says "This app has no Supabase project behind it
+ * yet" the moment you press a button, which is a better answer, in the right
+ * place, at the moment it matters.
+ *
+ * /preview is example content. /try is the website reader: an Anthropic key,
+ * no database, and it refuses itself on a deployed site. Everything past the
+ * sign-in still answers "not set up yet", because a workspace without a
+ * database is not a screen, it is a crash.
  */
-export const WORKS_WITHOUT_SUPABASE = ["/preview", "/try"];
+export const WORKS_WITHOUT_SUPABASE = ["/", "/sign-in", "/preview", "/try"];

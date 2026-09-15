@@ -84,3 +84,16 @@ test("the pages that must work before Supabase exists are public", () => {
     assert.deepEqual(decide(path, false), { go: "through" }, path);
   }
 });
+
+test('"/" in the without-Supabase list does not let every path through', () => {
+  // startsWith("/") is true of every path there has ever been. The proxy must
+  // match "/" exactly, or the not-set-up answer never fires for anything.
+  const passes = (path: string) =>
+    WORKS_WITHOUT_SUPABASE.some((p) => path === p || path.startsWith(`${p}/`));
+  assert.equal(passes("/"), true);
+  assert.equal(passes("/sign-in"), true);
+  assert.equal(passes("/try"), true);
+  assert.equal(passes("/workspace"), false);
+  assert.equal(passes("/account"), false);
+  assert.equal(passes("/welcome"), false);
+});

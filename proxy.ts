@@ -33,7 +33,9 @@ export default async function proxy(request: NextRequest) {
   // database at all, and refuses itself on a deployed site.
   if (
     (!url || !key) &&
-    WORKS_WITHOUT_SUPABASE.some((p) => request.nextUrl.pathname.startsWith(p))
+    WORKS_WITHOUT_SUPABASE.some(
+      (p) => request.nextUrl.pathname === p || request.nextUrl.pathname.startsWith(`${p}/`),
+    )
   ) {
     return NextResponse.next({ request });
   }
