@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --test --experimental-strip-types 'test/*.test.ts'"
+    "test": "node --test --experimental-strip-types 'test/*.test.ts'",
+    "setup": "node setup.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",
@@ -20,9 +21,12 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "libpg-query": "^17.7.4",
+    "pg": "^8.23.0",
+    "supabase": "^2.117.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   },

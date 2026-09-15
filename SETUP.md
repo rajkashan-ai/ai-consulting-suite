@@ -6,13 +6,25 @@ minutes. Everything after it can wait.
 
 Nothing below asks you to send me a key. Put them in `.env.local` yourself.
 
-## The short version, if you only want to sign in today
+## Two commands
 
-1. Make a Supabase project.
-2. Run `supabase/001_schema.sql`, then `supabase/002_seed.sql`. Once each.
-3. Change one email template so you get a code instead of a link.
-4. Put the project URL and the publishable key in `.env.local`.
-5. `npm run dev`, open http://localhost:3000, press "Email me a code".
+If you have a Supabase account, this is the whole thing:
+
+```
+npx supabase login
+npm run setup
+```
+
+The first opens your browser and asks you to paste a token back. The second
+makes the project, runs all the SQL, switches the sign-in email to a six digit
+code, and writes `.env.local`. Then `npm run dev`.
+
+**It never prints a key.** Everything it fetches goes straight into
+`.env.local`, which is gitignored, so this output is safe to paste anywhere.
+
+It cannot create your Supabase account or log you in. Both need your password,
+and a password is not something to hand to a script somebody else wrote. If you
+would rather do it by hand, section 1 below is the same thing clicked.
 
 Both your addresses are already on the list and already marked staff, so you
 are let straight in and can point the tools at any website.
