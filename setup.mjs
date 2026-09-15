@@ -79,8 +79,12 @@ let ref, dbPassword;
 const existing = Array.isArray(projects) ? projects : [];
 if (existing.length) {
   say("   You already have:");
-  existing.forEach((p, i) => say(`     ${i + 1}. ${p.name}   ${p.region}   ${p.id}`));
-  const pick = await ask(`   Use one of these? Number, or blank to make a new one: `);
+  existing.forEach((p, i) => say(`     ${i + 1}. ${p.name}   ${p.region}   ${p.status ?? ""}`));
+  say("");
+  say("   Picking one of these runs our tables INTO it, alongside whatever is");
+  say("   already there. Only pick one you made for this. Press enter for a new");
+  say("   project, which is almost certainly what you want.");
+  const pick = await ask(`   Number, or enter for a new one: `);
   if (pick) {
     const chosen = existing[Number(pick) - 1];
     if (!chosen) die("That was not one of the numbers above.");
