@@ -73,6 +73,26 @@ export default async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  /**
+   * A sign-in link from an email lands on the site root, not on our callback.
+   *
+   * Supabase sends people to the project's Site URL after verifying the link,
+   * and that is "/", which here is a static landing page that ignores the code
+   * sitting in the address bar. So the link appeared to work, bounced you to
+   * the landing page, and signed you into nothing.
+   *
+   * Catching it here rather than changing Site URL in the dashboard, because
+   * Site URL is used for several things and bending it to suit one of them is
+   * how a setting ends up wrong for the others. This also keeps working if
+   * somebody changes it.
+   */
+  const code = request.nextUrl.searchParams.get("code");
+  if (code && request.nextUrl.pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/callback";
+    return NextResponse.redirect(url);
+  }
+
   const decision = decide(request.nextUrl.pathname, Boolean(user));
 
   if (decision.go === "sign-in") {

@@ -97,3 +97,14 @@ test('"/" in the without-Supabase list does not let every path through', () => {
   assert.equal(passes("/account"), false);
   assert.equal(passes("/welcome"), false);
 });
+
+test("a sign-in code landing on the root is not lost", () => {
+  // Supabase sends people to the Site URL after verifying an emailed link, and
+  // that is "/", which is a static landing page. Before this, the link worked,
+  // dropped you on the landing page, and signed you into nothing.
+  const lands = (path: string, hasCode: boolean) =>
+    hasCode && path === "/" ? "/auth/callback" : path;
+  assert.equal(lands("/", true), "/auth/callback");
+  assert.equal(lands("/", false), "/");
+  assert.equal(lands("/sign-in", true), "/sign-in");
+});
