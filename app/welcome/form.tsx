@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { confirm, detect, startAgain, type WelcomeState } from "./actions";
+import { CATEGORIES } from "@/tools/categories";
 
 /**
  * One field, then what we found.
@@ -30,7 +31,39 @@ export default function Welcome({ staff }: { staff: boolean }) {
           <input type="hidden" name="workspaceId" value={state.workspaceId} />
 
           <Row label="Business name" name="name" value={state.name} />
-          <Row label="What you do" name="trade" value={state.trade} />
+
+          <div className="found__row">
+            <label className="t-kind" htmlFor="trade">
+              What you do
+            </label>
+            {/* A list, not a box. Typed, "barber", "barbershop" and "barbers"
+                were three trades with three separate playbooks, each learning
+                the same thing at the same cost. */}
+            <select
+              id="trade"
+              name="trade"
+              className="field field--block"
+              defaultValue={state.trade}
+              required
+            >
+              <option value="">Choose one</option>
+              {CATEGORIES.map((group) => (
+                <optgroup key={group.group} label={group.group}>
+                  {group.categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            {!state.trade && (
+              <span className="t-meta">
+                We could not tell from your site, so pick the closest. It decides
+                where we look for your competitors.
+              </span>
+            )}
+          </div>
           <Row label="Where you are" name="town" value={state.town} />
           <Row label="In one line" name="oneLiner" value={state.oneLiner} />
 

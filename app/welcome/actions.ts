@@ -144,7 +144,8 @@ export async function confirm(form: FormData): Promise<void> {
     .from("workspaces")
     .update({
       name: String(form.get("name") ?? "").trim() || null,
-      trade: String(form.get("trade") ?? "").trim().toLowerCase() || null,
+      // Already an id from the list, because it came from a dropdown.
+      trade: String(form.get("trade") ?? "").trim() || null,
       town: String(form.get("town") ?? "").trim() || null,
       one_liner: String(form.get("oneLiner") ?? "").trim() || null,
       confirmed_at: new Date().toISOString(),

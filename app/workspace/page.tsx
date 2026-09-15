@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { labelFor } from "@/tools/categories";
 import { TOOLS } from "@/tools/registry";
 import Nav from "./nav";
 import Chrome from "./chrome";
@@ -57,7 +58,7 @@ export default async function Workspace({
                   <dt className="t-kind">Website</dt>
                   <dd className="t-row">{current.website}</dd>
                   <dt className="t-kind">What you do</dt>
-                  <dd className="t-row">{current.trade ?? "Not found"}</dd>
+                  <dd className="t-row">{labelFor(current.trade)}</dd>
                   <dt className="t-kind">Where</dt>
                   <dd className="t-row">{current.town ?? "Not found"}</dd>
                   {current.one_liner && (

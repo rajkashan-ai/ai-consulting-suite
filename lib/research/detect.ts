@@ -2,6 +2,7 @@ import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
 import { fetchPage, type Fetched } from "./fetch";
+import { forPrompt, matchTrade } from "@/tools/categories";
 
 /**
  * Read a business's own website and work out what they are.
@@ -41,7 +42,8 @@ const SHAPE = {
       trade: {
         type: ["string", "null"],
         description:
-          "What they do, as one lower case noun a person would use: barber, plumber, landscaper, accountant.",
+          "The id of the single closest category from the list in the instructions, " +
+          "copied exactly. Null if none of them fit, which is a real answer.",
       },
       town: { type: ["string", "null"], description: "Town or city they work in." },
       one_liner: {
@@ -77,7 +79,14 @@ Null is a correct answer and always better than a plausible one. The person
 reading this screen owns the business. They will spot an invented detail
 immediately, and it costs more trust than a blank does.
 
-Prices only where the site prints them, copied as written.`;
+Prices only where the site prints them, copied as written.
+
+For the category, use one of these ids exactly, or null. Null is correct when
+none of them fit: the customer will be shown the list and can choose. Guessing
+"other" would be worse than null, because everything unrecognised would then
+share one useless playbook.
+
+${forPrompt()}`;
 
 export async function detectBusiness(website: string): Promise<Detected> {
   const empty: Detected = {
@@ -118,7 +127,9 @@ export async function detectBusiness(website: string): Promise<Detected> {
 
   return {
     name: str(out.name),
-    trade: str(out.trade)?.toLowerCase() ?? null,
+    // Only ever an id from the list. A word the model made up is dropped,
+    // because a made-up trade is a playbook nobody else will ever share.
+    trade: matchTrade(str(out.trade)),
     town: str(out.town),
     oneLiner: str(out.one_liner),
     services: Array.isArray(out.services)
