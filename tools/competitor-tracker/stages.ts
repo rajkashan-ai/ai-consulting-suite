@@ -19,6 +19,7 @@ import type { Business, ToolContext } from "../types.ts";
 import { isProfile, profileFor } from "./profile.ts";
 import { confidence, isDeadEnd, startWith, type Playbook } from "./playbook.ts";
 import { rank, type Found, type Scored } from "./rank.ts";
+import { sift } from "./sift.ts";
 import { platformsFrom, proximityWeight } from "../questions.ts";
 
 /**
@@ -408,9 +409,13 @@ function choose(state: RunState, business: Business): Step {
 
   // Listing names first: they are businesses in this town on a platform this
   // town's customers actually use. Search candidates fill any space left.
-  const fromListing = (state.fromListings ?? []).filter(
-    (n) => !NEVER_A_BUSINESS.some((h) => n.toLowerCase().includes(h)) && !WRONG_COUNTRY.test(n),
-  );
+  const fromListing = sift(
+    (state.fromListings ?? [])
+      .filter((n) => !NEVER_A_BUSINESS.some((h) => n.toLowerCase().includes(h)))
+      .filter((n) => !WRONG_COUNTRY.test(n))
+      .map((name) => ({ name })),
+    { you: profile.name, trade: business.trade },
+  ).map((r) => r.name);
 
   /**
    * Rank rather than take the first five.
@@ -420,8 +425,18 @@ function choose(state: RunState, business: Business): Step {
    * this business. Proximity, review volume, how recently reviewed, price
    * overlap, then rating. See rank.ts for why each one earns its weight.
    */
-  const listed = (state.listed ?? []).filter(
-    (r) => !NEVER_A_BUSINESS.some((h) => r.name.toLowerCase().includes(h)),
+  /**
+   * Everything that should never have been on the list, gone before ranking.
+   *
+   * On the first real run three of the five slots went to noise: the customer
+   * themselves, HINCES twice under two names, and a hair and beauty clinic.
+   * Each one was a quarter of the whole comparison.
+   */
+  const listed = sift(
+    (state.listed ?? []).filter(
+      (r) => !NEVER_A_BUSINESS.some((h) => r.name.toLowerCase().includes(h)),
+    ),
+    { you: profile.name, trade: business.trade },
   );
 
   const picked = listed.length
@@ -440,23 +455,22 @@ function choose(state: RunState, business: Business): Step {
       )
     : [];
 
-  const competitors = refreshSet(
-    // A competitor the owner named survives every weekly run, for ever. That is
-    // what addedByCustomer means, and it is also the guarantee that a run
-    // produces something even when discovery finds nobody.
-    business.knownCompetitor
-      ? [
-          { name: business.knownCompetitor, addedByCustomer: true, claims: {} },
-          ...already.filter((c) => c.name !== business.knownCompetitor),
-        ]
-      : already,
-    [
-      ...picked.map((p) => p.name),
-      ...fromListing,
-      ...candidates.map((c) => c.name),
-    ],
-    profile.name,
-  );
+  const competitors = sift(
+    refreshSet(
+      // A competitor the owner named survives every weekly run, for ever. That
+      // is what addedByCustomer means, and it is the guarantee that a run
+      // produces something even when discovery finds nobody.
+      business.knownCompetitor
+        ? [
+            { name: business.knownCompetitor, addedByCustomer: true, claims: {} },
+            ...already.filter((c) => c.name !== business.knownCompetitor),
+          ]
+        : already,
+      [...picked.map((p) => p.name), ...fromListing, ...candidates.map((c) => c.name)],
+      profile.name,
+    ),
+    { you: profile.name, trade: business.trade },
+  ).slice(0, MAX_COMPETITORS);
 
   // Two is the fewest that makes a comparison worth reading. Below that we stop
   // rather than write a battlecard about nobody, which is what happened on the
