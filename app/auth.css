@@ -99,3 +99,30 @@
 @media (any-hover:hover){
   .btn--danger:not(:disabled):hover{background:var(--bad-wash)}
 }
+
+/* ---- The preview page. Never part of the product. ------------------------ */
+
+.mockbar{
+  padding:var(--s3) var(--s5); background:var(--warn-wash); color:var(--warn);
+  font-size:13px; line-height:18px; font-weight:600; text-align:center;
+  position:sticky; top:0; z-index:10;
+}
+.shot{max-width:1120px; margin:0 auto; padding:var(--s9) var(--s5) 0}
+.shot__head{display:flex; gap:var(--s4); align-items:flex-start; margin-bottom:var(--s4)}
+.shot__no{
+  flex:none; width:28px; height:28px; border-radius:var(--r-pill);
+  background:var(--ink); color:#fff; display:grid; place-items:center;
+  font-size:13px; font-weight:600;
+}
+.shot__head > div > *{margin-top:0}
+/* A frame, so each screen reads as its own thing rather than one long page. */
+.shot__frame{
+  border:1px solid var(--line); border-radius:var(--r-card); overflow:hidden;
+  background:var(--card);
+}
+.auth--inline{min-height:auto; padding:var(--s9) var(--s5)}
+.onboard--inline{padding:var(--s9) var(--s6)}
+.app--inline{min-height:auto}
+/* Inputs shown with content in them. Not real fields: nothing here submits. */
+.field--filled{display:flex; align-items:center; color:var(--ink)}
+.field--sm{height:44px; width:160px; display:block}

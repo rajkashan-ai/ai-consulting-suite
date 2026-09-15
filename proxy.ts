@@ -17,7 +17,7 @@ import { NextResponse, type NextRequest } from "next/server";
  * on purpose. Never move a real access decision into this file.
  */
 
-const PUBLIC_PATHS = ["/", "/sign-in", "/not-invited", "/auth"];
+const PUBLIC_PATHS = ["/", "/sign-in", "/not-invited", "/auth", "/preview"];
 
 export default async function proxy(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -28,6 +28,12 @@ export default async function proxy(request: NextRequest) {
   // Nothing configured yet. Say so in one sentence rather than throwing a stack
   // trace on every route, and serve nothing at all rather than serving pages
   // with the auth check quietly skipped.
+  // The preview page is example content with nothing behind it, so it is the
+  // one thing worth looking at before any of the accounts exist.
+  if ((!url || !key) && request.nextUrl.pathname.startsWith("/preview")) {
+    return NextResponse.next({ request });
+  }
+
   if (!url || !key) {
     return new NextResponse(
       "Not set up yet. Copy .env.local.example to .env.local and fill it in. See SETUP.md.",
