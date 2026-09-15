@@ -82,6 +82,13 @@ export type ToolContext = {
     prompt: string;
     /** Give a shape and you get structured data back instead of prose. */
     shape?: { name: string; description: string; input_schema: object };
+    /**
+     * Anthropic's own server tools, web search in particular. Passed through
+     * rather than built here, because the Competitor Tracker's
+     * `searchToolConfig` already carries the user_location that stops a search
+     * for "barber Shrewsbury" returning Pennsylvania.
+     */
+    tools?: unknown[];
     hard?: boolean;    // true uses the stronger model. Only where synthesis is genuinely hard
     maxTokens?: number;
   }) => Promise<unknown>;
