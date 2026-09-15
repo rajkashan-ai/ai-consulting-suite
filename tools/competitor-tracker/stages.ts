@@ -888,7 +888,15 @@ async function fix(state: RunState, ctx: ToolContext): Promise<Step> {
 /** What each guard is actually complaining about, said so it can be acted on. */
 const WHY_REFUSED: Record<string, string> = {
   unboundedCounts:
-    'A count with no boundary. Say out of what, in the same sentence, or drop the count. "hundreds" and "none on you" are both refused. "607 reviews on Booksy" and "none on any of the three sites we read" are fine.',
+    "A count or an absence with no boundary. The check accepts these exact " +
+    "forms and nothing else, so use one of them inside the same sentence:\n" +
+    "      ... on Booksy      ... on Fresha      ... that we read\n" +
+    "      ... we looked at      ... we read      ... we checked\n" +
+    "      ... on any site we read      ... on the sites we read\n" +
+    "      ... we could not read      ... we have not checked\n" +
+    "      ... 4 of 9      ... none of the five\n" +
+    'So "Your homepage carries no reviews" is refused and "No rating appears on ' +
+    'any site we read" is fine. Same fact, and only one of them can be checked.',
   traffic: "A claim about how much traffic somebody gets. Nobody publishes it. Cut it.",
   rankClaims:
     "A claim about where somebody ranks on Google. We cannot see that. Say who appears, never in what order.",
@@ -952,28 +960,44 @@ function reasonFor(note: string) {
 
 /** Everything the screen would show, as plain words, for the guards to scan. */
 export function asText(card: Battlecard): string {
-  const lines = [card.business];
+  /**
+   * Every line ends in a full stop.
+   *
+   * THIS IS NOT TIDINESS. The guards split text into sentences at a full stop,
+   * question mark or exclamation mark. Claims do not end in one, so joining
+   * them with line breaks handed the guards a single sentence five claims long.
+   * One of them mentioned an absence, so the whole blob was refused, and the
+   * rewrite could never fix it because the fault was in how it was handed over,
+   * not in anything the model wrote.
+   *
+   * Raj had four failed runs behind this.
+   */
+  const ended = (line: string) => {
+    const t = line.trim();
+    if (!t) return "";
+    return /[.!?]$/.test(t) ? t : `${t}.`;
+  };
+
+  const lines = [ended(card.business)];
+
   for (const c of card.competitors) {
-    lines.push(c.name);
+    lines.push(ended(c.name));
     for (const claims of Object.values(c.claims)) {
-      for (const claim of claims ?? []) lines.push(claim.text);
+      for (const claim of claims ?? []) lines.push(ended(claim.text));
     }
   }
+
   for (const a of card.actions) {
-    lines.push(a.headline, a.why, ...a.evidence.map((e) => e.text));
-    if (a.deferred) lines.push(a.deferred);
+    lines.push(ended(a.headline), ended(a.why));
+    for (const e of a.evidence) lines.push(ended(e.text));
+    if (a.deferred) lines.push(ended(a.deferred));
   }
-  for (const u of card.unreadable) lines.push(`${u.name}: ${u.reason}`);
-  return lines.join("\n");
+
+  for (const u of card.unreadable) lines.push(ended(`${u.name}: ${u.reason}`));
+
+  return lines.filter(Boolean).join("\n");
 }
 
-/**
- * The customer is not one of their own competitors.
- *
- * They were being included in the list, which made six where the rule is five,
- * and the guard refused the whole card for it. Battlecard.business is the field
- * that holds them, and the screen reads it from there.
- */
 function shapeCompetitors(raw: unknown, known: Competitor[], own: string): Competitor[] {
   if (!Array.isArray(raw)) return known;
   const byName = new Map(known.map((c) => [c.name.toLowerCase(), c]));

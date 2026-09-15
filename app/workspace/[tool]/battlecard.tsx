@@ -1,6 +1,7 @@
 import type { Battlecard, Claim, Competitor } from "../../../../Agents/Competitor Tracker/src/types";
 import type { Side } from "@/tools/competitor-tracker/stages";
 import Tabs from "./tabs";
+import Mark, { CopyEverything } from "./mark";
 
 type Stored = Battlecard & { standing?: { winning: Side[]; losing: Side[] } };
 
@@ -22,10 +23,25 @@ const AREAS = [
 export default function BattlecardView({
   card,
   nextCheck,
+  workspaceId,
+  documentId,
+  runId,
 }: {
   card: Stored;
   nextCheck: string;
+  workspaceId: string;
+  documentId: string | null;
+  runId: string | null;
 }) {
+  const mark = (target: string, said: string) => (
+    <Mark
+      workspaceId={workspaceId}
+      documentId={documentId}
+      runId={runId}
+      target={target}
+      said={said}
+    />
+  );
   const ran = new Date(card.ranAt);
   const you = card.competitors[0];
   const rest = card.competitors.slice(1);
@@ -74,6 +90,7 @@ export default function BattlecardView({
               you={you}
               rest={rest}
               label={area.label}
+              mark={mark}
             />
           ),
         }))}
@@ -95,6 +112,7 @@ export default function BattlecardView({
               </span>
               <h3 className="t-sub">{action.headline}</h3>
               <p className="action__why t-doc u-wide">{action.why}</p>
+              {mark(`action:${action.rank}`, `${action.headline} — ${action.why}`)}
 
               {action.deferred && (
                 <p className="t-meta">
@@ -169,6 +187,10 @@ export default function BattlecardView({
         A blank on this page always means one of those two things, never that
         there was nothing to find.
       </p>
+
+      {/* Outside the document, structurally, so it can never reach an export of
+          the battlecard itself. UI/CLAUDE.md section 7.2. */}
+      {runId && <CopyEverything runId={runId} />}
     </>
   );
 }
@@ -226,11 +248,13 @@ function Area({
   you,
   rest,
   label,
+  mark,
 }: {
   area: (typeof AREAS)[number]["key"];
   you?: Competitor;
   rest: Competitor[];
   label: string;
+  mark: (target: string, said: string) => React.ReactNode;
 }) {
   const all = [you, ...rest].filter(Boolean) as Competitor[];
   const anything = all.some((c) => (c.claims[area]?.length ?? 0) > 0);
@@ -265,7 +289,7 @@ function Area({
                 {i === 0 && <span className="cell-note">{c.name}</span>}
               </td>
               <td>
-                <ClaimList claims={c.claims[area] ?? []} />
+                <ClaimList claims={c.claims[area] ?? []} mark={mark} who={c.name} area={area} />
               </td>
             </tr>
           ))}
@@ -275,7 +299,17 @@ function Area({
   );
 }
 
-function ClaimList({ claims }: { claims: Claim[] }) {
+function ClaimList({
+  claims,
+  mark,
+  who,
+  area,
+}: {
+  claims: Claim[];
+  mark?: (target: string, said: string) => React.ReactNode;
+  who?: string;
+  area?: string;
+}) {
   if (!claims.length) {
     return <span className="cell-none">Nothing published that we could read</span>;
   }
@@ -288,6 +322,9 @@ function ClaimList({ claims }: { claims: Claim[] }) {
             <span className="cell-note">
               {host(claim.source.url)} &middot; {day(claim.source.fetchedOn)}
             </span>
+          )}
+          {mark && who && area && (
+            <span className="cell-note">{mark(`claim:${who}:${area}:${i}`, claim.text)}</span>
           )}
         </li>
       ))}

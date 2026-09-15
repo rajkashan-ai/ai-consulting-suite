@@ -170,3 +170,54 @@ test("the code box can be reached without sending an email", () => {
   // decisions.
   assert.match(read("app/sign-in/form.tsx"), /I already have a code/);
 });
+
+/* ── What the guards are handed ──────────────────────────────────────────── */
+
+test("every line handed to the guards ends in a full stop", async () => {
+  /**
+   * 15 September, and it cost four failed runs.
+   *
+   * The guards split text into sentences at a full stop. Claims do not end in
+   * one, so joining them with line breaks handed over a single sentence five
+   * claims long. One mentioned an absence, the whole blob was refused, and the
+   * repair pass could never fix it because the fault was in how it was handed
+   * over rather than in anything the model wrote.
+   */
+  const { asText } = await import("../tools/competitor-tracker/stages.ts");
+
+  const card = {
+    business: "The Barber Shop",
+    ranAt: "",
+    competitors: [
+      {
+        name: "SY1 Hair",
+        addedByCustomer: false,
+        claims: {
+          reviews: [
+            { text: "SY1 Hair holds 5.0 from 1,151 reviews on Fresha", value: 1151, source: null },
+            { text: "No rating appears on any site we read", value: null, source: null },
+          ],
+        },
+      },
+    ],
+    actions: [],
+    sources: [],
+    unreadable: [],
+  };
+
+  const out = asText(card as never);
+  for (const line of out.split("\n")) {
+    assert.match(line, /[.!?]$/, `no full stop, so the guards cannot split it: ${line}`);
+  }
+  // And the two claims really are two sentences to the guard, not one.
+  assert.equal(out.split(/(?<=[.!?])\s+/).length >= 3, true);
+});
+
+test("the repair is told the exact wordings the guard accepts", () => {
+  // Telling it to "say out of what" produced four different unacceptable
+  // phrasings across four runs. The guard has a fixed list and it is short.
+  const stages = readFileSync(join(ROOT, "tools/competitor-tracker/stages.ts"), "utf8");
+  for (const accepted of ["on Booksy", "we looked at", "on any site we read", "4 of 9"]) {
+    assert.ok(stages.includes(accepted), `the repair never mentions "${accepted}"`);
+  }
+});

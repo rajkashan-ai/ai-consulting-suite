@@ -55,6 +55,9 @@ export default async function CompetitorTracker({
       <BattlecardView
         card={document.body as never}
         nextCheck={sayWhen(decision).replace(/^.*Next check/, "Next check")}
+        workspaceId={workspaceId}
+        documentId={document.id}
+        runId={latest?.id ?? null}
       />
     );
   }

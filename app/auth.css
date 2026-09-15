@@ -201,3 +201,21 @@
 .ask .t-meta{margin-bottom:var(--s2)}
 .ask .check{min-height:36px; padding:var(--s1) 0}
 .ask .check input{accent-color:var(--ink)}
+
+/* ---- Marking something as wrong ------------------------------------------ */
+
+/* Quiet until wanted. A battlecard covered in controls is a battlecard nobody
+   reads, and this is the app around the document rather than part of it. */
+.mark{background:none; border:0; padding:2px 0; cursor:pointer;
+  color:var(--muted); text-decoration:underline; text-underline-offset:2px}
+@media (any-hover:hover){ .mark:hover{color:var(--ink)} }
+.mark--done{color:var(--good); text-decoration:none; cursor:default}
+.mark__open{display:flex; flex-wrap:wrap; gap:var(--s2); align-items:center;
+  margin-top:var(--s2)}
+.mark__note{height:32px; font-size:13px; flex:1; min-width:180px}
+
+/* The diagnostics button. Dashed, because it is a workbench control and not
+   part of what a customer is buying. */
+.diag{display:flex; flex-wrap:wrap; gap:var(--s3); align-items:center;
+  margin-top:var(--s10); padding-top:var(--s5); border-top:1px dashed var(--muted)}
+.diag .t-meta{flex:1; min-width:260px}
