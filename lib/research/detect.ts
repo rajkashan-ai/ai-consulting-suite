@@ -138,9 +138,20 @@ export async function detectBusiness(website: string): Promise<Detected> {
     // because a made-up trade is a playbook nobody else will ever share.
     trade: matchTrade(str(out.trade)),
     town: str(out.town),
-    // A full postcode is stripped even if the model returns one. It locates a
-    // household, and for a sole trader working from home that is their home.
-    address: str(out.address)?.replace(/\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/gi, (m) => m.split(/\s|(?<=\d)(?=[A-Z])/)[0]) ?? null,
+    /**
+     * The address is kept as printed, postcode included.
+     *
+     * It was being stripped to the district, on the reasoning that a full
+     * postcode locates a household and for a sole trader that is their home.
+     * That is true and it made distance impossible to measure, which left the
+     * heaviest ranking factor doing nothing.
+     *
+     * The change is narrow and worth stating. This is the address the business
+     * publishes on its own website to be found by. It is never shown on a
+     * competitor's card, it is never sent anywhere except the postcode lookup,
+     * and it goes when the account goes. DATA.md says all of this.
+     */
+    address: str(out.address),
     oneLiner: str(out.one_liner),
     services: Array.isArray(out.services)
       ? (out.services as { name: string; price: string | null }[]).slice(0, 12)

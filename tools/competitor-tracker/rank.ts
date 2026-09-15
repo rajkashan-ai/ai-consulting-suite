@@ -36,6 +36,9 @@
 
 export type Found = {
   name: string;
+  /** Straight-line miles from the customer, where both postcodes resolved.
+   *  Null is a real answer and scores zero, like any other missing number. */
+  miles?: number | null;
   /** Null where the listing did not print it. Never guessed. */
   reviews: number | null;
   rating: number | null;
@@ -77,6 +80,8 @@ const WEIGHT = {
   rating: 0.5,
 };
 
+import { sayMiles } from "../../lib/research/distance.ts";
+
 export function rank(found: Found[], you: You, take = 5): Scored[] {
   // The town is in nearly every address on the page, so matching on it makes
   // everybody near and the heaviest factor separates nobody. Ignored, so what
@@ -91,10 +96,27 @@ export function rank(found: Found[], you: You, take = 5): Scored[] {
 
       // Proximity. Without a distance we compare the words: the same street or
       // district is the strongest signal a listing gives us.
+      /**
+       * Distance in miles where we have it, words where we do not.
+       *
+       * Word matching was the only method and it matched nobody: two businesses
+       * in a town almost never share a street name, so the heaviest factor in
+       * the whole ranking contributed nothing to any run.
+       *
+       * Full marks next door, fading to nothing at three miles. Three because
+       * that is roughly a town: past it, someone is choosing a different place
+       * to go rather than the shop across the road.
+       */
       const nearWeight = you.proximityWeight ?? WEIGHT.proximity;
-      const near = nearWeight > 0 && sameArea(f.area, you.area, everywhere);
-      if (near) {
-        score += nearWeight;
+
+      if (nearWeight > 0 && typeof f.miles === "number") {
+        const closeness = Math.max(0, 1 - f.miles / 3);
+        score += nearWeight * closeness;
+        if (f.miles < 1.5) reasons.push(sayMiles(f.miles));
+      } else if (nearWeight > 0 && sameArea(f.area, you.area, everywhere)) {
+        // No postcode for one of them. The old method, kept because it is
+        // better than nothing and it is the only thing left.
+        score += nearWeight * 0.5;
         reasons.push(`near you, ${f.area}`);
       }
 

@@ -31,6 +31,7 @@ which is below.
 | Email address | Yes | It is the account | Contract | Until the account is closed |
 | Which emails may sign in | Yes | Nobody uninvited can get in during testing | Legitimate interests | Until testing ends |
 | Business name, website, trade, town | Usually not. Yes for a sole trader trading under their own name | Every tool reads it | Contract | Until the account is closed |
+| Their address, including postcode | Yes if they work from home | Measuring how far away a competitor actually is, which is the heaviest factor in choosing which competitors matter | Contract | Until the account is closed |
 | Documents the tools produced | Only if a tool put a person in one, which is what the controls below prevent | It is the customer's work | Contract | Until they delete it |
 | Addresses and dates of public pages we read | No | So any figure can be traced to its source | Legitimate interests | 400 days |
 | What each run cost | No | So the fair use cap gets a real number | Legitimate interests | 400 days |
@@ -40,6 +41,24 @@ and we never see; any password; and any page we have read, as opposed to our
 own summary of it.
 
 ---
+
+## About the postcode
+
+It was stripped at first, on the reasoning that a full UK postcode identifies a
+household, and for a sole trader working from home that is their home. That
+reasoning still stands and the decision was changed anyway, so here is why.
+
+Without it, "how far away is this competitor" cannot be answered at all, and
+that is the heaviest factor in deciding which five competitors a business is
+shown. It was matching street names, which in a town matches nobody, so the most
+important part of the ranking did nothing.
+
+What limits it: the address is the one the business publishes on its own website
+to be found by. It is never displayed on anyone else's card. The only place it
+is ever sent is postcodes.io, to turn it into a position, and what comes back is
+rounded to about a hundred metres before anything is stored, so what we keep
+says a quarter of a mile and not which building. Competitors' postcodes are used
+the same way and never stored at all.
 
 ## The risk that is actually ours
 

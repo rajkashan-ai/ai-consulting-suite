@@ -20,6 +20,7 @@ import { isProfile, profileFor } from "./profile.ts";
 import { confidence, isDeadEnd, startWith, type Playbook } from "./playbook.ts";
 import { rank, type Found, type Scored } from "./rank.ts";
 import { sift } from "./sift.ts";
+import { milesBetween, positionsFor, postcodeIn } from "../../lib/research/distance.ts";
 import { platformsFrom, proximityWeight } from "../questions.ts";
 
 /**
@@ -390,7 +391,7 @@ const NEVER_A_BUSINESS = [
 const WRONG_COUNTRY =
   /\b(MA|PA|NJ|NY|CA|TX|FL|Massachusetts|Pennsylvania|New Jersey|Missouri)\b/;
 
-function choose(state: RunState, business: Business): Step {
+async function choose(state: RunState, business: Business): Promise<Step> {
   const { profile, seen } = state;
   if (!profile || !seen) return stop(state, "Lost the search results. Run it again.");
 
@@ -439,9 +440,27 @@ function choose(state: RunState, business: Business): Step {
     { you: profile.name, trade: business.trade },
   );
 
-  const picked = listed.length
+  /**
+   * How far away each of them actually is.
+   *
+   * One request for every postcode at once. The postcodes themselves are not
+   * kept: they go to the lookup, come back as positions, and only the distance
+   * survives. A full UK postcode identifies a household, and for a sole trader
+   * working from home that is their home.
+   */
+  const yours = postcodeIn(business.address);
+  const theirs = listed.map((r) => postcodeIn(r.area));
+  const positions = await positionsFor([yours, ...theirs].filter(Boolean) as string[]);
+  const here = yours ? positions.get(yours) : undefined;
+
+  const withMiles = listed.map((r, i) => {
+    const p = theirs[i] ? positions.get(theirs[i]!) : undefined;
+    return { ...r, miles: here && p ? milesBetween(here, p) : null };
+  });
+
+  const picked = withMiles.length
     ? rank(
-        listed,
+        withMiles,
         {
           // Their street, falling back to the town. Handing it the town alone
           // meant every business in the town matched and the heaviest factor

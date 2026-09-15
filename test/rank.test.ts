@@ -114,3 +114,42 @@ test("price overlap does nothing without your own price, and something with it",
   const seeing = rank(all, { area: null, price: 15 });
   assert.equal(seeing[0].name, "cheap");
 });
+
+test("miles beat word matching, which matched nobody", () => {
+  // The bug this replaces. Two businesses in a town almost never share a street
+  // name, so the heaviest factor in the ranking contributed nothing to any run.
+  const all = [
+    { ...one({ name: "quarter mile", reviews: 100, area: "Coton Hill" }), miles: 0.25 },
+    { ...one({ name: "two miles", reviews: 100, area: "Battlefield" }), miles: 2.0 },
+  ];
+  const out = rank(all, { area: "Smithfield Road", town: "Shrewsbury", price: null, proximityWeight: 4 });
+  assert.equal(out[0].name, "quarter mile");
+  assert.match(out[0].because, /0\.3 miles away|next door/);
+});
+
+test("no postcode means no distance score, not an assumed middle", () => {
+  const all = [
+    { ...one({ name: "known", reviews: 10 }), miles: 0.2 },
+    { ...one({ name: "unknown", reviews: 10 }), miles: null },
+  ];
+  const out = rank(all, { area: null, town: null, price: null, proximityWeight: 4 });
+  assert.equal(out[0].name, "known");
+});
+
+test("past three miles distance stops counting at all", () => {
+  const all = [
+    { ...one({ name: "far", reviews: 500 }), miles: 5 },
+    { ...one({ name: "near", reviews: 500 }), miles: 0 },
+  ];
+  const out = rank(all, { area: null, town: null, price: null, proximityWeight: 4 });
+  assert.ok(out[0].score - out[1].score >= 3.9, "next door is worth the full weight");
+});
+
+test("a national business ignores miles entirely", () => {
+  const all = [
+    { ...one({ name: "next door", reviews: 5 }), miles: 0.1 },
+    { ...one({ name: "real rival", reviews: 900 }), miles: 200 },
+  ];
+  const out = rank(all, { area: null, town: null, price: null, proximityWeight: 0 });
+  assert.equal(out[0].name, "real rival");
+});
