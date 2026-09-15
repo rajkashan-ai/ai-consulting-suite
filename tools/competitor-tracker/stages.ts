@@ -8,7 +8,7 @@ import {
   type SearchResult,
   type Visibility,
 } from "../../../Agents/Competitor Tracker/src/search-visibility.ts";
-import { refreshSet } from "../../../Agents/Competitor Tracker/src/competitor-set.ts";
+import { MAX_COMPETITORS, refreshSet } from "../../../Agents/Competitor Tracker/src/competitor-set.ts";
 import { validateBattlecard } from "../../../Agents/Competitor Tracker/src/guards.ts";
 import type {
   Battlecard,
@@ -17,6 +17,8 @@ import type {
 } from "../../../Agents/Competitor Tracker/src/types.ts";
 import type { Business, ToolContext } from "../types.ts";
 import { isProfile, profileFor } from "./profile.ts";
+import { confidence, isDeadEnd, startWith, type Playbook } from "./playbook.ts";
+import { rank, type Found, type Scored } from "./rank.ts";
 
 /**
  * A Competitor Tracker run, in steps that can each stop and be picked up later.
@@ -34,6 +36,7 @@ import { isProfile, profileFor } from "./profile.ts";
 
 export type Stage =
   | "searching"
+  | "listings"
   | "choosing"
   | "reading"
   | "writing"
@@ -52,6 +55,10 @@ export type ReadPage = {
 
 export type RunState = {
   profile?: SearchProfile;
+  /** What we already know about researching this trade. Null the first time. */
+  playbook?: Playbook | null;
+  /** Platforms this run found that the playbook did not have. */
+  learned?: { host: string; example: string; named: number }[];
   terms?: { term: string; why: string }[];
   seen?: { term: string; results: SearchResult[] }[];
   visibility?: Visibility[];
@@ -59,6 +66,15 @@ export type RunState = {
   /** Pages still to fetch. Drained a few at a time so no tick runs too long. */
   queue?: { name: string; url: string }[];
   pages?: Record<string, ReadPage[]>;
+  /** Names read off a local listing page, which for a local trade is where the
+   *  competitors actually are. See the listings stage. */
+  fromListings?: string[];
+  /** The same businesses with what the listing printed beside them, which is
+   *  what the ranking runs on. */
+  listed?: Found[];
+  /** The five that were picked, and why each one. */
+  picked?: Scored[];
+  listingPages?: ReadPage[];
   card?: Battlecard;
   /**
    * The two columns at the top of the screen. Kept beside the battlecard rather
@@ -92,6 +108,8 @@ export async function advance(
   switch (stage) {
     case "searching":
       return search(state, business, ctx);
+    case "listings":
+      return listings(state, ctx);
     case "choosing":
       return choose(state, business);
     case "reading":
@@ -117,7 +135,25 @@ async function search(state: RunState, business: Business, ctx: ToolContext): Pr
     );
   }
 
-  const terms = buildSearchTerms(profile);
+  /**
+   * Where to look, if we have ever researched this trade before.
+   *
+   * With a playbook, one targeted search finds this town's page on a platform we
+   * already know lists this trade. Without one, three broad searches, which for
+   * a small local trade come back mostly as other countries and directories.
+   *
+   * The town's own url cannot be guessed: Booksy carries a numeric town id
+   * (1227928_shrewsbury) that means nothing anywhere else. So the playbook says
+   * which platform, and one search finds the page on it.
+   */
+  const known = startWith(state.playbook ?? null);
+
+  const terms = known.length
+    ? known.slice(0, 3).map((host) => ({
+        term: `${profile.trade} ${profile.town} site:${host}`,
+        why: `${host} lists this trade, from a previous run`,
+      }))
+    : buildSearchTerms(profile);
 
   // The search tool config comes from the agent because it carries
   // user_location. Without it this same search returns Shrewsbury Pennsylvania
@@ -138,13 +174,169 @@ async function search(state: RunState, business: Business, ctx: ToolContext): Pr
   }
 
   return {
-    stage: "choosing",
+    stage: "listings",
     state: { ...state, profile, terms, seen: withResults },
     progress: `Searched ${withResults.length} of the ${terms.length} things a customer would type`,
   };
 }
 
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Get the competitors off the local listing page.
+ *
+ * WHY THIS STAGE EXISTS, WRITTEN ON THE DAY IT WAS NEEDED
+ * The first two real runs found nobody. Three searches returned twenty-seven
+ * results: Shrewsbury Pennsylvania, Shrewsbury Massachusetts, Shrewsbury New
+ * Jersey, two Wikipedia articles, and the customer's own site. The only other
+ * UK entries were two listing pages, Booksy's "barbers in Shrewsbury" and
+ * Fresha's.
+ *
+ * Which is what the Competitor Tracker's own memory already said: one Booksy
+ * page gave prices, ratings and review counts for twelve Shrewsbury barbers,
+ * and it was the source that made the manual test work. Discovery got built on
+ * search results anyway, and search results for a small local trade are mostly
+ * other countries and directories.
+ *
+ * So a listing is no longer something to discard. For a local business it is
+ * the page that names everybody.
+ */
+async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
+  const { profile, seen } = state;
+  if (!profile || !seen) return stop(state, "Lost the search results. Run it again.");
+
+  const town = profile.town.toLowerCase().replace(/\s+/g, "-");
+  const wanted = new Set<string>();
+
+  const knownHosts = startWith(state.playbook ?? null);
+
+  for (const { results } of seen) {
+    for (const r of results) {
+      const url = r.url.toLowerCase();
+
+      // Somewhere a previous run already found to be useless. Not fetching is
+      // real time saved: every page costs a pause, by our own rule.
+      if (isDeadEnd(state.playbook ?? null, url)) continue;
+
+      // A listing, for this country, for this town. All three, or it is
+      // somebody else's town or somebody else's country.
+      const isListing = /\/(s|lp|search|browse)\//.test(url) || /\/in\/gb-/.test(url);
+      const isOurs = url.includes("/en-gb/") || url.includes("/gb-") || url.includes(".co.uk");
+
+      // A host the playbook already trusts counts as a listing even if the url
+      // shape is one we have not seen, because platforms change their paths and
+      // the playbook is evidence that this one lists this trade.
+      const trusted = knownHosts.some((h) => url.includes(h));
+
+      if ((isListing || trusted) && isOurs && url.includes(town)) wanted.add(r.url);
+    }
+  }
+
+  if (!wanted.size) {
+    // No listing found. Carry on with whatever search turned up, which can
+    // still be enough for a trade whose businesses have their own websites.
+    return { stage: "choosing", state, progress: "Looking at who came up" };
+  }
+
+  const names: string[] = [];
+  const rows: Found[] = [];
+  const pages: ReadPage[] = [];
+
+  for (const url of [...wanted].slice(0, 2)) {
+    const got = await ctx.read(url);
+    pages.push({
+      url: got.url,
+      ok: got.ok,
+      title: got.title,
+      text: got.text.slice(0, 20_000),
+      fetchedOn: got.fetchedAt.slice(0, 10),
+      note: got.note,
+    });
+    if (!got.ok) continue;
+
+    const found = (await ctx.think({
+      system:
+        "You are reading a booking platform's listing page for one town and writing down " +
+        "the businesses named on it. Copy each name exactly as printed. Take nothing that " +
+        "is not a business on this page: not the platform, not a category, not a heading, " +
+        "not a place name. If it is not a listing, return nothing.",
+      prompt: `Town: ${profile.town}. Trade: ${profile.trade}.\n\n${got.text.slice(0, 20_000)}`,
+      shape: {
+        name: "businesses",
+        description:
+          "Each business named on this listing, with whatever the page prints beside it.",
+        input_schema: {
+          type: "object",
+          properties: {
+            businesses: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  // Null everywhere the page does not print it. Never guessed:
+                  // a missing number scores zero in the ranking, and an invented
+                  // one would quietly decide who the customer competes with.
+                  reviews: { type: ["integer", "null"] },
+                  rating: { type: ["number", "null"] },
+                  reviewed_days_ago: { type: ["integer", "null"] },
+                  area: {
+                    type: ["string", "null"],
+                    description: "Street or district as printed. Never a full postcode.",
+                  },
+                  price: {
+                    type: ["number", "null"],
+                    description: "Their cheapest or headline price as a number.",
+                  },
+                  url: { type: ["string", "null"] },
+                },
+                required: ["name", "reviews", "rating", "reviewed_days_ago", "area", "price", "url"],
+              },
+            },
+          },
+          required: ["businesses"],
+        },
+      },
+    })) as { businesses?: Record<string, never>[] };
+
+    for (const b of found.businesses ?? []) {
+      const clean = String(b.name ?? "").trim();
+      if (clean.length < 3 || clean.length > 60) continue;
+      names.push(clean);
+      rows.push({
+        name: clean,
+        reviews: num(b.reviews),
+        rating: num(b.rating),
+        reviewedDaysAgo: num(b.reviewed_days_ago),
+        area: str(b.area),
+        price: num(b.price),
+        url: str(b.url),
+      });
+    }
+  }
+
+  // What this run found that the playbook did not have. Folded back in at the
+  // end, so the next business in this trade starts from it.
+  const learned = pages
+    .filter((p) => p.ok)
+    .map((p) => ({
+      host: hostOf(p.url),
+      example: p.url,
+      named: names.length,
+    }))
+    .filter((p) => p.host);
+
+  return {
+    stage: "choosing",
+    state: { ...state, fromListings: names, listed: rows, listingPages: pages, learned },
+    progress: names.length
+      ? `Found ${names.length} ${profile.trade}s in ${profile.town}`
+      : "Looking at who came up",
+  };
+}
+
 
 /**
  * Places that are never a competitor, whatever the search says.
@@ -189,10 +381,35 @@ function choose(state: RunState, business: Business): Step {
     return true;
   });
 
-  // refreshSet keeps anyone the customer named, for ever, and fills the rest.
+  // Listing names first: they are businesses in this town on a platform this
+  // town's customers actually use. Search candidates fill any space left.
+  const fromListing = (state.fromListings ?? []).filter(
+    (n) => !NEVER_A_BUSINESS.some((h) => n.toLowerCase().includes(h)) && !WRONG_COUNTRY.test(n),
+  );
+
+  /**
+   * Rank rather than take the first five.
+   *
+   * Seventy came back for Shrewsbury and the run kept whichever the page
+   * printed first, which is the platform's sort order and nothing to do with
+   * this business. Proximity, review volume, how recently reviewed, price
+   * overlap, then rating. See rank.ts for why each one earns its weight.
+   */
+  const listed = (state.listed ?? []).filter(
+    (r) => !NEVER_A_BUSINESS.some((h) => r.name.toLowerCase().includes(h)),
+  );
+
+  const picked = listed.length
+    ? rank(listed, { area: business.town, price: null }, MAX_COMPETITORS)
+    : [];
+
   const competitors = refreshSet(
     already,
-    candidates.map((c) => c.name),
+    [
+      ...picked.map((p) => p.name),
+      ...fromListing,
+      ...candidates.map((c) => c.name),
+    ],
     profile.name,
   );
 
@@ -218,6 +435,8 @@ function choose(state: RunState, business: Business): Step {
   // the platform page, which for a barber is where the prices actually are.
   const queue = competitors
     .map((c) => {
+      const fromRank = picked.find((p) => p.name === c.name && p.url);
+      if (fromRank?.url) return { name: c.name, url: fromRank.url };
       const hit = candidates.find((k) => k.name === c.name);
       return hit ? { name: c.name, url: hit.url } : null;
     })
@@ -227,7 +446,7 @@ function choose(state: RunState, business: Business): Step {
 
   return {
     stage: "reading",
-    state: { ...state, competitors, visibility, queue, pages: {} },
+    state: { ...state, competitors, visibility, queue, picked, pages: {} },
     progress: `Found ${competitors.length} to look at. Reading their pages`,
   };
 }
@@ -265,7 +484,9 @@ async function read(state: RunState, ctx: ToolContext): Promise<Step> {
     };
   }
 
-  const readable = Object.values(pages).flat().filter((p) => p.ok).length;
+  const readable =
+    Object.values(pages).flat().filter((p) => p.ok).length +
+    (state.listingPages ?? []).filter((p) => p.ok).length;
   if (!readable) {
     return stop(
       state,
@@ -291,8 +512,28 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
 
   const readOn = new Date().toISOString().slice(0, 10);
 
-  const evidence = Object.entries(pages)
-    .map(([name, list]) =>
+  /**
+   * The listing page is evidence, not scaffolding.
+   *
+   * It was being read to get names out of it and then thrown away, which is
+   * how a run ended up writing a battlecard from one page. That page is where
+   * the prices, the ratings and the review counts are: one Booksy page gave all
+   * three for twelve Shrewsbury barbers in the manual test, and it is the
+   * reason that test worked at all. For a local trade it is often the only
+   * place any of it is published.
+   */
+  const listingEvidence = (state.listingPages ?? [])
+    .filter((p) => p.ok)
+    .map(
+      (p) =>
+        `### Everyone in ${profile.town}, from ${p.url} (read ${p.fetchedOn})\n` +
+        `This page lists many businesses with their prices, ratings and review counts.\n\n` +
+        p.text,
+    );
+
+  const evidence = [
+    ...listingEvidence,
+    ...Object.entries(pages).map(([name, list]) =>
       list
         .map((p) =>
           p.ok
@@ -300,8 +541,8 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
             : `### ${name} — ${p.url}: ${p.note}`,
         )
         .join("\n\n"),
-    )
-    .join("\n\n---\n\n");
+    ),
+  ].join("\n\n---\n\n");
 
   const built = (await ctx.think({
     hard: true,
@@ -319,8 +560,7 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
     where_they_win?: Side[];
   };
 
-  const sources: Source[] = Object.values(pages)
-    .flat()
+  const sources: Source[] = [...Object.values(pages).flat(), ...(state.listingPages ?? [])]
     .filter((p) => p.ok)
     .map((p) => ({ url: p.url, fetchedOn: p.fetchedOn }));
 
@@ -331,7 +571,7 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
   const card: Battlecard = {
     business: profile.name,
     ranAt: new Date().toISOString(),
-    competitors: shapeCompetitors(built.competitors, competitors),
+    competitors: shapeCompetitors(built.competitors, competitors, profile.name),
     actions: shapeActions(built.actions),
     sources,
     unreadable,
@@ -391,6 +631,19 @@ function check(state: RunState, business: Business): Step {
 
 // ---------------------------------------------------------------------------
 
+const num = (v: unknown): number | null =>
+  typeof v === "number" && Number.isFinite(v) ? v : null;
+const str = (v: unknown): string | null =>
+  typeof v === "string" && v.trim() ? v.trim() : null;
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
 const stop = (state: RunState, reason: string): Step => ({
   stage: "failed",
   state: { ...state, reason },
@@ -443,10 +696,22 @@ export function asText(card: Battlecard): string {
   return lines.join("\n");
 }
 
-function shapeCompetitors(raw: unknown, known: Competitor[]): Competitor[] {
+/**
+ * The customer is not one of their own competitors.
+ *
+ * They were being included in the list, which made six where the rule is five,
+ * and the guard refused the whole card for it. Battlecard.business is the field
+ * that holds them, and the screen reads it from there.
+ */
+function shapeCompetitors(raw: unknown, known: Competitor[], own: string): Competitor[] {
   if (!Array.isArray(raw)) return known;
   const byName = new Map(known.map((c) => [c.name.toLowerCase(), c]));
-  return raw.slice(0, 6).map((r: Record<string, unknown>) => {
+  const isOwn = (n: string) =>
+    n.toLowerCase().replace(/[^a-z0-9]/g, "") === own.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return raw
+    .filter((r: Record<string, unknown>) => !isOwn(String(r.name ?? "")))
+    .slice(0, 5)
+    .map((r: Record<string, unknown>) => {
     const name = String(r.name ?? "");
     return {
       name,
@@ -488,7 +753,16 @@ is allowed. Naming that barber is not, ever.
 
 THE THREE ACTIONS are the point of the whole thing. Each one attacks a weakness
 you have evidence for, is something the owner could start this week, and carries
-the claims it rests on. Rank them by what would change the most. If the obvious
+the claims it rests on.
+
+EVERY CLAIM YOU USE AS EVIDENCE FOR AN ACTION MUST HAVE A REAL VALUE AND A REAL
+SOURCE. A claim whose value is null means we looked and could not see it, and an
+action built on one is an action built on a hole. Those claims still belong in
+the competitor list, where "they publish no prices" is worth knowing. They do not
+belong under an action.
+
+DO NOT INCLUDE THE CUSTOMER IN THE LIST OF COMPETITORS. They are not one of
+their own competitors, and there is a separate field for them. Rank them by what would change the most. If the obvious
 move is a price change, say so but mark it deferred: you do not know their costs
 and cannot tell them to cut a price.
 

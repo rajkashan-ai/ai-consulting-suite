@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchPage } from "@/lib/research/fetch";
 import { advance, type RunState, type Stage } from "@/tools/competitor-tracker/stages";
+import { EMPTY, learn, type Playbook } from "@/tools/competitor-tracker/playbook";
 import type { Business, ToolContext } from "@/tools/types";
 
 /**
@@ -53,6 +54,36 @@ export async function step(runId: string): Promise<Progress | null> {
     town: workspace.town,
     oneLiner: workspace.one_liner,
   };
+
+  const state = (run.state ?? {}) as RunState;
+
+  /**
+   * What we already know about researching this trade.
+   *
+   * Loaded once, at the start, and carried in the run's own state after that. A
+   * run that stops halfway and resumes an hour later uses what it started with
+   * rather than something that changed underneath it, so a run is consistent
+   * with itself.
+   */
+  if (state.playbook === undefined && business.trade) {
+    const { data: found } = await db
+      .from("playbooks")
+      .select("*")
+      .eq("trade", business.trade)
+      .maybeSingle();
+
+    state.playbook = found
+      ? {
+          trade: found.trade,
+          platforms: found.platforms ?? [],
+          publishes: found.publishes ?? [],
+          deadEnds: found.dead_ends ?? [],
+          evidence: found.evidence ?? [],
+          timesUsed: found.times_used ?? 0,
+          builtFrom: found.built_from ?? null,
+        }
+      : null;
+  }
 
   const spent = { input: 0, output: 0 };
   let pages = 0;
@@ -180,9 +211,43 @@ export async function step(runId: string): Promise<Progress | null> {
 
   let result;
   try {
-    result = await advance(run.stage as Stage, (run.state ?? {}) as RunState, business, ctx);
+    result = await advance(run.stage as Stage, state, business, ctx);
   } catch (e) {
     return fail(db, runId, e instanceof Error ? e.message : String(e), spent, pages);
+  }
+
+  /**
+   * Fold what this run learned back into the trade's playbook.
+   *
+   * Done on the way past, not only on success. A run that found the right
+   * listing and then failed to write a decent battlecard still learned where
+   * the listing was, and throwing that away means the next business in this
+   * trade pays to find it again.
+   */
+  if (result.state.learned?.length && business.trade) {
+    const before: Playbook = result.state.playbook ?? { trade: business.trade, ...EMPTY };
+    const after = learn(before, {
+      platforms: result.state.learned,
+      publishes: [],
+      deadEnds: (result.state.listingPages ?? [])
+        .filter((p) => !p.ok)
+        .map((p) => ({ host: new URL(p.url).hostname.replace(/^www\./, ""), why: p.note })),
+      evidence: (result.state.listingPages ?? [])
+        .filter((p) => p.ok)
+        .map((p) => ({ url: p.url, on: p.fetchedOn, what: "listed this trade in a town" })),
+      town: business.town ?? "",
+    });
+
+    await db.from("playbooks").upsert({
+      trade: after.trade,
+      platforms: after.platforms,
+      publishes: after.publishes,
+      dead_ends: after.deadEnds,
+      evidence: after.evidence,
+      times_used: after.timesUsed,
+      built_from: after.builtFrom,
+      rechecked_at: new Date().toISOString(),
+    });
   }
 
   // A finished run becomes a document, and the document is what the screen
