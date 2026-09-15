@@ -44,6 +44,7 @@ export type Stage =
   | "reading"
   | "writing"
   | "checking"
+  | "fixing"
   | "done"
   | "failed";
 
@@ -85,6 +86,10 @@ export type RunState = {
    * a new field is not a reason to change the shape the guards check.
    */
   standing?: { winning: Side[]; losing: Side[] };
+  /** What the guards objected to, on its way to being reworded. */
+  problems?: { rule: string; sentences: string[] }[];
+  /** Repair attempts spent. One is allowed. */
+  repairs?: number;
   /** Why it failed, in words a customer reads. */
   reason?: string;
 };
@@ -127,6 +132,8 @@ export async function advance(
       return write(state, business, ctx);
     case "checking":
       return check(state, business);
+    case "fixing":
+      return fix(state, ctx);
     default:
       return { stage, state, progress: "" };
   }
@@ -722,29 +729,56 @@ function check(state: RunState, business: Business): Step {
   const card = state.card;
   if (!card) return stop(state, "Nothing was built. Run it again.");
 
-  // The agent's own guards, over the card and over the words it would show.
-  const problems = validateBattlecard(card, asText(card), new Date());
+  const found = validateBattlecard(card, asText(card), new Date());
 
-  const broken = Object.entries(problems).filter(([, v]) =>
-    Array.isArray(v) ? v.length > 0 : v === true,
-  );
+  const problems = Object.entries(found)
+    .map(([rule, v]) => ({
+      rule,
+      sentences: Array.isArray(v)
+        ? v.map((x) => (typeof x === "string" ? x : JSON.stringify(x)))
+        : v === true
+          ? ["the card itself"]
+          : [],
+    }))
+    .filter((p) => p.sentences.length > 0);
 
-  if (broken.length) {
-    // Refused rather than shown with a warning. A battlecard that breaks its own
-    // rules is exactly the thing this product exists not to produce, and a
-    // warning on it is us knowing it is wrong and showing it anyway.
-    return stop(
+  if (!problems.length) {
+    return {
+      stage: "done",
       state,
-      `We built it and then refused it: ${broken.map(([k]) => readable(k)).join(", ")}. ` +
-        `Nothing is shown rather than something we do not trust.`,
-    );
+      progress: `Done. ${card.competitors.length} businesses, ${card.sources.length} pages`,
+    };
   }
 
-  return {
-    stage: "done",
+  /**
+   * One repair, then a refusal.
+   *
+   * The guards were a gate: any breach and the whole card was thrown away. Over
+   * four real runs they refused four cards for four different sentences, every
+   * one a phrasing problem in an otherwise sound battlecard, and every one sent
+   * me back to tune the prompt against a fault that appeared somewhere else the
+   * next time.
+   *
+   * The guards already know exactly what is wrong and where. Handing that back
+   * to be reworded is better than tuning a prompt against a moving target, and
+   * far better for the customer than being shown nothing.
+   *
+   * Once only. A second failure means the fault is in the facts rather than the
+   * words, and a loop that keeps asking spends real money getting nowhere.
+   */
+  if ((state.repairs ?? 0) < 1) {
+    return {
+      stage: "fixing",
+      state: { ...state, problems },
+      progress: "Checking it, and fixing anything that does not read right",
+    };
+  }
+
+  return stop(
     state,
-    progress: `Done. ${card.competitors.length} businesses, ${card.sources.length} pages`,
-  };
+    `We built it and then refused it: ${problems.map((p) => readable(p.rule)).join(", ")}. ` +
+      `Nothing is shown rather than something we do not trust.`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -761,6 +795,104 @@ function hostOf(url: string): string {
     return "";
   }
 }
+
+/**
+ * Reword exactly what the guards objected to, and nothing else.
+ *
+ * The facts are already gathered and already sourced, so this is a wording pass.
+ * It is told to change the words and leave every number, name, date and source
+ * where it is.
+ */
+async function fix(state: RunState, ctx: ToolContext): Promise<Step> {
+  const card = state.card;
+  const problems = state.problems ?? [];
+  if (!card || !problems.length) return { stage: "checking", state, progress: "Checking it" };
+
+  const complaints = problems
+    .map(
+      (p) =>
+        `${WHY_REFUSED[p.rule] ?? p.rule}\n` +
+        p.sentences.map((x) => `    ${x}`).join("\n"),
+    )
+    .join("\n\n");
+
+  const reworded = (await ctx.think({
+    system: REPAIR_RULES,
+    prompt:
+      `These parts of the battlecard were refused by the check:\n\n${complaints}\n\n` +
+      `Here is the whole thing. Return it with those parts reworded and everything ` +
+      `else identical.\n\n` +
+      JSON.stringify({
+        competitors: card.competitors,
+        actions: card.actions,
+        where_you_win: state.standing?.winning ?? [],
+        where_they_win: state.standing?.losing ?? [],
+      }),
+    shape: BATTLECARD_SHAPE,
+    maxTokens: 16_000,
+  })) as {
+    competitors?: unknown;
+    actions?: unknown;
+    where_you_win?: Side[];
+    where_they_win?: Side[];
+  };
+
+  const stillThere = <T,>(fresh: T[] | undefined, before: T[]): T[] =>
+    Array.isArray(fresh) && fresh.length ? fresh : before;
+
+  return {
+    stage: "checking",
+    state: {
+      ...state,
+      card: {
+        ...card,
+        competitors: Array.isArray(reworded.competitors) && reworded.competitors.length
+          ? shapeCompetitors(reworded.competitors, card.competitors, card.business)
+          : card.competitors,
+        actions: Array.isArray(reworded.actions) && reworded.actions.length
+          ? shapeActions(reworded.actions)
+          : card.actions,
+      },
+      repairs: (state.repairs ?? 0) + 1,
+      standing: {
+        winning: stillThere(reworded.where_you_win, state.standing?.winning ?? []),
+        losing: stillThere(reworded.where_they_win, state.standing?.losing ?? []),
+      },
+      problems: undefined,
+    },
+    progress: "Checking it",
+  };
+}
+
+/** What each guard is actually complaining about, said so it can be acted on. */
+const WHY_REFUSED: Record<string, string> = {
+  unboundedCounts:
+    'A count with no boundary. Say out of what, in the same sentence, or drop the count. "hundreds" and "none on you" are both refused. "607 reviews on Booksy" and "none on any of the three sites we read" are fine.',
+  traffic: "A claim about how much traffic somebody gets. Nobody publishes it. Cut it.",
+  rankClaims:
+    "A claim about where somebody ranks on Google. We cannot see that. Say who appears, never in what order.",
+  feedback: "A request for feedback inside the document. That belongs in the app around it.",
+  unsourced: "A claim with no source. Every fact carries the page it came from.",
+  impossibleDates: "A date that cannot be right.",
+  stale: "A fact too old to state as current. Say when it was read.",
+  namedReviewers: "A named reviewer. Themes and counts only, never who wrote one.",
+  unexplainedGaps: "A blank with no reason. Say what was looked at and not found.",
+  buildDetail:
+    "A remark about how this product works, or about what we could not read. The customer is not buying that.",
+  actions:
+    "An action not supported by its evidence, or one recommending a price move. We do not know their costs, so a pricing action says what to publish and never what to charge.",
+  tooManyCompetitors: "More than five businesses in the comparison.",
+};
+
+const REPAIR_RULES = `You are rewording parts of a finished battlecard that an automatic check
+refused. The facts are right and already sourced.
+
+Change only what the check objected to. Every number, name, date, price and
+source stays exactly as it is. Do not add a fact, do not remove one, and do not
+improve anything nobody complained about.
+
+If a sentence cannot be fixed without inventing something, cut the sentence. A
+shorter true card beats a longer refused one.`;
 
 const stop = (state: RunState, reason: string): Step => ({
   stage: "failed",
