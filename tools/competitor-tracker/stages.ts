@@ -585,8 +585,11 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
     .filter((p) => p.ok)
     .map(
       (p) =>
-        `### Everyone in ${profile.town}, from ${p.url} (read ${p.fetchedOn})\n` +
-        `This page lists many businesses with their prices, ratings and review counts.\n\n` +
+        `### MARKET CONTEXT ONLY, from ${p.url} (read ${p.fetchedOn})\n` +
+        `Every ${profile.trade} in ${profile.town}, with prices, ratings and review\n` +
+        `counts. Use this ONLY for statements about the town as a whole, such as what\n` +
+        `a cut typically costs here. Do NOT add any of these businesses to the\n` +
+        `comparison: that list is fixed and is given below.\n\n` +
         p.text,
     );
 
@@ -603,12 +606,30 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
     ),
   ].join("\n\n---\n\n");
 
+  /**
+   * The five are fixed before the writing starts.
+   *
+   * They were being chosen by ranking and then quietly re-chosen by the model,
+   * which read the listing page and wrote about whoever it found interesting.
+   * The first real run ranked NO.1, HINCES, Branded Barbers and Golden Scissors
+   * and produced a battlecard about Fade Inn, Darwin's and Barbering AJ. All the
+   * ranking work was decoration.
+   *
+   * The listing stays, because the most useful line on the page is often a
+   * market-wide one: what a cut actually costs in this town. That is a different
+   * job from the comparison, and it is now labelled as a different job.
+   */
+  const theFive = competitors.map((c) => c.name);
+
   const built = (await ctx.think({
     hard: true,
     system: BATTLECARD_RULES,
     prompt:
       `The business: ${profile.name}, a ${profile.trade} in ${profile.town}.\n` +
       `Their website: ${business.website}\n\n` +
+      `THE COMPARISON IS ABOUT THESE ${theFive.length} AND NOBODY ELSE:\n` +
+      theFive.map((n) => `  - ${n}`).join("\n") +
+      `\n\nAnything else in the pages below is the town, not the comparison.\n\n` +
       `Everything we read:\n\n${evidence}`,
     shape: BATTLECARD_SHAPE,
     maxTokens: 16_000,
@@ -767,8 +788,20 @@ function shapeCompetitors(raw: unknown, known: Competitor[], own: string): Compe
   const byName = new Map(known.map((c) => [c.name.toLowerCase(), c]));
   const isOwn = (n: string) =>
     n.toLowerCase().replace(/[^a-z0-9]/g, "") === own.toLowerCase().replace(/[^a-z0-9]/g, "");
+  // Anything not in the agreed five is dropped, not trusted. Instructions are
+  // guidance; this is the part that cannot be talked out of.
+  const agreed = new Set(known.map((c) => c.name.toLowerCase().replace(/[^a-z0-9]/g, "")));
+  const key = (n: string) => n.toLowerCase().replace(/[^a-z0-9]/g, "");
+
   return raw
     .filter((r: Record<string, unknown>) => !isOwn(String(r.name ?? "")))
+    .filter((r: Record<string, unknown>) => {
+      if (!agreed.size) return true;
+      const k = key(String(r.name ?? ""));
+      // Either the same name, or one contains the other: "HINCES" and "HINCES
+      // Barber" are the same shop and refusing one of them loses the evidence.
+      return [...agreed].some((a) => a === k || a.includes(k) || k.includes(a));
+    })
     .slice(0, 5)
     .map((r: Record<string, unknown>) => {
     const name = String(r.name ?? "");
@@ -821,7 +854,17 @@ the competitor list, where "they publish no prices" is worth knowing. They do no
 belong under an action.
 
 DO NOT INCLUDE THE CUSTOMER IN THE LIST OF COMPETITORS. They are not one of
-their own competitors, and there is a separate field for them. Rank them by what would change the most. If the obvious
+their own competitors, and there is a separate field for them.
+
+THE COMPARISON COVERS EXACTLY THE BUSINESSES NAMED IN THE PROMPT, AND NO OTHERS.
+They were chosen on how near they are, how many public reviews they hold, how
+recently they were reviewed and whether they charge what this business charges.
+A business you find interesting in a listing is not one of them.
+
+The listing of everyone in the town is for market statements only: what a cut
+typically costs here, how many shops publish a price, what the range is. Those
+are worth saying and often the most useful line on the page. Naming a business
+from that listing inside the comparison is not. Rank them by what would change the most. If the obvious
 move is a price change, say so but mark it deferred: you do not know their costs
 and cannot tell them to cut a price.
 
