@@ -33,6 +33,21 @@ const SQL_DIR = join(HERE, "supabase");
 const ENV = join(HERE, ".env.local");
 const REGION = "eu-west-2"; // London. UK customers, UK data.
 
+/**
+ * Nothing here should ever end in a stack trace. A stack names this file, which
+ * is never where the problem is, and it buries the one line that says what to
+ * do. Raj got forty lines of "at genericNodeError" hiding "Instance size cannot
+ * be specified for free plan organizations".
+ */
+process.on("uncaughtException", (e) => {
+  console.error(`\nStopped: ${e.message}\n`);
+  process.exit(1);
+});
+process.on("unhandledRejection", (e) => {
+  console.error(`\nStopped: ${e instanceof Error ? e.message : e}\n`);
+  process.exit(1);
+});
+
 const say = (m) => console.log(m);
 const step = (n, m) => console.log(`\n${n}. ${m}`);
 const die = (m) => {
@@ -40,15 +55,33 @@ const die = (m) => {
   process.exit(1);
 };
 
-/** Run the Supabase CLI and give back its stdout. */
+/**
+ * Run the Supabase CLI and give back its stdout.
+ *
+ * A failure is shown as the sentence the CLI wrote, not as a Node stack trace.
+ * The stack names this file and this line, which is never where the problem is:
+ * the problem is in the sentence, and a wall of "at genericNodeError" buries it.
+ *
+ * It also strips the password out of anything printed. The command line carries
+ * it, and a failure that echoes the command puts it on screen and then into
+ * whatever the output gets pasted into.
+ */
 function cli(args, { json = false } = {}) {
-  const out = execFileSync("npx", ["supabase", ...args], {
-    cwd: HERE,
-    encoding: "utf8",
-    stdio: ["inherit", "pipe", "pipe"],
-    maxBuffer: 20 * 1024 * 1024,
-  });
-  return json ? JSON.parse(out) : out;
+  try {
+    const out = execFileSync("npx", ["supabase", ...args], {
+      cwd: HERE,
+      encoding: "utf8",
+      stdio: ["inherit", "pipe", "pipe"],
+      maxBuffer: 20 * 1024 * 1024,
+    });
+    return json ? JSON.parse(out) : out;
+  } catch (e) {
+    const said = `${e.stderr ?? ""}${e.stdout ?? ""}`.trim();
+    const message = said.match(/\{"message":"([^"]+)"\}/)?.[1] ?? said.split("\n")[0];
+    const error = new Error(message || `supabase ${args[0]} ${args[1] ?? ""} failed`);
+    error.fromCli = true;
+    throw error;
+  }
 }
 
 const ask = async (q) => {
@@ -120,9 +153,12 @@ if (!ref) {
   if (dbPassword.length < 12) die("Use at least 12 characters.");
 
   say(`   Creating ${name} in London. This takes a minute or two.`);
+  // No --size. A free plan refuses it outright: "Instance size cannot be
+  // specified for free plan organizations". Leaving it out gets the only size a
+  // free plan has, which is the one we wanted anyway.
   const made = cli(
     ["projects", "create", name, "--org-id", org.id, "--db-password", dbPassword,
-     "--region", REGION, "--size", "micro", "--output", "json"],
+     "--region", REGION, "--output", "json"],
     { json: true },
   );
   ref = made.id ?? made.ref;
