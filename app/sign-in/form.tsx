@@ -3,14 +3,15 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { readable } from "./messages";
 
 /**
  * Two ways in, and no password in either.
  *
  * A password is the one credential we could lose. We never take one, so there
- * is nothing to store, nothing to reset, and credential stuffing has nothing
- * to stuff. Google verifies the person, or a six digit code proves they can
- * read the inbox they claim.
+ * is nothing to store, nothing to reset, and credential stuffing has nothing to
+ * stuff. Google verifies the person, or a six digit code proves they can read
+ * the inbox they claim.
  *
  * The code is typed here rather than clicked in an email on purpose. Corporate
  * mail scanners follow links in messages before a person ever sees them, which
@@ -22,69 +23,81 @@ type Stage = "start" | "code-sent" | "working";
 
 export default function SignInForm() {
   const params = useSearchParams();
-  const next = params.get("next") ?? "/workspace";
+  const raw = params.get("next") ?? "/workspace";
+  // Only ever somewhere inside this site. Without this, a link could sign
+  // somebody in and then bounce them to another site carrying our name.
+  const next = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/workspace";
 
   const [stage, setStage] = useState<Stage>("start");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const supabase = createClient();
+  /**
+   * Built inside each handler, never during render. Building it during render
+   * meant a missing setting threw while the page was drawing, so the whole
+   * screen was replaced by "This page couldn't load" and the form never
+   * appeared to say what was wrong.
+   */
+  const connect = () => createClient();
 
-  async function withGoogle() {
+  /** Every handler funnels through here, so a thrown error becomes a sentence
+   *  on the form rather than escaping to the error boundary. */
+  async function attempt(job: () => Promise<string | null>, back: Stage) {
     setError(null);
     setStage("working");
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-      },
-    });
-    if (error) {
-      setError(readable(error.message));
-      setStage("start");
+    try {
+      const problem = await job();
+      if (problem) {
+        setError(readable(problem));
+        setStage(back);
+      }
+    } catch (thrown) {
+      setError(readable(thrown instanceof Error ? thrown.message : String(thrown)));
+      setStage(back);
     }
-    // No success branch. The browser is already on its way to Google.
   }
 
-  async function sendCode(e: React.FormEvent) {
+  const withGoogle = () =>
+    attempt(async () => {
+      const { error } = await connect().auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        },
+      });
+      return error?.message ?? null;
+      // No success branch. The browser is already on its way to Google.
+    }, "start");
+
+  const sendCode = (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setStage("working");
-
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      // The allowlist is enforced in the database, not here. This only stops us
-      // creating an auth user for somebody who was never going to get in.
-      options: { shouldCreateUser: true },
-    });
-
-    if (error) {
-      setError(readable(error.message));
-      setStage("start");
-      return;
-    }
-    setStage("code-sent");
-  }
-
-  async function checkCode(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setStage("working");
-
-    const { error } = await supabase.auth.verifyOtp({
-      email: email.trim(),
-      token: code.trim(),
-      type: "email",
-    });
-
-    if (error) {
-      setError(readable(error.message));
+    return attempt(async () => {
+      const { error } = await connect().auth.signInWithOtp({
+        email: email.trim(),
+        // The allowlist is enforced in the database, not here. This only avoids
+        // creating an auth user for somebody who was never getting in.
+        options: { shouldCreateUser: true },
+      });
+      if (error) return error.message;
       setStage("code-sent");
-      return;
-    }
-    window.location.assign(next);
-  }
+      return null;
+    }, "start");
+  };
+
+  const checkCode = (e: React.FormEvent) => {
+    e.preventDefault();
+    return attempt(async () => {
+      const { error } = await connect().auth.verifyOtp({
+        email: email.trim(),
+        token: code.trim(),
+        type: "email",
+      });
+      if (error) return error.message;
+      window.location.assign(next);
+      return null;
+    }, "code-sent");
+  };
 
   if (stage === "code-sent" || (stage === "working" && code)) {
     return (
@@ -161,23 +174,6 @@ export default function SignInForm() {
       </form>
     </div>
   );
-}
-
-/**
- * Supabase's errors are written for whoever is building the app. These are for
- * whoever is trying to get in. Every one of them says what to do next, and none
- * of them says whether the email exists: that answer would turn this form into
- * a way of finding out who our customers are.
- */
-function readable(message: string): string {
-  const m = message.toLowerCase();
-  if (m.includes("not_invited") || m.includes("42501") || m.includes("database error"))
-    return "That email is not on the list yet. Ask Raj to add it.";
-  if (m.includes("expired") || m.includes("invalid"))
-    return "That code is wrong or has expired. Ask for a new one.";
-  if (m.includes("rate") || m.includes("many"))
-    return "Too many tries. Wait a minute and go again.";
-  return "That did not work. Try again, and tell Raj if it keeps happening.";
 }
 
 function GoogleMark() {
