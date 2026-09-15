@@ -50,11 +50,14 @@ console.log("  Get it from: " + key.from + "\n");
 let value = fromClipboard();
 let how = "clipboard";
 
-if (value && check(value, key)) {
-  // Something is on the clipboard but it is not a key. Say so and offer the
-  // other way, rather than failing and leaving them guessing.
-  console.log("  What is on your clipboard is not an Anthropic key.");
-  value = null;
+const clipboardProblem = value ? check(value, key) : null;
+if (clipboardProblem) {
+  // Something is on the clipboard but it is not a key. Say what is wrong with
+  // it rather than only that it is wrong: the reason is nearly always the
+  // shortened label rather than a bad copy, and those need different fixes.
+  console.log("  What is on your clipboard is not a usable key.\n");
+  console.log(clipboardProblem + "\n");
+  process.exit(1);
 }
 
 if (!value) {
@@ -133,9 +136,18 @@ function check(value, key) {
     return "  That does not start with " + key.starts + ", so the front is missing.";
   }
   if (value.length < key.minLength) {
+    // Nearly always the same cause, so name it rather than describing the
+    // symptom. The console shows the real key once, in the dialog after you
+    // create it. Afterwards the list shows a shortened label, about this
+    // length, which looks like a key and is not one.
     return (
-      "  Only " + value.length + " characters. A real key is about 100.\n" +
-      "  It was cut short somewhere between the website and here."
+      "  Only " + value.length + " characters. A real key is about 100.\n\n" +
+      "  You have almost certainly copied the shortened version the console\n" +
+      "  shows in the list of keys. That is a label, not the key.\n\n" +
+      "  The real one is shown once, in the box right after you press Create\n" +
+      "  key, and there is a copy button in that box. Press the button rather\n" +
+      "  than selecting the text. Once that box is closed it cannot be shown\n" +
+      "  again, so make a new key and delete the old one."
     );
   }
   return null;
