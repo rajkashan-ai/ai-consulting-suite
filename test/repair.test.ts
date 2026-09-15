@@ -93,12 +93,13 @@ test("a clean card goes straight through", async () => {
   assert.equal(out.stage, "done");
 });
 
-test("a second failure is a refusal, not another attempt", async () => {
-  // A loop that keeps asking spends real money getting nowhere. One repair
-  // means the fault is in the wording; two means it is in the facts.
+test("there is a limit on mending, so a run cannot loop for ever", async () => {
+  // One sentence is mended per pass, which is what makes it converge: a fix
+  // cannot break something else. Five is more than any real run has needed, and
+  // past it the card is refused rather than mended again.
   const out = await advance(
     "checking",
-    { card: brokenCard, repairs: 1 } as RunState,
+    { card: brokenCard, repairs: 5 } as RunState,
     business,
     noContext(),
   );
@@ -109,7 +110,7 @@ test("a second failure is a refusal, not another attempt", async () => {
 test("the refusal names the rule in words, not as a function name", async () => {
   const out = await advance(
     "checking",
-    { card: brokenCard, repairs: 1 } as RunState,
+    { card: brokenCard, repairs: 5 } as RunState,
     business,
     noContext(),
   );

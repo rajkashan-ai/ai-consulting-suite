@@ -16,7 +16,9 @@ set -e
 cd "$(dirname "$0")/.."
 
 printf '\n  Checking types\n'
-npx tsc --noEmit
+# Through npm, which clears .next first. Stale duplicate type files in there
+# break tsc with errors that have nothing to do with the code.
+npm run typecheck --silent
 
 printf '\n  Running tests\n'
 npm test --silent 2>&1 | grep -E "^. (tests|pass|fail)" || true

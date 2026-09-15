@@ -21,6 +21,13 @@ import { isProfile, profileFor } from "./profile.ts";
 import { confidence, isDeadEnd, startWith, type Playbook } from "./playbook.ts";
 import { rank, type Found, type Scored } from "./rank.ts";
 import { sift } from "./sift.ts";
+import {
+  droppable,
+  find,
+  read as readSentence,
+  write as replaceSentence,
+  type Spot,
+} from "./mend.ts";
 import { milesBetween, positionsFor, postcodeIn } from "../../lib/research/distance.ts";
 import { platformsFrom, proximityWeight } from "../questions.ts";
 
@@ -141,6 +148,15 @@ export type Step = {
  * past it.
  */
 const PAGES_PER_STEP = 8;
+
+/**
+ * How many sentences may be mended before the card is refused.
+ *
+ * One per pass, so a fix cannot break something else. Five is more than any run
+ * has ever needed: the worst today refused four sentences across its whole life
+ * and only ever one or two at a time.
+ */
+const MAX_MENDS = 5;
 
 export async function advance(
   stage: Stage,
@@ -927,7 +943,7 @@ function check(state: RunState, business: Business): Step {
    * Once only. A second failure means the fault is in the facts rather than the
    * words, and a loop that keeps asking spends real money getting nowhere.
    */
-  if ((state.repairs ?? 0) < 1) {
+  if ((state.repairs ?? 0) < MAX_MENDS) {
     return {
       stage: "fixing",
       state: { ...state, problems },
@@ -964,80 +980,113 @@ function hostOf(url: string): string {
  * It is told to change the words and leave every number, name, date and source
  * where it is.
  */
+/**
+ * Mend one refused sentence. Not the card.
+ *
+ * The old version handed over the whole battlecard and asked for the refused
+ * parts to be reworded. It rewrote sixty sentences to fix one, and the rewrite
+ * introduced a fault somewhere else, so the next check refused a different
+ * sentence and the run died. Six runs failed that way today. It cannot
+ * converge: every attempt is a fresh chance to break something.
+ *
+ * So: find the sentence, reword that sentence, put it back, and leave every
+ * other word alone. If the new words are no better, drop the claim carrying
+ * them. A shorter true card beats a refused one, and dropping is a floor that
+ * always terminates.
+ */
 async function fix(state: RunState, ctx: ToolContext): Promise<Step> {
   const card = state.card;
   const problems = state.problems ?? [];
-  if (!card || !problems.length) return { stage: "checking", state, progress: "Checking it" };
+  if (!card || !problems.length) {
+    return { stage: "checking", state, progress: "Checking it" };
+  }
 
-  const complaints = problems
-    .map(
-      (p) =>
-        `${WHY_REFUSED[p.rule] ?? p.rule}\n` +
-        p.sentences.map((x) => `    ${x}`).join("\n"),
-    )
-    .join("\n\n");
+  // One sentence per pass. The first that can actually be found in the card.
+  let spot: Spot | undefined;
+  let sentence = "";
+  let rule = "";
 
-  const reworded = (await ctx.think({
-    system: REPAIR_RULES,
+  for (const p of problems) {
+    for (const s of p.sentences) {
+      const where = find(card, s);
+      if (where.length) {
+        spot = where[0];
+        sentence = s;
+        rule = p.rule;
+        break;
+      }
+    }
+    if (spot) break;
+  }
+
+  if (!spot) {
+    // The complaint is about the card's shape rather than a sentence: too many
+    // competitors, the wrong number of actions. Nothing here can mend that.
+    return {
+      stage: "checking",
+      state: { ...state, repairs: MAX_MENDS, problems: undefined },
+      progress: "Checking it",
+    };
+  }
+
+  const before = readSentence(card, spot) ?? sentence;
+
+  const answer = (await ctx.think({
+    system: MEND_RULES,
     prompt:
-      `These parts of the battlecard were refused by the check:\n\n${complaints}\n\n` +
-      `Here is the whole thing. Return it with those parts reworded and everything ` +
-      `else identical.\n\n` +
-      JSON.stringify({
-        competitors: card.competitors,
-        actions: card.actions,
-        where_you_win: state.standing?.winning ?? [],
-        where_they_win: state.standing?.losing ?? [],
-      }),
-    shape: BATTLECARD_SHAPE,
-    maxTokens: 16_000,
-  })) as {
-    competitors?: unknown;
-    comparison?: Grid[];
-    actions?: unknown;
-    where_you_win?: Side[];
-    where_they_win?: Side[];
-  };
+      `This sentence was refused:\n\n    ${before}\n\n` +
+      `${WHY_REFUSED[rule] ?? rule}\n\n` +
+      `Rewrite that one sentence. Keep every number, name, date and price in it ` +
+      `exactly as they are. If it cannot be said without inventing something, ` +
+      `say so and it will be cut.`,
+    shape: {
+      name: "reworded",
+      description: "The one sentence, rewritten, or nothing if it cannot be.",
+      input_schema: {
+        type: "object",
+        properties: {
+          sentence: {
+            type: ["string", "null"],
+            description: "The rewritten sentence, or null to cut it.",
+          },
+        },
+        required: ["sentence"],
+      },
+    },
+    maxTokens: 1000,
+  })) as { sentence?: string | null };
 
-  const stillThere = <T,>(fresh: T[] | undefined, before: T[]): T[] =>
-    Array.isArray(fresh) && fresh.length ? fresh : before;
+  const words = typeof answer.sentence === "string" ? answer.sentence.trim() : null;
+
+  // No better, or it gave up: drop the claim if that is allowed, otherwise keep
+  // what we had and let the next check decide.
+  const useful = words && words.length > 5 && words !== before;
+  const next = useful
+    ? replaceSentence(card, spot, words)
+    : droppable(card, spot)
+      ? replaceSentence(card, spot, null)
+      : card;
 
   return {
     stage: "checking",
     state: {
       ...state,
-      /**
-       * A repair may improve the wording and may never lose a part of the card.
-       *
-       * On its first real outing it came back with no actions, the card failed
-       * on "wrong count" and Raj saw a refusal caused by the thing sent to fix
-       * a different refusal. Three actions in, fewer than three out, keep what
-       * we had.
-       */
-      card: {
-        ...card,
-        competitors: keepBetter(
-          shapeCompetitors(reworded.competitors, card.competitors, card.business),
-          card.competitors,
-        ),
-        actions: keepBetter(shapeActions(reworded.actions), card.actions),
-      },
+      card: next,
       repairs: (state.repairs ?? 0) + 1,
-      standing: {
-        winning: stillThere(reworded.where_you_win, state.standing?.winning ?? []),
-        losing: stillThere(reworded.where_they_win, state.standing?.losing ?? []),
-      },
       problems: undefined,
     },
     progress: "Checking it",
   };
 }
 
-/** A rewrite that came back shorter than it went in is a rewrite that lost
- *  something, and the thing it lost is worth more than the wording. */
-function keepBetter<T>(fresh: T[], before: T[]): T[] {
-  return fresh.length >= before.length ? fresh : before;
-}
+const MEND_RULES = `You are rewriting one sentence from a finished battlecard that an automatic
+check refused. Everything else about the card is right and stays as it is.
+
+Keep every number, name, date and price exactly as written. Do not add a fact
+and do not remove one. Change only what the check objected to.
+
+Return null rather than inventing anything. A cut sentence is better than a
+false one, and better than one that gets refused again.`;
 
 /** What each guard is actually complaining about, said so it can be acted on. */
 const WHY_REFUSED: Record<string, string> = {
