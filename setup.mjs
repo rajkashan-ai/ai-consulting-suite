@@ -24,6 +24,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
+import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import pg from "pg";
 
@@ -59,9 +60,23 @@ const ask = async (q) => {
 
 // ---------------------------------------------------------------------------
 
-if (existsSync(ENV)) {
-  const keep = await ask(".env.local already exists. Overwrite it? (y/N) ");
-  if (keep.toLowerCase() !== "y") die("Left your .env.local alone.");
+/**
+ * Anything already in .env.local that this script does not set is kept.
+ *
+ * It used to offer to overwrite the file, which would have thrown away an
+ * Anthropic key that took three attempts to get in. There was never a reason
+ * to: this script sets the Supabase settings and nothing else, so it has no
+ * business touching a line it did not write.
+ */
+const already = existsSync(ENV) ? readFileSync(ENV, "utf8") : "";
+const kept = new Map();
+for (const line of already.split("\n")) {
+  const [name, ...rest] = line.split("=");
+  const value = rest.join("=").trim();
+  if (name && !name.startsWith("#") && value) kept.set(name.trim(), value);
+}
+if (kept.size) {
+  say(`Keeping ${kept.size} setting${kept.size === 1 ? "" : "s"} already in .env.local: ${[...kept.keys()].join(", ")}`);
 }
 
 step(1, "Checking you are logged in");
@@ -241,21 +256,26 @@ say(
 );
 
 step(7, "Writing .env.local");
+const settings = new Map(kept);
+settings.set("NEXT_PUBLIC_SUPABASE_URL", `https://${ref}.supabase.co`);
+settings.set("NEXT_PUBLIC_SUPABASE_ANON_KEY", anon);
+settings.set("SUPABASE_SERVICE_ROLE_KEY", secret);
+if (!settings.get("ANTHROPIC_API_KEY")) settings.set("ANTHROPIC_API_KEY", "");
+// Only used by the scheduled tick, and it refuses everything without one.
+if (!settings.get("CRON_SECRET")) {
+  settings.set("CRON_SECRET", randomBytes(24).toString("base64url"));
+}
+
 writeFileSync(
   ENV,
   [
-    "# Written by setup.mjs. Never commit this, and never paste it anywhere.",
-    `NEXT_PUBLIC_SUPABASE_URL=https://${ref}.supabase.co`,
-    `NEXT_PUBLIC_SUPABASE_ANON_KEY=${anon}`,
-    `SUPABASE_SERVICE_ROLE_KEY=${secret}`,
-    "",
-    "# Only needed once a tool actually runs. Sign-in works without it.",
-    "ANTHROPIC_API_KEY=",
+    "# Supabase lines written by setup.mjs. Never commit this file.",
+    ...[...settings].map(([k, v]) => `${k}=${v}`),
     "",
   ].join("\n"),
   { mode: 0o600 },
 );
-say("   Written, readable only by you.");
+say(`   Written. ${settings.size} settings, ${kept.size} of them kept from before.`);
 
 say(`
 Done.
