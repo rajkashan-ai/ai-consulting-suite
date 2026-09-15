@@ -20,12 +20,26 @@ import { NextResponse, type NextRequest } from "next/server";
 const PUBLIC_PATHS = ["/", "/sign-in", "/not-invited", "/auth"];
 
 export default async function proxy(request: NextRequest) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+  // Nothing configured yet. Say so in one sentence rather than throwing a stack
+  // trace on every route, and serve nothing at all rather than serving pages
+  // with the auth check quietly skipped.
+  if (!url || !key) {
+    return new NextResponse(
+      "Not set up yet. Copy .env.local.example to .env.local and fill it in. See SETUP.md.",
+      { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } },
+    );
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)!,
+    url,
+    key,
     {
       cookies: {
         getAll: () => request.cookies.getAll(),
