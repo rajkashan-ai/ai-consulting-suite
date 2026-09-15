@@ -14,6 +14,7 @@ export type WelcomeState =
       name: string;
       trade: string;
       town: string;
+      address: string;
       oneLiner: string;
       services: { name: string; price: string | null }[];
       pagesRead: number;
@@ -133,6 +134,9 @@ export async function detect(
     !found.trade && "what you do",
     !found.town && "where you are",
     !found.services.length && "your prices",
+    // Without a postcode there is no distance, and distance is the heaviest
+    // factor in deciding which competitors matter.
+    !/\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/i.test(found.address ?? "") && "your postcode",
   ].filter(Boolean) as string[];
 
   return {
@@ -142,6 +146,7 @@ export async function detect(
     name: found.name ?? "",
     trade: found.trade ?? "",
     town: found.town ?? "",
+    address: found.address ?? "",
     oneLiner: found.oneLiner ?? "",
     services: found.services,
     pagesRead: found.sources.filter((s) => s.ok).length,
@@ -165,6 +170,7 @@ export async function confirm(form: FormData): Promise<void> {
       // Already an id from the list, because it came from a dropdown.
       trade: String(form.get("trade") ?? "").trim() || null,
       town: String(form.get("town") ?? "").trim() || null,
+      address: String(form.get("address") ?? "").trim() || null,
       one_liner: String(form.get("oneLiner") ?? "").trim() || null,
       // The three things only the owner knows. Everything else on this screen
       // was read off their own website.

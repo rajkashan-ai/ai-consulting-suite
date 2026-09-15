@@ -66,11 +66,15 @@ export default function Welcome({ staff }: { staff: boolean }) {
             )}
           </div>
           <Row label="Where you are" name="town" value={state.town} />
+          {/* The address decides which competitors count as near, which is the
+              heaviest factor in choosing them. It was read, stored, used, and
+              never shown, so a wrong one could not be corrected. */}
+          <Row label="Your address" name="address" value={state.address} />
           <Row label="In one line" name="oneLiner" value={state.oneLiner} />
 
-          {state.services.length > 0 && (
-            <div className="found__row">
-              <span className="t-kind">Services we found</span>
+          <div className="found__row">
+            <span className="t-kind">Services and prices we found</span>
+            {state.services.length > 0 ? (
               <ul className="cell-list">
                 {state.services.map((s) => (
                   <li key={s.name}>
@@ -79,8 +83,16 @@ export default function Welcome({ staff }: { staff: boolean }) {
                   </li>
                 ))}
               </ul>
-            </div>
-          )}
+            ) : (
+              /* Shown even when empty. A missing section reads as "we did not
+                 look"; this says we looked and what it means. What you charge
+                 is how we tell which competitors are selling to your customer. */
+              <span className="t-meta">
+                None on your site that we could read. We will not be able to tell
+                which competitors charge what you charge.
+              </span>
+            )}
+          </div>
 
           {/* The three things we cannot read off a website, and the only three
               we ask for. Placed after what we found, so the first thing they do

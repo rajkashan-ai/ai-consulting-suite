@@ -2,6 +2,7 @@ import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
 import { fetchPage, type Fetched } from "./fetch";
+import { pagesFrom } from "./sitemap";
 import { forPrompt, matchTrade } from "@/tools/categories";
 
 /**
@@ -50,8 +51,10 @@ const SHAPE = {
       address: {
         type: ["string", "null"],
         description:
-          "Street and district as printed, for example '37 Smithfield Road, SY1'. " +
-          "Never a full postcode: that locates a household. Null if the site does not print one.",
+          "The address exactly as printed, postcode included, for example " +
+          "'37 Smithfield Road, Shrewsbury SY1 1PW'. The postcode is how we work out " +
+          "which competitors are actually near them, so a truncated one is worse than " +
+          "none. Null if the site does not print an address.",
       },
       one_liner: {
         type: ["string", "null"],
@@ -104,12 +107,32 @@ export async function detectBusiness(website: string): Promise<Detected> {
   const home = await fetchPage(website);
   if (!home.ok) return { ...empty, sources: [home], problem: home.note };
 
-  // A home page often sells and says little. Prices and the town usually live
-  // one click away, so we read the few pages most likely to carry them.
-  const extras = await Promise.all(
-    pickLinks(home).map((href) => fetchPage(href)),
-  );
-  const pages = [home, ...extras.filter((p) => p.ok && p.text.length > 200)];
+  /**
+   * Which other pages to read.
+   *
+   * The sitemap first, because a site listing its own pages beats guessing at
+   * them. The Barber Shop Shrewsbury publishes a full price list at
+   * /price-menu, and the guesses were /prices, /pricing and /services, so every
+   * one missed and the sign-up recorded no prices at all.
+   *
+   * The guesses stay as a fallback for the sites with no sitemap.
+   */
+  const origin = new URL(home.url).origin;
+  const fromSitemap = await pagesFrom(origin, async (u) => {
+    const got = await fetchPage(u);
+    return { ok: got.ok, text: got.text };
+  });
+
+  const toRead = fromSitemap.length ? fromSitemap : guessedLinks(home);
+  const extras = await Promise.all(toRead.map((href) => fetchPage(href)));
+
+  const readable = extras.filter((p) => p.ok && p.text.length > 200);
+  const pages = [home, ...readable];
+
+  // Pages we tried and could not read are recorded too. A page that refused us
+  // is a fact about the research, and dropping it silently is how a thin result
+  // looks like a thorough one.
+  const tried = [home, ...extras];
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -156,7 +179,7 @@ export async function detectBusiness(website: string): Promise<Detected> {
     services: Array.isArray(out.services)
       ? (out.services as { name: string; price: string | null }[]).slice(0, 12)
       : [],
-    sources: pages,
+    sources: tried,
     problem: null,
     usage: {
       input: response.usage.input_tokens,
@@ -169,9 +192,9 @@ function str(v: unknown): string | null {
   return typeof v === "string" && v.trim() ? v.trim() : null;
 }
 
-/** Up to three same-site pages whose link text suggests prices, services or
- *  where they are. Same site only: we are reading their business, not the web. */
-function pickLinks(home: Fetched): string[] {
+/** Guesses, for a site with no sitemap. Same site only: we are reading their
+ *  business, not the web. */
+function guessedLinks(home: Fetched): string[] {
   const wanted = /price|pricing|service|treatment|menu|rate|about|contact|find/i;
   const found = new Set<string>();
   const base = new URL(home.url);
