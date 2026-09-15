@@ -7,6 +7,8 @@
  * or sign anybody in. It is for looking at, and it is labelled as such on the
  * page so nobody mistakes it for the product.
  */
+import { TOOLS } from "@/tools/registry";
+
 export const metadata = { title: "Every screen" };
 
 export default function Preview() {
@@ -107,55 +109,52 @@ export default function Preview() {
       <Screen
         n="4"
         title="The workspace"
-        note="Your staff account gets the business chooser and Test another. A customer gets neither."
+        note="Where you land after entering a website. Your staff account gets the business chooser and Test another. A customer gets neither."
       >
         <div className="app app--inline">
-          <header>
-            <span className="logo">
-              <span className="logo__mark" />
-              Suite
-            </span>
-            <span className="chooser">
-              <span className="field field--filled field--sm">
-                The Barber Shop Shrewsbury
-              </span>
-              <span className="btn--sm btn--ghost">Open</span>
-            </span>
-            <span className="btn--sm btn--ghost">Test another</span>
-            <span className="acct">Sign out</span>
-          </header>
-          <nav>
-            {[
-              "Home",
-              "Competitor Tracker",
-              "Content & Social Planner",
-              "Proposal & Quote Builder",
-            ].map((t, i) => (
-              <span
-                key={t}
-                className="navitem"
-                aria-current={i === 0 ? "page" : undefined}
-              >
-                {t}
-              </span>
-            ))}
-            <span className="navitem t-quiet">and three more</span>
-          </nav>
-          <div className="band band--a band--first band--last">
+          <Bar />
+          <NavBar on="Home" />
+          <div className="band band--a band--first">
             <div className="band__in">
               <h1 className="t-page">The Barber Shop Shrewsbury</h1>
               <p className="t-meta">Monday 15 September</p>
               <div>
-                <h2 className="t-section">What moved</h2>
+                <h2 className="t-section">What we know about you</h2>
                 <div className="panel">
-                  <h3 className="t-sub">Nothing to compare yet.</h3>
-                  <p className="t-doc">
-                    Nothing has run for The Barber Shop Shrewsbury yet. Open the
-                    Competitor Tracker and we will write down where everyone
-                    stands today, then tell you what moved next Monday.
+                  <dl className="kv">
+                    <dt className="t-kind">Website</dt>
+                    <dd className="t-row">thebarbershopshrewsbury.co.uk</dd>
+                    <dt className="t-kind">What you do</dt>
+                    <dd className="t-row">barber</dd>
+                    <dt className="t-kind">Where</dt>
+                    <dd className="t-row">Shrewsbury</dd>
+                  </dl>
+                  <p className="t-meta">
+                    Read off your own site. Every tool works from this, so wrong
+                    here means wrong everywhere.
                   </p>
                 </div>
               </div>
+            </div>
+          </div>
+          <div className="band band--b band--last">
+            <div className="band__in">
+              <h2 className="t-section">Your tools</h2>
+              <p className="t-doc">
+                None of them are written yet. Each one opens, says so, and shows
+                what it will be given when somebody builds it.
+              </p>
+              <ul className="tools">
+                {TOOLS.map((t) => (
+                  <li key={t.slug}>
+                    <span className="tools__row">
+                      <span className="t-card">{t.name}</span>
+                      <span className="t-meta">{t.does}</span>
+                      <span className="t-kind kind--warn">Not built</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </div>
@@ -163,6 +162,39 @@ export default function Preview() {
 
       <Screen
         n="5"
+        title="Opening a tool that is not written yet"
+        note="This is what all six do today. It says so, rather than showing an empty screen that looks broken."
+      >
+        <div className="app app--inline">
+          <Bar />
+          <NavBar on="Competitor Tracker" />
+          <div className="band band--a band--first band--last">
+            <div className="band__in">
+              <h1 className="t-page">Competitor Tracker</h1>
+              <p className="t-doc">
+                Who you are up against, what they charge, and what to do about
+                it.
+              </p>
+              <div className="panel">
+                <h2 className="t-sub">This one is not built yet.</h2>
+                <p className="t-doc">
+                  Nothing runs here. When it is written it will read
+                  thebarbershopshrewsbury.co.uk and work from what a barber
+                  needs, in Shrewsbury.
+                </p>
+                <p className="t-meta">
+                  Everything around it works: signing in, which business is
+                  open, reading pages, storing what came back and showing it.
+                  What is missing is this tool&rsquo;s own job.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Screen>
+
+      <Screen
+        n="6"
         title="Turned away"
         note="Anyone not on the list. No account is created for them."
       >
@@ -183,7 +215,7 @@ export default function Preview() {
       </Screen>
 
       <Screen
-        n="6"
+        n="7"
         title="Your account"
         note="Download everything, or delete everything. Both are legal requirements."
       >
@@ -225,6 +257,42 @@ export default function Preview() {
         </div>
       </Screen>
     </div>
+  );
+}
+
+function Bar() {
+  return (
+    <header>
+      <span className="logo">
+        <span className="logo__mark" />
+        Suite
+      </span>
+      <span className="chooser">
+        <span className="field field--filled field--sm">
+          The Barber Shop Shrewsbury
+        </span>
+        <span className="btn--sm btn--ghost">Open</span>
+      </span>
+      <span className="btn--sm btn--ghost">Test another</span>
+      <span className="acct">Account</span>
+      <span className="acct">Sign out</span>
+    </header>
+  );
+}
+
+function NavBar({ on }: { on: string }) {
+  return (
+    <nav>
+      {["Home", ...TOOLS.map((t) => t.name)].map((name) => (
+        <span
+          key={name}
+          className="navitem"
+          aria-current={name === on ? "page" : undefined}
+        >
+          {name}
+        </span>
+      ))}
+    </nav>
   );
 }
 
