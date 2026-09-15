@@ -80,3 +80,33 @@ test("it returns five, not seventy", () => {
   assert.equal(rank(many, { area: null, price: null }).length, 5);
   assert.equal(rank(many, { area: null, price: null })[0].name, "b69");
 });
+
+test("the town alone must not count as near, or everybody is near", () => {
+  // The bug this was written for. Proximity was handed the town, so every
+  // barber in Shrewsbury matched "Shrewsbury", the heaviest factor fired for
+  // all of them, and it separated nobody while looking like it worked.
+  const all = [
+    one({ name: "high street", area: "37 Smithfield Road, Shrewsbury", reviews: 100 }),
+    one({ name: "business park", area: "Anchorage Avenue, Shrewsbury", reviews: 100 }),
+  ];
+
+  const withTownOnly = rank(all, { area: "Shrewsbury", price: null });
+  assert.equal(
+    withTownOnly[0].score,
+    withTownOnly[1].score,
+    "given only the town, it cannot tell them apart. That is the bug.",
+  );
+
+  const withStreet = rank(all, { area: "37 Smithfield Road, Shrewsbury", price: null });
+  assert.equal(withStreet[0].name, "high street");
+  assert.ok(withStreet[0].score > withStreet[1].score);
+});
+
+test("price overlap does nothing without your own price, and something with it", () => {
+  const all = [one({ name: "cheap", price: 15 }), one({ name: "dear", price: 35 })];
+  const blind = rank(all, { area: null, price: null });
+  assert.equal(blind[0].score, blind[1].score, "no price of yours, no opinion");
+
+  const seeing = rank(all, { area: null, price: 15 });
+  assert.equal(seeing[0].name, "cheap");
+});

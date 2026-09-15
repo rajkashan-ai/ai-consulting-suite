@@ -15,8 +15,13 @@ export type Business = {
   id: string;
   website: string;
   name: string | null;
-  trade: string | null;   // "barber", "plumber". Decides where a tool even looks
+  /** A category id from tools/categories.ts. Decides where a tool even looks. */
+  trade: string | null;
   town: string | null;
+  /** Street and district. Never a full postcode. Used to judge who is near. */
+  address: string | null;
+  /** Their cheapest published price, used to judge who sells to the same person. */
+  headlinePrice: number | null;
   oneLiner: string | null;
 };
 

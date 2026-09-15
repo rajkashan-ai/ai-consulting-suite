@@ -98,13 +98,31 @@ export async function detect(
     "what we detected from a website",
   );
 
+  /**
+   * The address and the prices are kept, not just shown.
+   *
+   * They were read at sign-up, displayed on the confirm screen, and thrown
+   * away. Choosing which five competitors matter then ranked on proximity with
+   * only the town to go on, so every barber in Shrewsbury matched Shrewsbury
+   * and the heaviest factor separated nobody, and on price overlap with no
+   * price at all.
+   */
+  const prices = found.services
+    .map((s) => Number(String(s.price ?? "").replace(/[^0-9.]/g, "")))
+    .filter((n) => Number.isFinite(n) && n > 0);
+
   await supabase
     .from("workspaces")
     .update({
       name: found.name,
       trade: found.trade,
       town: found.town,
+      address: found.address,
       one_liner: found.oneLiner,
+      services: found.services,
+      // The cheapest published price. It is what someone comparing on price
+      // sees first, and it is the number a competitor has to beat.
+      headline_price: prices.length ? Math.min(...prices) : null,
     })
     .eq("id", workspace.id);
 

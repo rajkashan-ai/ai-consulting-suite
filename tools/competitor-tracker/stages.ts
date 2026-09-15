@@ -400,7 +400,17 @@ function choose(state: RunState, business: Business): Step {
   );
 
   const picked = listed.length
-    ? rank(listed, { area: business.town, price: null }, MAX_COMPETITORS)
+    ? rank(
+        listed,
+        {
+          // Their street, falling back to the town. Handing it the town alone
+          // meant every business in the town matched and the heaviest factor
+          // separated nobody.
+          area: business.address ?? business.town,
+          price: business.headlinePrice,
+        },
+        MAX_COMPETITORS,
+      )
     : [];
 
   const competitors = refreshSet(

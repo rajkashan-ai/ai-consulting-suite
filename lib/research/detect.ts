@@ -22,6 +22,7 @@ export type Detected = {
   name: string | null;
   trade: string | null;
   town: string | null;
+  address: string | null;
   oneLiner: string | null;
   services: { name: string; price: string | null }[];
   /** Pages we actually read, with the date. CLAUDE.md 1.5 rule 7. */
@@ -46,6 +47,12 @@ const SHAPE = {
           "copied exactly. Null if none of them fit, which is a real answer.",
       },
       town: { type: ["string", "null"], description: "Town or city they work in." },
+      address: {
+        type: ["string", "null"],
+        description:
+          "Street and district as printed, for example '37 Smithfield Road, SY1'. " +
+          "Never a full postcode: that locates a household. Null if the site does not print one.",
+      },
       one_liner: {
         type: ["string", "null"],
         description:
@@ -90,7 +97,7 @@ ${forPrompt()}`;
 
 export async function detectBusiness(website: string): Promise<Detected> {
   const empty: Detected = {
-    name: null, trade: null, town: null, oneLiner: null,
+    name: null, trade: null, town: null, address: null, oneLiner: null,
     services: [], sources: [], problem: null, usage: { input: 0, output: 0 },
   };
 
@@ -131,6 +138,9 @@ export async function detectBusiness(website: string): Promise<Detected> {
     // because a made-up trade is a playbook nobody else will ever share.
     trade: matchTrade(str(out.trade)),
     town: str(out.town),
+    // A full postcode is stripped even if the model returns one. It locates a
+    // household, and for a sole trader working from home that is their home.
+    address: str(out.address)?.replace(/\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/gi, (m) => m.split(/\s|(?<=\d)(?=[A-Z])/)[0]) ?? null,
     oneLiner: str(out.one_liner),
     services: Array.isArray(out.services)
       ? (out.services as { name: string; price: string | null }[]).slice(0, 12)
