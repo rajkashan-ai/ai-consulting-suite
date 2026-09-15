@@ -90,14 +90,18 @@ test("the town alone must not count as near, or everybody is near", () => {
     one({ name: "business park", area: "Anchorage Avenue, Shrewsbury", reviews: 100 }),
   ];
 
-  const withTownOnly = rank(all, { area: "Shrewsbury", price: null });
+  const withTownOnly = rank(all, { area: "Shrewsbury", town: "Shrewsbury", price: null });
   assert.equal(
     withTownOnly[0].score,
     withTownOnly[1].score,
     "given only the town, it cannot tell them apart. That is the bug.",
   );
 
-  const withStreet = rank(all, { area: "37 Smithfield Road, Shrewsbury", price: null });
+  const withStreet = rank(all, {
+    area: "37 Smithfield Road, Shrewsbury",
+    town: "Shrewsbury",
+    price: null,
+  });
   assert.equal(withStreet[0].name, "high street");
   assert.ok(withStreet[0].score > withStreet[1].score);
 });

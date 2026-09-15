@@ -49,7 +49,10 @@ export type Found = {
 };
 
 export type You = {
+  /** Street and district. Never a full postcode. */
   area: string | null;
+  /** Their town, so it can be ignored when comparing: everyone is in it. */
+  town?: string | null;
   price: number | null;
 };
 
@@ -68,6 +71,10 @@ const WEIGHT = {
 };
 
 export function rank(found: Found[], you: You, take = 5): Scored[] {
+  // The town is in nearly every address on the page, so matching on it makes
+  // everybody near and the heaviest factor separates nobody. Ignored, so what
+  // is left is the street and the district, which is the part that differs.
+  const everywhere = you.town ? [you.town] : [];
   const mostReviews = Math.max(1, ...found.map((f) => f.reviews ?? 0));
 
   return found
@@ -77,7 +84,7 @@ export function rank(found: Found[], you: You, take = 5): Scored[] {
 
       // Proximity. Without a distance we compare the words: the same street or
       // district is the strongest signal a listing gives us.
-      const near = sameArea(f.area, you.area);
+      const near = sameArea(f.area, you.area, everywhere);
       if (near) {
         score += WEIGHT.proximity;
         reasons.push(`near you, ${f.area}`);
@@ -126,14 +133,26 @@ export function rank(found: Found[], you: You, take = 5): Scored[] {
  * district ("SY1") counts; a full postcode is never used, because that locates
  * a household and is personal data.
  */
-export function sameArea(theirs: string | null, yours: string | null): boolean {
+export function sameArea(
+  theirs: string | null,
+  yours: string | null,
+  ignore: string[] = [],
+): boolean {
   if (!theirs || !yours) return false;
+
+  // The town goes in here. It appears in nearly every address on the page, so
+  // leaving it in makes every business in the town count as next door.
+  const skip = new Set([
+    ...STREET_NOISE,
+    ...ignore.flatMap((w) => w.toLowerCase().split(/\s+/)),
+  ]);
+
   const words = (s: string) =>
     new Set(
       s.toLowerCase()
         .replace(/[^a-z0-9\s]/g, " ")
         .split(/\s+/)
-        .filter((w) => w.length > 2 && !STREET_NOISE.has(w)),
+        .filter((w) => w.length > 2 && !skip.has(w)),
     );
   const a = words(theirs);
   const b = words(yours);

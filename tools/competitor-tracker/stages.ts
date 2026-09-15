@@ -407,6 +407,7 @@ function choose(state: RunState, business: Business): Step {
           // meant every business in the town matched and the heaviest factor
           // separated nobody.
           area: business.address ?? business.town,
+          town: business.town,
           price: business.headlinePrice,
         },
         MAX_COMPETITORS,
