@@ -1,0 +1,42 @@
+#!/bin/sh
+#
+# Runs before every commit, and stops it if anything is broken.
+#
+# WHY THIS EXISTS
+# On 15 September a commit went in with a failing test. The test was right, the
+# code was wrong, and it was found only because the next command happened to
+# print the failure. Nothing stopped it, because nothing was checking.
+#
+# Tests that only run when somebody remembers are not a safety net, they are a
+# habit, and habits go first on the day you are in a hurry.
+#
+# To skip it, deliberately:  git commit --no-verify
+set -e
+
+cd "$(dirname "$0")/.."
+
+printf '\n  Checking types\n'
+npx tsc --noEmit
+
+printf '\n  Running tests\n'
+npm test --silent 2>&1 | grep -E "^. (tests|pass|fail)" || true
+npm test --silent > /dev/null 2>&1 || {
+  printf '\n  TESTS FAILED. Nothing committed.\n'
+  printf '  Run: npm test\n\n'
+  exit 1
+}
+
+printf '\n  Checking the SQL parses\n'
+node --input-type=module -e "
+import pg from 'libpg-query';
+import { readdirSync, readFileSync } from 'node:fs';
+await pg.loadModule();
+let bad = 0;
+for (const f of readdirSync('supabase').filter(x => x.endsWith('.sql'))) {
+  try { await pg.parse(readFileSync('supabase/' + f, 'utf8')); }
+  catch (e) { console.error('  ' + f + ': ' + e.message); bad++; }
+}
+process.exit(bad ? 1 : 0);
+"
+
+printf '\n  All good.\n\n'

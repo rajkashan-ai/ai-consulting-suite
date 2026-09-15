@@ -10,7 +10,8 @@
     "setup": "node setup.mjs",
     "key": "node set-key.mjs",
     "code": "node get-code.mjs",
-    "typecheck": "rm -rf .next && tsc --noEmit"
+    "typecheck": "rm -rf .next && tsc --noEmit",
+    "check": "npm run typecheck && npm test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",
