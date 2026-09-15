@@ -81,6 +81,49 @@ const next = new RegExp("^" + key.name + "=", "m").test(existing)
   ? existing.replace(new RegExp("^" + key.name + "=.*$", "m"), line)
   : existing.replace(/\n*$/, "") + "\n" + line + "\n";
 
+/**
+ * Ask Anthropic whether the key actually works, before saying it is saved.
+ *
+ * Saying "saved, the right length" and leaving it at that was wrong. Raj typed
+ * a key by hand, got 108 characters, was told it was fine, and found out it was
+ * invalid twenty minutes later through an error that mentioned none of this.
+ * The right length is not the same as the right key.
+ *
+ * Listing models costs nothing and needs no tokens.
+ */
+process.stdout.write("  Checking it works with Anthropic... ");
+let works = false;
+let why = "";
+try {
+  const res = await fetch("https://api.anthropic.com/v1/models?limit=1", {
+    headers: { "x-api-key": value, "anthropic-version": "2023-06-01" },
+  });
+  works = res.ok;
+  if (!res.ok) {
+    why = res.status === 401
+      ? "Anthropic does not recognise it."
+      : "Anthropic answered " + res.status + ".";
+  }
+} catch (e) {
+  // No internet is not a bad key. Save it and say we could not check.
+  why = "could-not-check";
+}
+
+if (why === "could-not-check") {
+  console.log("could not reach Anthropic, so it is saved unchecked.");
+} else if (!works) {
+  console.log("no.\n");
+  console.log("  " + why);
+  console.log("  Nothing was saved, because a key that does not work is worse");
+  console.log("  than no key: it fails later with an error about something else.\n");
+  console.log("  Typing a hundred characters by hand goes wrong more often than");
+  console.log("  not. Make a new key and use the copy button in the box that");
+  console.log("  appears right after you press Create key.\n");
+  process.exit(1);
+} else {
+  console.log("yes.");
+}
+
 writeFileSync(ENV, next.replace(/^\n+/, ""), { mode: 0o600 });
 
 if (tidied) {
@@ -109,7 +152,7 @@ console.log("  Then:  http://localhost:3000/try\n");
 function extract(text, key) {
   if (!text) return null;
   const squashed = text.replace(/\s+/g, "");
-  const found = squashed.match(new RegExp(key.starts + "[A-Za-z0-9_-]+"));
+  const found = squashed.match(new RegExp(key.starts + "\\S+"));
   return found ? found[0] : null;
 }
 

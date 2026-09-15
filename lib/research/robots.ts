@@ -25,9 +25,19 @@ const CACHE = new Map<string, { rules: Rules; at: number }>();
 const CACHE_FOR = 60 * 60 * 1000; // an hour. robots.txt does not move often
 
 export type Rules = {
-  /** Null means the file was missing or unreadable, which permits everything. */
+  /** Null means the file was missing, which permits everything. */
   groups: { allow: string[]; deny: string[] } | null;
   crawlDelayMs: number;
+  /**
+   * False when we could not reach the site at all.
+   *
+   * Both cases stop us fetching, but they are not the same thing and must not
+   * be reported as the same thing. "Their robots.txt asks us not to" told Raj
+   * a site had refused us when the domain did not exist. He would have gone
+   * looking at the wrong problem, and worse, he would have believed a fact
+   * about somebody else's website that was not true.
+   */
+  reachable: boolean;
 };
 
 export type RobotsVerdict = {
@@ -45,7 +55,7 @@ export async function robotsFor(
   const hit = CACHE.get(origin);
   if (hit && Date.now() - hit.at < CACHE_FOR) return hit.rules;
 
-  let rules: Rules = { groups: null, crawlDelayMs: 0 };
+  let rules: Rules = { groups: null, crawlDelayMs: 0, reachable: true };
   try {
     const response = await fetchImpl(`${origin}/robots.txt`, {
       headers: { "user-agent": userAgent },
@@ -56,13 +66,14 @@ export async function robotsFor(
     // 5xx means the site is broken, and the standard says treat that as a full
     // disallow rather than assume permission from a server that is failing.
     if (response.status >= 500) {
-      rules = { groups: { allow: [], deny: ["/"] }, crawlDelayMs: 0 };
+      rules = { groups: { allow: [], deny: ["/"] }, crawlDelayMs: 0, reachable: true };
     } else if (response.ok) {
       rules = parse(await response.text(), userAgent);
     }
   } catch {
-    // Timed out or refused. Same reasoning as a 5xx: no answer is not a yes.
-    rules = { groups: { allow: [], deny: ["/"] }, crawlDelayMs: 0 };
+    // We never reached the site. No answer is not a yes, so nothing is fetched,
+    // but this is "we could not get there" and not "they said no".
+    rules = { groups: { allow: [], deny: ["/"] }, crawlDelayMs: 0, reachable: false };
   }
 
   CACHE.set(origin, { rules, at: Date.now() });
@@ -120,10 +131,11 @@ export function parse(text: string, userAgent: string): Rules {
   const star = groups.find((g) => g.agents.includes("*"));
   const chosen = named ?? star;
 
-  if (!chosen) return { groups: null, crawlDelayMs: 0 };
+  if (!chosen) return { groups: null, crawlDelayMs: 0, reachable: true };
   return {
     groups: { allow: chosen.allow, deny: chosen.deny },
     crawlDelayMs: Math.round(chosen.delay * 1000),
+    reachable: true,
   };
 }
 

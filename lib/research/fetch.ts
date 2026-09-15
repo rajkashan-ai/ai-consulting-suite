@@ -107,6 +107,19 @@ export async function fetchPage(input: string): Promise<Fetched> {
   }
 
   const rules = await robotsFor(url.origin, USER_AGENT);
+
+  // Unreachable and refused both stop us, and they are different facts. Saying
+  // a site refused us when the domain does not exist is a claim about somebody
+  // else's website that happens to be false.
+  if (!rules.reachable) {
+    return fail(
+      url.href,
+      domain,
+      at,
+      `We could not reach ${domain}. Check the address is right and that the site is up.`,
+    );
+  }
+
   if (!mayFetch(rules, url.pathname + url.search)) {
     return {
       ...fail(url.href, domain, at, "Their robots.txt asks us not to read this page."),

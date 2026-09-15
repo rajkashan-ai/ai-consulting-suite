@@ -84,3 +84,11 @@ test("a hostile pattern cannot crash the parser", () => {
   // closed and quietly, not take a research run down with it.
   assert.doesNotThrow(() => can("User-agent: *\nDisallow: /[", "/anything"));
 });
+
+test("a site we could never reach is not reported as a site that refused us", () => {
+  // 15 September: /try said "Their robots.txt asks us not to read this page"
+  // for a domain that does not resolve. Both stop the fetch, but one is a claim
+  // about somebody else's website and it was false.
+  assert.equal(parse("", UA).reachable, true);
+  assert.equal(parse("User-agent: *\nDisallow: /", UA).reachable, true);
+});
