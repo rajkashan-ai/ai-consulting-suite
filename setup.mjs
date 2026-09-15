@@ -266,6 +266,8 @@ step(6, "Switching the sign-in email to a six digit code");
 // reads it, which spends the one-time login and produces a failure nobody can
 // explain. A code has to be typed, so a robot cannot spend it.
 let templateDone = false;
+/** Anything the script could not do, said at the end where it will be read. */
+const leftForYou = [];
 if (token) {
   const body = {
     mailer_otp_exp: 3600,
@@ -283,13 +285,21 @@ if (token) {
   templateDone = res.ok;
   if (!res.ok) say(`   Could not set it automatically (${res.status}).`);
 }
-say(
-  templateDone
-    ? "   Done. The email now carries a code."
-    : "   DO THIS BY HAND: Supabase dashboard, Authentication, Email Templates,\n" +
-      "   Magic Link. Replace the link with {{ .Token }}. Without it you will get a\n" +
-      "   link in your email and the six digit box will have nothing to put in it.",
-);
+if (templateDone) {
+  say("   Done. The email now carries a code.");
+} else {
+  // Printed as the last thing, not the sixth of seven. The CLI keeps its access
+  // token in the keychain, so this usually cannot be done automatically, and a
+  // note in the middle of a successful run is a note nobody reads. Raj signed
+  // in, got a link, and had to come back and ask.
+  leftForYou.push(
+    "THE SIGN IN EMAIL WILL CARRY A LINK, NOT A CODE.\n" +
+    "   Supabase dashboard, Authentication, Email Templates, Magic Link.\n" +
+    "   Replace the whole body with:  {{ .Token }}\n" +
+    "   Takes thirty seconds. Until then the six digit box has nothing to put\n" +
+    "   in it, and `npm run code` gets you a code without the email.",
+  );
+}
 
 step(7, "Writing .env.local");
 const settings = new Map(kept);
@@ -312,6 +322,14 @@ writeFileSync(
   { mode: 0o600 },
 );
 say(`   Written. ${settings.size} settings, ${kept.size} of them kept from before.`);
+
+if (leftForYou.length) {
+  say("\n" + "=".repeat(68));
+  say("  STILL FOR YOU TO DO");
+  say("=".repeat(68));
+  for (const item of leftForYou) say(`\n   ${item}`);
+  say("\n" + "=".repeat(68));
+}
 
 say(`
 Done.
