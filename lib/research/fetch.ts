@@ -2,6 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mayFetch, robotsFor } from "./robots";
+import { queued } from "./queue";
 
 /**
  * The only way this product reads a page on the web.
@@ -43,24 +44,6 @@ export type Fetched = {
   /** Plain English, safe to show a customer. "Blocked by their robots.txt". */
   note: string;
 };
-
-/**
- * One promise chain per host, so two requests to the same site can never be in
- * flight together however many tools ask at once. Different sites still run in
- * parallel: the politeness is per site, which is what rule 4 actually says.
- */
-const queues = new Map<string, Promise<unknown>>();
-
-function queued<T>(host: string, job: () => Promise<T>): Promise<T> {
-  const previous = queues.get(host) ?? Promise.resolve();
-  const next = previous.then(job, job);
-  // Keep the chain, drop the value, and never let one failure poison the queue.
-  queues.set(
-    host,
-    next.catch(() => undefined),
-  );
-  return next;
-}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -129,7 +112,11 @@ export async function fetchPage(input: string): Promise<Fetched> {
 
   const gap = Math.max(rules.crawlDelayMs, DEFAULT_GAP_MS);
 
-  return queued(url.hostname, async () => {
+  // Queued on the domain with www stripped, not the raw hostname. They are the
+  // same machine, and queueing them separately meant one spelling of a site
+  // could be fetched while the other spelling was mid-request, which is exactly
+  // the thing rule 4 exists to prevent.
+  return queued(domain, async () => {
     await sleep(gap);
     try {
       const response = await fetch(url.href, {

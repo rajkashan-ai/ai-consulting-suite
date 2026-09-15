@@ -96,9 +96,15 @@ export type Step = {
   progress: string;
 };
 
-/** How many pages one call will fetch. Each has a pause before it, so this is
- *  the knob that keeps a single tick inside any hosting time limit. */
-const PAGES_PER_STEP = 4;
+/**
+ * How many pages one call will fetch.
+ *
+ * They go out together now, so this is the width of one step rather than its
+ * length. Kept modest anyway: a step still has to finish inside the time limit
+ * hosting puts on a request, and one slow site should not drag twenty others
+ * past it.
+ */
+const PAGES_PER_STEP = 8;
 
 export async function advance(
   stage: Stage,
@@ -255,8 +261,11 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
   const rows: Found[] = [];
   const pages: ReadPage[] = [];
 
-  for (const url of [...wanted].slice(0, 2)) {
-    const got = await ctx.read(url);
+  // Booksy and Fresha are always different hosts, so there is never a reason to
+  // wait for one before asking the other.
+  const fetched = await Promise.all([...wanted].slice(0, 2).map((u) => ctx.read(u)));
+
+  for (const got of fetched) {
     pages.push({
       url: got.url,
       ok: got.ok,
@@ -491,18 +500,37 @@ async function read(state: RunState, ctx: ToolContext): Promise<Step> {
   const batch = queue.slice(0, PAGES_PER_STEP);
   const rest = queue.slice(PAGES_PER_STEP);
 
-  for (const item of batch) {
-    const got = await ctx.read(item.url);
+  /**
+   * All at once. The politeness is owed per site, not overall.
+   *
+   * CLAUDE.md 1.5 rule 4 is one request at a time per site, with a pause, and
+   * `queued()` in lib/research/fetch.ts already enforces exactly that: one
+   * promise chain per hostname. Reading Booksy and a barber's own website at the
+   * same moment slows neither of them down.
+   *
+   * This loop used to await each page before starting the next, so five
+   * competitors on five different domains were read one after another, each
+   * waiting out a pause owed to a site it had nothing to do with. The fetcher
+   * was built for this and the caller threw it away.
+   *
+   * Two pages on the same host still queue behind each other, because the
+   * fetcher decides that and not this loop. Nothing here can make us rude by
+   * accident.
+   */
+  const got = await Promise.all(batch.map((item) => ctx.read(item.url)));
+
+  batch.forEach((item, i) => {
+    const page = got[i];
     (pages[item.name] ??= []).push({
-      url: got.url,
-      ok: got.ok,
-      title: got.title,
+      url: page.url,
+      ok: page.ok,
+      title: page.title,
       // Enough to understand the page, not a copy of it. Rule 5.
-      text: got.text.slice(0, 12_000),
-      fetchedOn: got.fetchedAt.slice(0, 10),
-      note: got.note,
+      text: page.text.slice(0, 12_000),
+      fetchedOn: page.fetchedAt.slice(0, 10),
+      note: page.note,
     });
-  }
+  });
 
   const done = Object.values(pages).flat().length;
   const total = done + rest.length;
