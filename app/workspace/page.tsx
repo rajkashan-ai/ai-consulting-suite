@@ -1,17 +1,11 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { TOOLS } from "@/tools/registry";
 import Nav from "./nav";
+import Chrome from "./chrome";
 
 export const metadata = { title: "Workspace" };
-
-const TOOLS = [
-  "Competitor Tracker",
-  "Content & Social Planner",
-  "Proposal & Quote Builder",
-  "Lead Capture & Funnel Builder",
-  "Pricing & Package Builder",
-  "Process & SOP Builder",
-];
 
 export default async function Workspace({
   searchParams,
@@ -23,10 +17,10 @@ export default async function Workspace({
   if (!user) redirect("/sign-in");
 
   const [{ data: profile }, { data: workspaces }] = await Promise.all([
-    supabase.from("profiles").select("is_staff, email").eq("id", user.id).single(),
+    supabase.from("profiles").select("is_staff").eq("id", user.id).single(),
     supabase
       .from("workspaces")
-      .select("id, name, website, trade, town, confirmed_at")
+      .select("id, name, website, trade, town, one_liner")
       .not("confirmed_at", "is", null)
       .order("created_at", { ascending: false }),
   ]);
@@ -43,47 +37,12 @@ export default async function Workspace({
     month: "long",
   }).format(new Date());
 
+  const waiting = TOOLS.filter((t) => !t.built).length;
+
   return (
     <div className="app">
-      <header>
-        <span className="logo">
-          <span className="logo__mark" />
-          Suite
-        </span>
-        {/* Staff only. A customer has one business, so anything implying a
-            second one is forbidden by UI/CLAUDE.md section 7. */}
-        {staff && workspaces.length > 1 && (
-          <form className="chooser">
-            <select
-              name="w"
-              className="field"
-              defaultValue={current.id}
-              aria-label="Which business you are testing"
-            >
-              {workspaces.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name ?? w.website}
-                </option>
-              ))}
-            </select>
-            <button className="btn--sm btn--ghost" type="submit">
-              Open
-            </button>
-          </form>
-        )}
-        {staff && (
-          <a className="btn--sm btn--ghost" href="/welcome">
-            Test another
-          </a>
-        )}
-        <form action="/auth/sign-out" method="post">
-          <button className="acct acct--button" type="submit">
-            Sign out
-          </button>
-        </form>
-      </header>
-
-      <Nav tools={TOOLS} />
+      <Chrome staff={staff} workspaces={workspaces} current={current} />
+      <Nav workspaceId={current.id} />
 
       <main>
         <div className="band band--a band--first">
@@ -92,13 +51,25 @@ export default async function Workspace({
             <p className="t-meta">{today}</p>
 
             <div>
-              <h2 className="t-section">What moved</h2>
+              <h2 className="t-section">What we know about you</h2>
               <div className="panel">
-                <h3 className="t-sub">Nothing to compare yet.</h3>
-                <p className="t-doc">
-                  Nothing has run for {current.name ?? "this business"} yet. Open
-                  the Competitor Tracker and we will write down where everyone
-                  stands today, then tell you what moved next Monday.
+                <dl className="kv">
+                  <dt className="t-kind">Website</dt>
+                  <dd className="t-row">{current.website}</dd>
+                  <dt className="t-kind">What you do</dt>
+                  <dd className="t-row">{current.trade ?? "Not found"}</dd>
+                  <dt className="t-kind">Where</dt>
+                  <dd className="t-row">{current.town ?? "Not found"}</dd>
+                  {current.one_liner && (
+                    <>
+                      <dt className="t-kind">In one line</dt>
+                      <dd className="t-row">{current.one_liner}</dd>
+                    </>
+                  )}
+                </dl>
+                <p className="t-meta">
+                  Read off your own site. Every tool works from this, so wrong
+                  here means wrong everywhere.
                 </p>
               </div>
             </div>
@@ -107,20 +78,36 @@ export default async function Workspace({
 
         <div className="band band--b band--last">
           <div className="band__in">
-            <h2 className="t-section">What we know about you</h2>
-            <div className="panel">
-              <dl className="kv">
-                <dt className="t-kind">Website</dt>
-                <dd className="t-row">{current.website}</dd>
-                <dt className="t-kind">What you do</dt>
-                <dd className="t-row">{current.trade ?? "Not set"}</dd>
-                <dt className="t-kind">Where</dt>
-                <dd className="t-row">{current.town ?? "Not set"}</dd>
-              </dl>
-              <p className="t-meta">
-                Every tool reads this. Wrong here means wrong everywhere.
+            <h2 className="t-section">Your tools</h2>
+            {waiting === TOOLS.length ? (
+              <p className="t-doc">
+                None of them are written yet. Each one opens, says so, and shows
+                what it will be given when somebody builds it.
               </p>
-            </div>
+            ) : (
+              <p className="t-doc">
+                {TOOLS.length - waiting} of {TOOLS.length} are working.
+              </p>
+            )}
+
+            <ul className="tools">
+              {TOOLS.map((tool) => (
+                <li key={tool.slug}>
+                  <Link
+                    className="tools__row"
+                    href={`/workspace/${tool.slug}?w=${current.id}`}
+                  >
+                    <span className="t-card">{tool.name}</span>
+                    <span className="t-meta">{tool.does}</span>
+                    <span
+                      className={`t-kind ${tool.built ? "kind--good" : "kind--warn"}`}
+                    >
+                      {tool.built ? "Ready" : "Not built"}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </main>

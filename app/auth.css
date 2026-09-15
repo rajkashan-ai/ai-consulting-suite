@@ -126,3 +126,23 @@
 /* Inputs shown with content in them. Not real fields: nothing here submits. */
 .field--filled{display:flex; align-items:center; color:var(--ink)}
 .field--sm{height:44px; width:160px; display:block}
+
+/* ---- The list of tools on the home screen -------------------------------- */
+
+.tools{margin-top:var(--s4); border:1px solid var(--line);
+  border-radius:var(--r-card); overflow:hidden; background:var(--card)}
+.tools li + li{border-top:1px solid var(--line-soft)}
+.tools__row{
+  display:grid; grid-template-columns:1fr auto; gap:var(--s1) var(--s4);
+  padding:var(--s4) var(--s5); text-decoration:none; color:inherit;
+  transition:background-color var(--dur) var(--ease);
+}
+.tools__row .t-meta{grid-column:1}
+/* The status sits beside the name and spans both rows, so a long description
+   cannot push it out of line with the one above it. */
+.tools__row .t-kind{grid-column:2; grid-row:1 / span 2; align-self:center}
+@media (any-hover:hover){ .tools__row:hover{background:var(--card-2)} }
+@media (max-width:640px){
+  .tools__row{grid-template-columns:1fr}
+  .tools__row .t-kind{grid-column:1; grid-row:auto}
+}
