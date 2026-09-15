@@ -33,6 +33,10 @@
 create table if not exists public.allowed_emails (
   email    text primary key,
   note     text,                                    -- who they are, so the list stays readable
+  -- Staff is decided here, at invitation, not on the profile. A profile does
+  -- not exist until the person first signs in, so setting it there meant
+  -- running the seed twice and getting "UPDATE 0" the first time.
+  staff    boolean not null default false,
   added_at timestamptz not null default now()
 );
 
@@ -92,16 +96,23 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  -- Not called is_staff. A variable with the same name as the column it is
+  -- inserted into is ambiguous inside plpgsql, and Postgres can refuse the
+  -- whole statement. The first sign-in is a bad place to find that out.
+  invited_as_staff boolean;
 begin
-  if not exists (
-    select 1 from public.allowed_emails
-    where lower(email) = lower(new.email)
-  ) then
+  select a.staff into invited_as_staff
+  from public.allowed_emails a
+  where lower(a.email) = lower(new.email);
+
+  -- Not on the list at all, as opposed to on it and not staff.
+  if not found then
     raise exception 'not_invited' using errcode = '42501';
   end if;
 
-  insert into public.profiles (id, email)
-  values (new.id, new.email)
+  insert into public.profiles (id, email, is_staff)
+  values (new.id, new.email, coalesce(invited_as_staff, false))
   on conflict (id) do nothing;
 
   return new;

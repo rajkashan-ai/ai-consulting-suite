@@ -1,9 +1,21 @@
 # Getting this running
 
-Four accounts, about twenty minutes. Labels move around, so this says what to
-achieve rather than exactly what to click.
+**To sign in and reach the workspace you need Supabase and nothing else.** Not
+Google, not Vercel, not Anthropic. That is section 1, and it is about ten
+minutes. Everything after it can wait.
 
 Nothing below asks you to send me a key. Put them in `.env.local` yourself.
+
+## The short version, if you only want to sign in today
+
+1. Make a Supabase project.
+2. Run `supabase/001_schema.sql`, then `supabase/002_seed.sql`. Once each.
+3. Change one email template so you get a code instead of a link.
+4. Put the project URL and the publishable key in `.env.local`.
+5. `npm run dev`, open http://localhost:3000, press "Email me a code".
+
+Both your addresses are already on the list and already marked staff, so you
+are let straight in and can point the tools at any website.
 
 ---
 
@@ -15,11 +27,12 @@ are UK businesses and so is their data.
 Then open the SQL editor and run these two files, in order:
 
 - `supabase/001_schema.sql` — the tables, and the isolation
-- `supabase/002_seed.sql` — puts your email on the allowlist
+- `supabase/002_seed.sql` — who is let in, and who is staff
 
-Stop after the first statement of `002_seed.sql`. The `update ... is_staff` line
-only works once you have signed in for the first time, because your profile row
-is created at that moment. Come back and run it then.
+Run each one once. There is no second step and nothing to come back for. An
+earlier version of the seed had to be run twice and reported "UPDATE 0" the
+first time, which looks like a failure and is not. Staff is now set on the
+invitation and copied across when you first sign in.
 
 From Project Settings, API, copy three values:
 
