@@ -197,6 +197,23 @@ export async function step(runId: string): Promise<Progress | null> {
       spent.input += response.usage.input_tokens;
       spent.output += response.usage.output_tokens;
 
+      /**
+       * An answer that was cut off is not an answer.
+       *
+       * This used to return an empty object and let the run carry on. A grid
+       * call hit the limit, came back as {}, and the battlecard was built and
+       * stored with no comparison in it. The run said "done". It cost 196,000
+       * tokens and ten minutes to find out, and the only clue was an empty
+       * field.
+       */
+      if (response.stop_reason === "max_tokens") {
+        throw new Error(
+          `The answer was cut off at ${maxTokens ?? 4000} tokens` +
+            (shape ? ` while building "${shape.name}"` : "") +
+            `. Nothing is stored from a half answer.`,
+        );
+      }
+
       if (!shape) {
         const text = response.content.find((c) => c.type === "text");
         return text && "text" in text ? text.text : "";
@@ -205,7 +222,18 @@ export async function step(runId: string): Promise<Progress | null> {
       const used = response.content.find(
         (c) => c.type === "tool_use" && c.name === shape.name,
       );
-      return used && "input" in used ? used.input : {};
+
+      // Asked for a shape and given prose. Rare, and silently returning {} made
+      // it indistinguishable from a model that had nothing to say.
+      if (!used || !("input" in used)) {
+        const said = response.content.find((c) => c.type === "text");
+        throw new Error(
+          `Asked for "${shape.name}" and got ` +
+            (said && "text" in said ? `words instead: ${said.text.slice(0, 160)}` : "nothing"),
+        );
+      }
+
+      return used.input;
     },
 
     progress: () => {

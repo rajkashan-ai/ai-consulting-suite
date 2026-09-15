@@ -795,18 +795,35 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
   const grid = (await ctx.think({
     hard: true,
     system: BATTLECARD_RULES,
-    prompt: `${evidencePrompt}\n\nBuild the comparison grid only.`,
+    prompt:
+      `${evidencePrompt}\n\nBuild the comparison grid only.\n\n` +
+      `Keep it to the areas you have real data for, at most six rows each. A ` +
+      `row every business leaves blank is a row worth cutting: it tells the ` +
+      `reader nothing and it crowds out the ones that do.`,
     shape: GRID_SHAPE,
-    maxTokens: 20_000,
+    maxTokens: 32_000,
   })) as { comparison?: Grid[] };
 
+  /**
+   * The narrative is written from the grid, not from the pages again.
+   *
+   * Both calls used to carry the whole evidence pile, which doubled the input
+   * of every run: 53,000 tokens became 196,000 and two minutes became ten. The
+   * grid already holds every fact that was worth extracting, with its sources,
+   * so the second call reads that instead. A claim it cannot support from the
+   * grid is a claim it should not be making.
+   */
   const built = (await ctx.think({
     hard: true,
     system: BATTLECARD_RULES,
     prompt:
-      `${evidencePrompt}\n\n` +
-      `The comparison grid is already written and is below. Do not repeat it. ` +
-      `Write the per-business claims, the two columns and the three actions.\n\n` +
+      `The business: ${profile.name}, a ${profile.trade} in ${profile.town}.\n` +
+      `${yourOwn}\n` +
+      `THE COMPARISON IS ABOUT THESE ${theFive.length} AND NOBODY ELSE:\n` +
+      theFive.map((n) => `  - ${n}`).join("\n") +
+      `\n\nThis is everything that was found, already checked and sourced. Write ` +
+      `the per-business claims, the two columns and the three actions from it. ` +
+      `Do not repeat the grid itself.\n\n` +
       JSON.stringify(grid.comparison ?? []),
     shape: NARRATIVE_SHAPE,
     maxTokens: 20_000,
