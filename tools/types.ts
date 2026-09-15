@@ -23,6 +23,12 @@ export type Business = {
   /** Their cheapest published price, used to judge who sells to the same person. */
   headlinePrice: number | null;
   oneLiner: string | null;
+  /** Where their customers are: nearby, town, county, uk, world. */
+  reach: string | null;
+  /** Where new customers find them. Evidence for the trade's playbook. */
+  foundVia: string[];
+  /** One competitor they named. Kept for ever, whatever a search says. */
+  knownCompetitor: string | null;
 };
 
 /**

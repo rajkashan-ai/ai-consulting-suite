@@ -166,6 +166,11 @@ export async function confirm(form: FormData): Promise<void> {
       trade: String(form.get("trade") ?? "").trim() || null,
       town: String(form.get("town") ?? "").trim() || null,
       one_liner: String(form.get("oneLiner") ?? "").trim() || null,
+      // The three things only the owner knows. Everything else on this screen
+      // was read off their own website.
+      reach: String(form.get("reach") ?? "town"),
+      found_via: form.getAll("foundVia").map(String),
+      known_competitor: String(form.get("knownCompetitor") ?? "").trim() || null,
       confirmed_at: new Date().toISOString(),
     })
     .eq("id", id);

@@ -191,3 +191,13 @@
 .bypass{display:flex; flex-direction:column; gap:var(--s2);
   margin-top:var(--s6); padding-top:var(--s5); border-top:1px dashed var(--muted)}
 .bypass .btn--ghost{width:100%; justify-content:flex-start}
+
+/* The three questions. Boxed away from the fields above them, because those are
+   corrections to what we found and these are new information. */
+.asks{display:flex; flex-direction:column; gap:var(--s5);
+  margin-top:var(--s6); padding-top:var(--s6); border-top:1px solid var(--line)}
+.ask{border:0; padding:0; margin:0}
+.ask legend{padding:0; margin-bottom:var(--s1)}
+.ask .t-meta{margin-bottom:var(--s2)}
+.ask .check{min-height:36px; padding:var(--s1) 0}
+.ask .check input{accent-color:var(--ink)}

@@ -54,6 +54,10 @@ export type You = {
   /** Their town, so it can be ignored when comparing: everyone is in it. */
   town?: string | null;
   price: number | null;
+  /** How much being near counts, from where they said their customers are.
+   *  Zero for a business selling nationally, where a competitor on the same
+   *  street is a coincidence. */
+  proximityWeight?: number;
 };
 
 export type Scored = Found & {
@@ -63,6 +67,9 @@ export type Scored = Found & {
 };
 
 const WEIGHT = {
+  /** Replaced per business by proximityWeight(reach). A barber competes within
+   *  half a mile, an agency competes with anyone in the country, and weighting
+   *  them the same is right for neither. */
   proximity: 3.0,
   reviews: 2.0,
   recency: 1.5,
@@ -84,9 +91,10 @@ export function rank(found: Found[], you: You, take = 5): Scored[] {
 
       // Proximity. Without a distance we compare the words: the same street or
       // district is the strongest signal a listing gives us.
-      const near = sameArea(f.area, you.area, everywhere);
+      const nearWeight = you.proximityWeight ?? WEIGHT.proximity;
+      const near = nearWeight > 0 && sameArea(f.area, you.area, everywhere);
       if (near) {
-        score += WEIGHT.proximity;
+        score += nearWeight;
         reasons.push(`near you, ${f.area}`);
       }
 

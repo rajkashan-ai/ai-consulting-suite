@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { confirm, detect, startAgain, type WelcomeState } from "./actions";
 import { CATEGORIES } from "@/tools/categories";
+import { FOUND_VIA, REACH } from "@/tools/questions";
 
 /**
  * One field, then what we found.
@@ -80,6 +81,52 @@ export default function Welcome({ staff }: { staff: boolean }) {
               </ul>
             </div>
           )}
+
+          {/* The three things we cannot read off a website, and the only three
+              we ask for. Placed after what we found, so the first thing they do
+              is correct us rather than fill in a form. */}
+          <div className="asks">
+            <fieldset className="ask">
+              <legend className="t-card">Where are your customers?</legend>
+              <p className="t-meta">
+                It decides how much being near you counts when we work out who
+                you are really up against.
+              </p>
+              {REACH.map((r, i) => (
+                <label className="check" key={r.id}>
+                  <input type="radio" name="reach" value={r.id} defaultChecked={i === 1} />
+                  {r.label}
+                </label>
+              ))}
+            </fieldset>
+
+            <fieldset className="ask">
+              <legend className="t-card">Where do new customers find you?</legend>
+              <p className="t-meta">Tick any that are true. It tells us where to look.</p>
+              {FOUND_VIA.map((f) => (
+                <label className="check" key={f.id}>
+                  <input type="checkbox" name="foundVia" value={f.id} />
+                  {f.label}
+                </label>
+              ))}
+            </fieldset>
+
+            <fieldset className="ask">
+              <legend className="t-card">
+                Name one competitor you already know about
+              </legend>
+              <p className="t-meta">
+                Optional. We will go and find them and show you what we found
+                before doing anything else, so you can tell us if we have the
+                wrong one.
+              </p>
+              <input
+                name="knownCompetitor"
+                className="field field--block"
+                placeholder="Their name, or their website"
+              />
+            </fieldset>
+          </div>
 
           {state.missing.length > 0 && (
             <p className="t-meta">

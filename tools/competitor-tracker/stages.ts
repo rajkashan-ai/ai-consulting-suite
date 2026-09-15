@@ -19,6 +19,7 @@ import type { Business, ToolContext } from "../types.ts";
 import { isProfile, profileFor } from "./profile.ts";
 import { confidence, isDeadEnd, startWith, type Playbook } from "./playbook.ts";
 import { rank, type Found, type Scored } from "./rank.ts";
+import { platformsFrom, proximityWeight } from "../questions.ts";
 
 /**
  * A Competitor Tracker run, in steps that can each stop and be picked up later.
@@ -146,7 +147,17 @@ async function search(state: RunState, business: Business, ctx: ToolContext): Pr
    * (1227928_shrewsbury) that means nothing anywhere else. So the playbook says
    * which platform, and one search finds the page on it.
    */
-  const known = startWith(state.playbook ?? null);
+  /**
+   * Where to look, best evidence first.
+   *
+   * What the owner said beats the playbook, and the playbook beats guessing. A
+   * barber telling us customers arrive from Booksy is a better signal about
+   * where barbers are listed than any number of searches, and it is free.
+   */
+  const known = [
+    ...platformsFrom(business.foundVia),
+    ...startWith(state.playbook ?? null),
+  ].filter((v, i, all) => all.indexOf(v) === i);
 
   const terms = known.length
     ? known.slice(0, 3).map((host) => ({
@@ -409,13 +420,22 @@ function choose(state: RunState, business: Business): Step {
           area: business.address ?? business.town,
           town: business.town,
           price: business.headlinePrice,
+          proximityWeight: proximityWeight(business.reach),
         },
         MAX_COMPETITORS,
       )
     : [];
 
   const competitors = refreshSet(
-    already,
+    // A competitor the owner named survives every weekly run, for ever. That is
+    // what addedByCustomer means, and it is also the guarantee that a run
+    // produces something even when discovery finds nobody.
+    business.knownCompetitor
+      ? [
+          { name: business.knownCompetitor, addedByCustomer: true, claims: {} },
+          ...already.filter((c) => c.name !== business.knownCompetitor),
+        ]
+      : already,
     [
       ...picked.map((p) => p.name),
       ...fromListing,
