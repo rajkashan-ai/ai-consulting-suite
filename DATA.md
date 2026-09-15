@@ -144,6 +144,15 @@ None of these are code. All of them are needed before a real customer signs up.
 8. **Read the retention job is scheduled.** Point above. It is one line and it
    is the difference between a policy and a control.
 
+9. **A real email service.** Supabase's built-in one is rate limited to a
+   handful an hour and is explicitly not for production. On 15 September it
+   accepted three sign-in requests, answered success to all three, and delivered
+   none. A customer who cannot receive their code cannot use the product at all,
+   so this blocks launch on its own. Resend, Postmark or SES, wired into
+   Supabase under Authentication, SMTP settings. Until then `npm run code`
+   fetches the code directly, and that only works on a machine holding the
+   secret key.
+
 ---
 
 ## Honest limits
