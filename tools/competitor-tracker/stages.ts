@@ -22,6 +22,7 @@ import { isProfile, profileFor } from "./profile.ts";
 import { confidence, isDeadEnd, startWith, type Playbook } from "./playbook.ts";
 import { rank, type Found, type Scored } from "./rank.ts";
 import { sift } from "./sift.ts";
+import { cite, citeRules, numberPages, type Page } from "./sources.ts";
 import {
   droppable,
   find,
@@ -725,6 +726,27 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
   const readOn = new Date().toISOString().slice(0, 10);
 
   /**
+   * Number every page once, before anything is written.
+   *
+   * The numbers are the only way a fact is attributed from here on, so the
+   * list shown in the prompt and the list used to expand the answer must be
+   * the same list in the same order. Built once, above both calls, because two
+   * lists that drift apart by one attribute every price to the wrong business.
+   *
+   * The listing pages go first so the market context keeps the low numbers
+   * whatever else was read.
+   */
+  const asPage = (p: ReadPage): Page => ({ url: p.url, fetchedOn: p.fetchedOn });
+  const readable = (list: ReadPage[]) => list.filter((p) => p.ok);
+
+  const numbered: Page[] = numberPages([
+    ...readable(state.listingPages ?? []).map(asPage),
+    ...readable(Object.values(pages).flat()).map(asPage),
+  ]);
+
+  const numberOf = (url: string) => numbered.findIndex((p) => p.url === url) + 1;
+
+  /**
    * The listing page is evidence, not scaffolding.
    *
    * It was being read to get names out of it and then thrown away, which is
@@ -734,17 +756,15 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
    * reason that test worked at all. For a local trade it is often the only
    * place any of it is published.
    */
-  const listingEvidence = (state.listingPages ?? [])
-    .filter((p) => p.ok)
-    .map(
-      (p) =>
-        `### MARKET CONTEXT ONLY, from ${p.url} (read ${p.fetchedOn})\n` +
-        `Every ${profile.trade} in ${profile.town}, with prices, ratings and review\n` +
-        `counts. Use this ONLY for statements about the town as a whole, such as what\n` +
-        `a cut typically costs here. Do NOT add any of these businesses to the\n` +
-        `comparison: that list is fixed and is given below.\n\n` +
-        p.text,
-    );
+  const listingEvidence = readable(state.listingPages ?? []).map(
+    (p) =>
+      `### [${numberOf(p.url)}] MARKET CONTEXT ONLY\n` +
+      `Every ${profile.trade} in ${profile.town}, with prices, ratings and review\n` +
+      `counts. Use this ONLY for statements about the town as a whole, such as what\n` +
+      `a cut typically costs here. Do NOT add any of these businesses to the\n` +
+      `comparison: that list is fixed and is given below.\n\n` +
+      p.text,
+  );
 
   const evidence = [
     ...listingEvidence,
@@ -752,8 +772,8 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
       list
         .map((p) =>
           p.ok
-            ? `### ${name} — ${p.url} (read ${p.fetchedOn})\n${p.text}`
-            : `### ${name} — ${p.url}: ${p.note}`,
+            ? `### [${numberOf(p.url)}] ${name}\n${p.text}`
+            : `### ${name} — could not be read: ${p.note}`,
         )
         .join("\n\n"),
     ),
@@ -811,17 +831,60 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
       `\n\nAnything else in the pages below is the town, not the comparison.\n\n` +
       `Everything we read:\n\n${evidence}`;
 
-  const grid = (await ctx.think({
-    hard: true,
-    system: BATTLECARD_RULES,
-    prompt:
-      `${evidencePrompt}\n\nBuild the comparison grid only.\n\n` +
-      `Keep it to the areas you have real data for, at most six rows each. A ` +
-      `row every business leaves blank is a row worth cutting: it tells the ` +
-      `reader nothing and it crowds out the ones that do.`,
-    shape: GRID_SHAPE,
-    maxTokens: 32_000,
-  })) as { comparison?: Grid[] };
+  /**
+   * One call per area, all four at once.
+   *
+   * The grid was the slowest thing in the product by a distance: 223 seconds of
+   * a 302 second run, because it alone wrote twenty six thousand output tokens
+   * and output tokens are the runtime, at about a hundred a second.
+   *
+   * Four areas in one call are written one after another whatever we do, since
+   * that is what generating text is. Four calls are written at the same time,
+   * so the grid now costs what its longest area costs rather than the sum of
+   * all four. The evidence is sent four times, which costs input tokens, but
+   * input is not what the clock is waiting for.
+   *
+   * An area that fails is dropped rather than taking the others with it. A grid
+   * of three areas is a worse card; a grid of none is no card at all, and
+   * before this one bad area was all four.
+   */
+  const settled = await Promise.allSettled(
+    GRID_AREAS.map((area) =>
+      ctx.think({
+        hard: true,
+        system: BATTLECARD_RULES,
+        prompt:
+          `${evidencePrompt}\n\nBuild the comparison grid for ONE area only: ${area}.\n` +
+          `${AREA_MEANS[area]}\n\n` +
+          `At most six rows. Only rows you have real data for. A row every ` +
+          `business leaves blank is a row worth cutting: it tells the reader ` +
+          `nothing and it crowds out the ones that do. If this area has nothing ` +
+          `worth a table, return no rows: that is an honest answer.`,
+        shape: gridShapeFor(area),
+        maxTokens: 9_000,
+      }),
+    ),
+  );
+
+  const comparison: Grid[] = [];
+  for (const [i, outcome] of settled.entries()) {
+    if (outcome.status !== "fulfilled") continue;
+    const one = (outcome.value as { comparison?: Grid[] }).comparison ?? [];
+    for (const g of one) {
+      if (g?.rows?.length) comparison.push({ ...g, area: GRID_AREAS[i] });
+    }
+  }
+
+  if (!comparison.length) {
+    return stop(
+      state,
+      "We read the pages and could not build a comparison from them. Nothing " +
+        "is shown rather than an empty table.",
+    );
+  }
+
+  // The numbers become urls here, once, before anything downstream reads them.
+  const grid = { comparison: cite(comparison, numbered) };
 
   /**
    * The narrative is written from the grid, not from the pages again.
@@ -832,7 +895,7 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
    * so the second call reads that instead. A claim it cannot support from the
    * grid is a claim it should not be making.
    */
-  const built = (await ctx.think({
+  const builtRaw = (await ctx.think({
     hard: true,
     system: BATTLECARD_RULES,
     prompt:
@@ -852,6 +915,9 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
     where_you_win?: Side[];
     where_they_win?: Side[];
   };
+
+  // Same expansion as the grid. Claims and action evidence both cite by number.
+  const built = cite(builtRaw, numbered);
 
   // Three actions is the shape of this product. None means the writing failed,
   // and saying so beats letting the guards report "wrong count" for a fault
@@ -1286,7 +1352,8 @@ const BATTLECARD_RULES = `You are writing a competitor battlecard for a small bu
 that have already been read for you. You have no other knowledge of these
 businesses and you must not use any.
 
-EVERY CLAIM CARRIES ITS SOURCE. The url and the date are given above each page.
+EVERY CLAIM CARRIES ITS SOURCE, as "from": the number of the page it came from.
+Never write a url or a date: they are already recorded against those numbers.
 A claim you cannot point at a page for does not go in. If you looked for a
 price and the page does not print one, that is a claim with value null and it
 is worth saying: "they publish no prices" is a finding.
@@ -1423,16 +1490,13 @@ const BATTLECARD_SHAPE = {
                       type: "object",
                       properties: {
                         value: { type: ["string", "null"] },
-                        source: {
-                          type: ["object", "null"],
-                          properties: {
-                            url: { type: "string" },
-                            fetchedOn: { type: "string" },
-                          },
-                          required: ["url", "fetchedOn"],
+                        from: {
+                          type: ["integer", "null"],
+                          description:
+                            "The number of the page this came from. Null only when the cell is null.",
                         },
                       },
-                      required: ["value", "source"],
+                      required: ["value", "from"],
                     },
                   },
                 },
@@ -1487,13 +1551,12 @@ const BATTLECARD_SHAPE = {
         properties: {
           text: { type: "string" },
           value: { type: ["string", "number", "null"] },
-          source: {
-            type: ["object", "null"],
-            properties: { url: { type: "string" }, fetchedOn: { type: "string" } },
-            required: ["url", "fetchedOn"],
+          from: {
+            type: ["integer", "null"],
+            description: "The number of the page this came from.",
           },
         },
-        required: ["text", "value", "source"],
+        required: ["text", "value", "from"],
       },
     },
   },
@@ -1537,6 +1600,50 @@ const GRID_SHAPE = {
     required: ["comparison"],
   },
 };
+
+/** The four areas, in the order they are read on the page. */
+export const GRID_AREAS = ["pricing", "channels", "reviews", "blindspots"] as const;
+export type GridArea = (typeof GRID_AREAS)[number];
+
+/**
+ * What each area is for, said once.
+ *
+ * A call asked for one area needs to know what that area means, because the
+ * word on its own is not an instruction. These were implicit when all four were
+ * written together and the model could see the others for contrast.
+ */
+const AREA_MEANS: Record<GridArea, string> = {
+  pricing:
+    "What each one charges for the same named service. Rows are services, not " +
+    "businesses. Only services more than one of them publishes.",
+  channels:
+    "Where each one can be found and booked: their own site, a booking platform, " +
+    "social. What they publish about opening, booking and getting there.",
+  reviews:
+    "Ratings and how many, and the themes that repeat. Counts and themes only, " +
+    "never the name of anyone who wrote one.",
+  blindspots:
+    "What a business does not publish that the others do. An absence you can " +
+    "point at on a page, never an absence you assume.",
+};
+
+/** The grid shape, restricted to one area, so a call cannot answer for another. */
+function gridShapeFor(area: GridArea) {
+  const items = structuredClone(
+    BATTLECARD_SHAPE.input_schema.properties.comparison,
+  ) as { items: { properties: { area: { enum: string[] } } } };
+  items.items.properties.area = { enum: [area] } as never;
+
+  return {
+    name: "comparison",
+    description: `The ${area} comparison: a row per comparable thing, a column per business.`,
+    input_schema: {
+      type: "object",
+      properties: { comparison: items },
+      required: ["comparison"],
+    },
+  };
+}
 
 /** The words: what each business is, where you stand, and what to do. */
 const NARRATIVE_SHAPE = {

@@ -28,7 +28,13 @@ export type Recorded = {
 
 export type Calls = {
   read: string[];
-  think: { system: string; prompt: string; shape?: string }[];
+  think: {
+    system: string;
+    prompt: string;
+    shape?: string;
+    /** The whole schema, so a test can assert what the model was asked for. */
+    shapeFull?: unknown;
+  }[];
   search: string[][];
 };
 
@@ -77,13 +83,35 @@ export function fakeContext(
      * that stage should return.
      */
     think: async ({ system, prompt, shape }) => {
-      calls.think.push({ system, prompt, shape: shape?.name });
+      calls.think.push({ system, prompt, shape: shape?.name, shapeFull: shape });
 
       const given = shape?.name ? answers.think?.[shape.name] : undefined;
       if (given !== undefined) return given;
 
       if (shape?.name === "businesses") return { businesses: recorded.listed };
-      if (shape?.name === "comparison") return { comparison: recorded.grid ?? [] };
+
+      /**
+       * The grid is asked for one area at a time, four calls at once.
+       *
+       * Answering all four with the whole recorded grid made every test pass
+       * while the split was never exercised: four identical areas came back and
+       * the pipeline relabelled them, so a grid that only ever produced pricing
+       * looked like a full card. The fake has to answer the question it was
+       * actually asked, or it is testing itself.
+       */
+      if (shape?.name === "comparison") {
+        const asked = (
+          shape as unknown as {
+            input_schema?: {
+              properties?: { comparison?: { items?: { properties?: { area?: { enum?: string[] } } } } };
+            };
+          }
+        ).input_schema?.properties?.comparison?.items?.properties?.area?.enum?.[0];
+
+        const all = (recorded.grid ?? []) as { area?: string }[];
+        if (!asked) return { comparison: all };
+        return { comparison: all.filter((g) => g.area === asked) };
+      }
       if (shape?.name === "battlecard") return recorded.battlecard;
 
       throw new Error(
