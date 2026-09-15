@@ -119,51 +119,17 @@ async function search(state: RunState, business: Business, ctx: ToolContext): Pr
 
   const terms = buildSearchTerms(profile);
 
-  // One call, the search tool, and the model does the searching. The config
-  // comes from the agent because it carries user_location, without which a
-  // search for "barber Shrewsbury" returns Pennsylvania and Massachusetts.
-  const answer = (await ctx.think({
-    system:
-      "You are running searches a customer would run, and reporting exactly what came back. " +
-      "Do not judge, rank, summarise or recommend. Report every result you saw, with its real " +
-      "URL and its real title. Never invent a result and never repair a URL you are unsure of.",
-    prompt:
-      `Run each of these searches and list what came back.\n\n` +
-      terms.map((t) => `- ${t.term}`).join("\n"),
-    tools: [searchToolConfig(profile, terms.length)],
-    shape: {
-      name: "results",
-      description: "What each search returned, exactly as it came back.",
-      input_schema: {
-        type: "object",
-        properties: {
-          searches: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                term: { type: "string" },
-                results: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: { url: { type: "string" }, title: { type: "string" } },
-                    required: ["url", "title"],
-                  },
-                },
-              },
-              required: ["term", "results"],
-            },
-          },
-        },
-        required: ["searches"],
-      },
-    },
-    maxTokens: 8000,
-  })) as { searches?: { term: string; results: SearchResult[] }[] };
+  // The search tool config comes from the agent because it carries
+  // user_location. Without it this same search returns Shrewsbury Pennsylvania
+  // and Shrewsbury Massachusetts ahead of the Shropshire one, which is measured
+  // in search-visibility.ts and was measured again here on 15 September.
+  const seen = await ctx.search(
+    terms.map((t) => t.term),
+    searchToolConfig(profile, terms.length),
+  );
 
-  const seen = (answer.searches ?? []).filter((s) => s.results?.length);
-  if (!seen.length) {
+  const withResults = seen.filter((s) => s.results.length);
+  if (!withResults.length) {
     return stop(
       state,
       `Nothing came back for "${terms[0]?.term}". That usually means the trade or ` +
@@ -173,19 +139,55 @@ async function search(state: RunState, business: Business, ctx: ToolContext): Pr
 
   return {
     stage: "choosing",
-    state: { ...state, profile, terms, seen },
-    progress: `Searched ${seen.length} of the ${terms.length} things a customer would type`,
+    state: { ...state, profile, terms, seen: withResults },
+    progress: `Searched ${withResults.length} of the ${terms.length} things a customer would type`,
   };
 }
 
 // ---------------------------------------------------------------------------
+
+/**
+ * Places that are never a competitor, whatever the search says.
+ *
+ * Found on the first real run, 15 September. "barber Shrewsbury" returned the
+ * Wikipedia page for Sir Henry Barber, 1st Baronet, a Victorian property
+ * developer, and it passed every filter because the relevance test asks whether
+ * the trade word appears anywhere and "Barber" is his surname.
+ */
+const NEVER_A_BUSINESS = [
+  "wikipedia.org", "wikimedia.org", "britannica.com", "linkedin.com/in/",
+  "reddit.com", "quora.com", "youtube.com", "pinterest.", "amazon.",
+  "gov.uk", "companieshouse", "indeed.com", "glassdoor",
+];
+
+/**
+ * A result for a town of the same name in another country.
+ *
+ * Shrewsbury is in Shropshire, Pennsylvania, Massachusetts and New Jersey. The
+ * search tool is given a location and still returns the American ones, so the
+ * results have to be filtered as well as the search steered. The agent's
+ * resultCountry catches an explicit /en-us/ or a .co.uk; this catches the far
+ * more common case, which is a US state named in the title.
+ */
+const WRONG_COUNTRY =
+  /\b(MA|PA|NJ|NY|CA|TX|FL|Massachusetts|Pennsylvania|New Jersey|Missouri)\b/;
 
 function choose(state: RunState, business: Business): Step {
   const { profile, seen } = state;
   if (!profile || !seen) return stop(state, "Lost the search results. Run it again.");
 
   const already = state.competitors ?? [];
-  const candidates = candidatesFromSearch(seen, profile, already.map((c) => c.name));
+  const raw = candidatesFromSearch(seen, profile, already.map((c) => c.name));
+
+  const candidates = raw.filter((c) => {
+    const where = `${c.url} ${c.name}`;
+    if (NEVER_A_BUSINESS.some((host) => c.url.toLowerCase().includes(host))) return false;
+    if (WRONG_COUNTRY.test(where)) return false;
+    // A page whose title announces it is a list is a list, however many
+    // businesses are named on it.
+    if (/\b(best|top|10|ten|near me|directory|guide)\b/i.test(c.name)) return false;
+    return true;
+  });
 
   // refreshSet keeps anyone the customer named, for ever, and fills the rest.
   const competitors = refreshSet(
@@ -194,11 +196,17 @@ function choose(state: RunState, business: Business): Step {
     profile.name,
   );
 
-  if (!competitors.length) {
+  // Two is the fewest that makes a comparison worth reading. Below that we stop
+  // rather than write a battlecard about nobody, which is what happened on the
+  // first real run: two junk candidates, and a card full of remarks about our
+  // own research because there was nothing else to say.
+  const real = competitors.filter((c) => c.name !== profile.name);
+  if (real.length < 2) {
     return stop(
       state,
-      `We could not find another ${profile.trade} in ${profile.town} that we are ` +
-        `allowed to read. Add one yourself and we will track them.`,
+      `We could only find ${real.length} other ${profile.trade}${real.length === 1 ? "" : "s"} ` +
+        `in ${profile.town} that we are allowed to read, which is not enough to compare ` +
+        `anything against. Add competitors yourself and we will track them.`,
     );
   }
 
@@ -483,6 +491,11 @@ you have evidence for, is something the owner could start this week, and carries
 the claims it rests on. Rank them by what would change the most. If the obvious
 move is a price change, say so but mark it deferred: you do not know their costs
 and cannot tell them to cut a price.
+
+NEVER WRITE ABOUT THE RESEARCH ITSELF. Not what we could and could not read,
+not that a page blocked us, not that a search returned little. The owner is
+paying for findings about their market, and a finding about our own difficulties
+is not one. If there is not enough to say, say less.
 
 Write like a person talking to the owner. No jargon. No em dashes.`;
 

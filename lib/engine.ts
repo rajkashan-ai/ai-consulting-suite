@@ -73,6 +73,69 @@ export async function step(runId: string): Promise<Progress | null> {
       };
     },
 
+    /**
+     * Search, and read the results straight out of the response.
+     *
+     * Each search arrives as a pair of blocks: a server_tool_use carrying the
+     * query, then a web_search_tool_result carrying real urls and titles. The
+     * first version asked the model to retype them into a form and it answered
+     * in prose, so nothing was ever collected and every run died at the first
+     * step with "nothing came back".
+     *
+     * Reading them directly is also the only honest way to do it. A model asked
+     * to repeat twenty urls will eventually repair one, and a repaired url is
+     * an invented source on a page whose whole argument is that it invents
+     * nothing.
+     */
+    search: async (terms, toolConfig) => {
+      const response = await anthropic.messages.create({
+        model: SMALL,
+        max_tokens: 8000,
+        system:
+          "Run every search below, one at a time, using the search tool. Do not " +
+          "summarise or judge what comes back. A one line acknowledgement is all " +
+          "the answer needs to be.",
+        tools: [toolConfig as never],
+        messages: [
+          {
+            role: "user",
+            content: "Search for each of these:\n\n" + terms.map((t) => `- ${t}`).join("\n"),
+          },
+        ],
+      });
+
+      spent.input += response.usage.input_tokens;
+      spent.output += response.usage.output_tokens;
+
+      type SearchBlock = {
+        type: string;
+        input?: { query?: string };
+        /** An array of results, or an error object when the search failed. */
+        content?: { type?: string; url: string; title: string }[] | unknown;
+      };
+
+      const found: { term: string; results: { url: string; title: string }[] }[] = [];
+      let query = terms[0] ?? "";
+
+      for (const block of response.content as unknown as SearchBlock[]) {
+        if (block.type === "server_tool_use") {
+          query = String((block.input as { query?: string })?.query ?? query);
+        }
+        if (block.type === "web_search_tool_result") {
+          const raw = block.content;
+          if (!Array.isArray(raw)) continue;   // an error block, not results
+          const results = raw
+            .filter((r) => r?.type === "web_search_result")
+            .map((r) => ({ url: r.url, title: r.title }));
+          const already = found.find((f) => f.term === query);
+          if (already) already.results.push(...results);
+          else found.push({ term: query, results });
+        }
+      }
+
+      return found;
+    },
+
     think: async ({ system, prompt, shape, tools, hard, maxTokens }) => {
       const response = await anthropic.messages.create({
         model: hard ? BIG : SMALL,

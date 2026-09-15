@@ -93,6 +93,20 @@ export type ToolContext = {
     maxTokens?: number;
   }) => Promise<unknown>;
 
+  /**
+   * Run searches and hand back what came back, untouched.
+   *
+   * The results are read straight out of the response, where they arrive as
+   * structured data with real urls and titles. The first version asked the
+   * model to retype them into a form instead, and it answered in prose, so
+   * nothing was ever collected. Worse, retyping is a chance to invent: a model
+   * asked to repeat twenty urls will eventually repair one.
+   */
+  search: (
+    terms: string[],
+    toolConfig: unknown,
+  ) => Promise<{ term: string; results: { url: string; title: string }[] }[]>;
+
   /** Say what is happening, in the customer's units. "2 of 5 competitors". */
   progress: (message: string) => void;
 };
