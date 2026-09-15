@@ -1,0 +1,92 @@
+/* =============================================================================
+   auth.css — the screens outside the product: sign in, turned away, onboarding.
+
+   Kept separate from design.css on purpose. design.css is a copy of UI/app.css,
+   which another session owns and which gets overwritten whenever the design
+   changes. Anything written here survives that copy. Nothing here redefines a
+   token or an existing class, so the two cannot fight.
+   ========================================================================== */
+
+.auth{
+  min-height:100vh; display:flex; align-items:center; justify-content:center;
+  padding:var(--s6);
+  background:
+    radial-gradient(900px 320px at 20% -110px, var(--glow-a), transparent 70%),
+    radial-gradient(680px 240px at 85% -90px, var(--glow-b), transparent 70%),
+    var(--paper);
+  background-repeat:no-repeat;
+}
+
+.auth__card{
+  width:100%; max-width:420px;
+  display:flex; flex-direction:column; gap:var(--s4);
+  padding:var(--s8);
+  background:var(--card); border:1px solid var(--line); border-radius:var(--r-card);
+}
+/* The card owns the rhythm, so nothing inside it carries its own top margin.
+   design.css gives headings a 48px margin-top for page flow, which inside a
+   420px card reads as a mistake. */
+.auth__card > *{margin-top:0}
+
+/* .logo is built for the navy header, where it is white. This is the same mark
+   on a light ground. */
+.logo--dark{color:var(--ink)}
+
+.auth__form{display:flex; flex-direction:column; gap:var(--s3)}
+.auth__form label{display:block}
+
+/* Google's brand guidelines require their mark on a white or light button with
+   a visible border, not on a coloured one, so this is the one button in the
+   product that does not take the berry fill. */
+.btn--google{
+  background:var(--card); color:var(--ink);
+  border:1px solid var(--muted);
+}
+@media (any-hover:hover){
+  .btn--google:not(:disabled):hover{background:var(--card-2); filter:none}
+}
+
+.auth__or{
+  display:flex; align-items:center; gap:var(--s3);
+  margin:var(--s1) 0; text-align:center;
+}
+.auth__or::before,.auth__or::after{
+  content:""; flex:1; height:1px; background:var(--line);
+}
+
+/* Red, and a word, and a position directly under the field it belongs to.
+   Never colour on its own. */
+.auth__error{
+  color:var(--bad); background:var(--bad-wash);
+  padding:var(--s2) var(--s3); border-radius:var(--r-chip);
+}
+
+/* ---- Onboarding ---------------------------------------------------------- */
+
+.onboard{max-width:640px; margin:0 auto; padding:var(--s10) var(--s6)}
+.onboard__form{display:flex; flex-direction:column; gap:var(--s3); margin-top:var(--s6)}
+
+/* What we worked out from their website, shown back before it is treated as
+   fact. Every row is editable, because the point of showing it is that they can
+   tell us we are wrong. */
+.found{
+  display:flex; flex-direction:column; gap:var(--s4);
+  margin-top:var(--s6); padding:var(--s6);
+  background:var(--card); border:1px solid var(--line); border-radius:var(--r-card);
+}
+.found__row{display:flex; flex-direction:column; gap:var(--s1)}
+.found__actions{display:flex; flex-wrap:wrap; gap:var(--s3); margin-top:var(--s2)}
+
+/* ---- Workspace chrome not yet in UI/app.css ------------------------------ */
+
+.chooser{display:flex; gap:var(--s2); align-items:center}
+.chooser .field{height:32px; font-size:13px; padding:0 var(--s2)}
+
+/* The sign out control is a real button in a form, because signing out changes
+   something and so cannot be a link. It is dressed as the account text. */
+.acct--button{background:none; border:0; padding:0; cursor:pointer}
+@media (any-hover:hover){ .acct--button:hover{color:#fff} }
+
+.kv{display:grid; grid-template-columns:auto 1fr; gap:var(--s2) var(--s5); margin:0}
+.kv dt{align-self:baseline}
+.kv dd{margin:0}
