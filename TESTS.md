@@ -80,6 +80,21 @@ stdout and reports success. Anything trusting the exit code says "applied" for a
 statement the database refused, which is exactly what my first few apply
 messages did. The runner reads the answer now, not the exit code.
 
+## Regressions
+
+`test/regressions.test.ts` holds only faults that actually happened, on a real
+business, with the date and what each one cost. Every other test file says how
+something should work. This one says what went wrong.
+
+Several of them read source text rather than behaviour, which is unusual and
+deliberate. A prompt cannot be type checked and never will be, and two of the
+worst faults of 15 September were the prompt and the code disagreeing: the code
+stopped stripping postcodes and the prompt still said never to return one, so
+the model obeyed the instruction nobody had updated. Reading the prompt is the
+only thing that catches that.
+
+Each one was checked by putting the bug back and watching the test fail.
+
 ## A pattern worth knowing
 
 Three times now, a pure function has been untestable because it sat in a file

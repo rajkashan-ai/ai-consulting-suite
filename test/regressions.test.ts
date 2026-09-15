@@ -1,0 +1,172 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { visibleText } from "../lib/research/text.ts";
+
+/**
+ * Faults that have actually happened, each with the date and what it cost.
+ *
+ * The other test files describe how things should work. This one only contains
+ * things that were wrong, in production, on a real business, so that the same
+ * afternoon is never spent twice.
+ */
+
+const ROOT = join(import.meta.dirname, "..");
+const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
+
+/* ── The prompt and the code disagreeing ─────────────────────────────────── */
+
+test("the prompt does not forbid what the code needs", () => {
+  /**
+   * 15 September. The code stopped stripping full postcodes so distance could
+   * be measured. The prompt still said "Never a full postcode: that locates a
+   * household", so the model dutifully returned "37 Smithfield Road, SY1", and
+   * the heaviest ranking factor did nothing for another two runs.
+   *
+   * Nothing type checks a prompt, and nothing ever will. This reads it.
+   */
+  const detect = read("lib/research/detect.ts");
+  assert.ok(
+    !/Never a full postcode/i.test(detect),
+    "the prompt is telling the model to withhold the postcode distance needs",
+  );
+  assert.match(detect, /postcode is how we work out/i, "it explains why it wants one");
+});
+
+test("a pricing action is told to say what to publish, never what to charge", () => {
+  // 15 September. Four cards refused in a row, one for "You do not have to
+  // match anyone", where the guard saw the verb "match" near the word "price"
+  // and cannot see a negation.
+  const stages = read("tools/competitor-tracker/stages.ts");
+  assert.match(stages, /never what to charge/i);
+  assert.match(stages, /do not have to match anyone/i, "the failing example is kept");
+});
+
+test("the writing step is told the five and cannot choose its own", () => {
+  // 15 September. Ranking chose NO.1, HINCES, Branded Barbers and Golden
+  // Scissors. The card came back about Fade Inn, Darwin's and Barbering AJ.
+  const stages = read("tools/competitor-tracker/stages.ts");
+  assert.match(stages, /AND NOBODY ELSE/);
+  assert.match(stages, /agreed\.size/, "and a filter, because a prompt is only guidance");
+});
+
+/* ── Text extraction ─────────────────────────────────────────────────────── */
+
+test("a price list written with HTML entities survives", () => {
+  /**
+   * 15 September. The Barber Shop's price page writes "&pound;8.00", not "£8".
+   * I grepped the raw HTML for "£", found none, and told Raj the prices were
+   * unreadable and that it was a limit of the whole approach. They were in the
+   * page all along and the fetcher already decoded them correctly.
+   */
+  const out = visibleText(
+    "<p>Clipper Cut &pound;8.00</p><p>Classic Cut &pound;15.00</p>" +
+      "<p>Cut &amp; Beard &pound;20.00</p>",
+  );
+  assert.match(out, /Clipper Cut £8\.00/);
+  assert.match(out, /Classic Cut £15\.00/);
+  assert.match(out, /Cut & Beard £20\.00/);
+});
+
+test("links are kept in round brackets, never angle ones", () => {
+  // 15 September. Written as <url> first, which the next line strips because it
+  // removes anything shaped like a tag. Every link was silently removed again.
+  const out = visibleText('<a href="/venue/x">HINCES</a>', "https://booksy.com");
+  assert.match(out, /HINCES \(https:\/\/booksy\.com\/venue\/x\)/);
+  assert.ok(!/<https/.test(out));
+});
+
+/* ── The database ────────────────────────────────────────────────────────── */
+
+test("a run's cost is added up in the database, never in the app", () => {
+  /**
+   * 15 September. Each step wrote its token count over the last one, and the
+   * final step makes no model calls, so every finished run recorded zero. The
+   * page count added to a field nothing has ever written.
+   *
+   * It has to be one statement in Postgres: the open page and the scheduled
+   * tick can both advance a run, and a read-modify-write from two places loses
+   * one of them.
+   */
+  const sql = read("supabase/008_cost.sql");
+  assert.match(sql, /input_tokens\s*=\s*input_tokens\s*\+/, "adds, never assigns");
+  assert.match(sql, /pages_fetched\s*=\s*pages_fetched\s*\+/);
+
+  const engine = read("lib/engine.ts");
+  assert.match(engine, /add_run_cost/, "the engine calls it");
+  assert.ok(
+    !/input_tokens:\s*spent\.input/.test(engine),
+    "the engine is assigning a total again instead of adding to one",
+  );
+});
+
+test("every policy can be created twice, because every file is run again", () => {
+  // 15 September. Postgres has no "create policy if not exists", so npm run db
+  // failed on its second run, on the first file, before doing anything.
+  for (const f of ["001_schema.sql", "005_playbooks.sql"]) {
+    const sql = read(`supabase/${f}`);
+    for (const m of sql.matchAll(/create policy\s+("[^"]+")\s*\n?\s*on\s+([\w.]+)/g)) {
+      assert.match(
+        sql,
+        new RegExp(`drop policy if exists ${m[1]} on ${m[2]}`),
+        `${f}: ${m[1]} has no drop before it, so a second run fails`,
+      );
+    }
+  }
+});
+
+test("the migration runner reads the answer, not the exit code", () => {
+  // 15 September. The Supabase CLI exits 0 when the SQL fails. It prints the
+  // error and reports success, so every "applied" I reported proved nothing.
+  const runner = read("db.mjs");
+  assert.match(runner, /_tag":"Error/, "it looks for the error the CLI prints");
+  assert.match(runner, /exits 0 when the SQL fails/i, "and says why");
+});
+
+/* ── Reaching the web ────────────────────────────────────────────────────── */
+
+test("the fetcher queues on the domain, so one site cannot be hit twice at once", () => {
+  // 15 September. It computed the domain with www stripped and then queued on
+  // the raw hostname, so www.barber.co.uk and barber.co.uk were two queues onto
+  // one machine. Exactly what the rule exists to prevent.
+  const fetch = read("lib/research/fetch.ts");
+  assert.match(fetch, /queued\(domain,/);
+  assert.ok(!/queued\(url\.hostname/.test(fetch));
+});
+
+test("a site we could not reach is never reported as a site that refused us", () => {
+  // 15 September. /try said "Their robots.txt asks us not to read this page"
+  // for a domain that does not resolve. A false claim about somebody else's
+  // website, on a page whose whole argument is that it does not make things up.
+  const fetch = read("lib/research/fetch.ts");
+  assert.match(fetch, /rules\.reachable/);
+  assert.match(fetch, /We could not reach/);
+});
+
+test("the sitemap parser copes with the tags already being stripped", () => {
+  // 15 September. It read the sitemap fine, found nothing in it every time, and
+  // fell back to guessing paths as though the site had none.
+  const sitemap = read("lib/research/sitemap.ts");
+  assert.match(sitemap, /tags were stripped|tags already/i);
+});
+
+/* ── Getting in ──────────────────────────────────────────────────────────── */
+
+test("the no-email sign-in still cannot exist on a deployed site", () => {
+  // It hands out a real session. Three refusals, because one is a single
+  // careless edit from being gone.
+  for (const f of ["app/api/dev-signin/route.ts", "app/sign-in/page.tsx"]) {
+    const text = read(f);
+    assert.match(text, /NODE_ENV [!=]== "production"/, f);
+    assert.match(text, /process\.env\.VERCEL/, f);
+    assert.match(text, /ALLOW_DEV_SIGNIN/, f);
+  }
+});
+
+test("the code box can be reached without sending an email", () => {
+  // 15 September. Rate limited, and the only route to the code box was the one
+  // action that had just been refused. A dead end built from two reasonable
+  // decisions.
+  assert.match(read("app/sign-in/form.tsx"), /I already have a code/);
+});
