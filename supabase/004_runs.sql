@@ -113,3 +113,19 @@ comment on column public.runs.state is
   'Everything the next tick needs, including the partial battlecard. A run that stops halfway has lost nothing.';
 comment on column public.runs.leased_until is
   'Held while a tick works on it, so two ticks cannot pay for the same pages twice.';
+
+
+-- -----------------------------------------------------------------------------
+-- ONE RUN AT A TIME PER TOOL
+--
+-- Opening the tool starts a run. Two quick loads, or a refresh at the wrong
+-- moment, would otherwise start two, and two runs means paying twice for the
+-- same twenty pages and showing whichever finished last.
+--
+-- The database refuses the second rather than the application trying to
+-- remember. A partial index, so finished runs are not covered by it and a tool
+-- can be run again next week.
+-- -----------------------------------------------------------------------------
+create unique index if not exists runs_one_at_a_time
+  on public.runs (workspace_id, tool)
+  where stage not in ('done', 'failed');

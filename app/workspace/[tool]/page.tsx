@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { toolBySlug } from "@/tools/registry";
 import Nav from "../nav";
 import Chrome from "../chrome";
+import CompetitorTracker from "./competitor-tracker";
 
 export default async function ToolPage({
   params,
@@ -46,44 +47,49 @@ export default async function ToolPage({
             <h1 className="t-page">{tool.name}</h1>
             <p className="t-doc">{tool.does}</p>
 
-            {/* Not built is said plainly. A screen that shows nothing and
-                explains nothing reads as broken, and the customer cannot tell
-                the difference between "not written yet" and "it failed". */}
-            <div className="panel">
-              <h2 className="t-sub">This one is not built yet.</h2>
-              <p className="t-doc">
-                Nothing runs here. When it is written it will read{" "}
-                {current.website} and work from{" "}
-                {current.trade
-                  ? `what a ${current.trade} needs`
-                  : "what this business does"}
-                {current.town ? `, in ${current.town}` : ""}.
-              </p>
-              <p className="t-meta">
-                Everything around it works: signing in, which business is open,
-                reading pages, storing what came back and showing it. What is
-                missing is this tool&rsquo;s own job.
-              </p>
-            </div>
+            {tool.built ? (
+              <CompetitorTracker
+                workspaceId={current.id}
+                ready={Boolean(current.trade && current.town)}
+              />
+            ) : (
+              <>
+                {/* Not built is said plainly. A screen that shows nothing and
+                    explains nothing reads as broken, and the customer cannot
+                    tell "not written yet" from "it failed". */}
+                <div className="panel">
+                  <h2 className="t-sub">This one is not built yet.</h2>
+                  <p className="t-doc">
+                    Nothing runs here. When it is written it will read{" "}
+                    {current.website} and work from{" "}
+                    {current.trade
+                      ? `what a ${current.trade} needs`
+                      : "what this business does"}
+                    {current.town ? `, in ${current.town}` : ""}.
+                  </p>
+                  <p className="t-meta">
+                    Everything around it works: signing in, which business is
+                    open, reading pages, storing what came back and showing it.
+                    What is missing is this tool&rsquo;s own job.
+                  </p>
+                </div>
 
-            <div>
-              <h2 className="t-section">What it will be given</h2>
-              <div className="panel">
-                <dl className="kv">
-                  <dt className="t-kind">Website</dt>
-                  <dd className="t-row">{current.website}</dd>
-                  <dt className="t-kind">What they do</dt>
-                  <dd className="t-row">{current.trade ?? "Not found"}</dd>
-                  <dt className="t-kind">Where</dt>
-                  <dd className="t-row">{current.town ?? "Not found"}</dd>
-                </dl>
-                <p className="t-meta">
-                  Plus a way to read any page, which obeys robots.txt and sends
-                  no cookies, and a way to ask the model. A tool cannot reach the
-                  web any other way, so the rules cannot be skipped by accident.
-                </p>
-              </div>
-            </div>
+                <div>
+                  <h2 className="t-section">What it will be given</h2>
+                  <div className="panel">
+                    <dl className="kv">
+                      <dt className="t-kind">Website</dt>
+                      <dd className="t-row">{current.website}</dd>
+                      <dt className="t-kind">What they do</dt>
+                      <dd className="t-row">{current.trade ?? "Not found"}</dd>
+                      <dt className="t-kind">Where</dt>
+                      <dd className="t-row">{current.town ?? "Not found"}</dd>
+                    </dl>
+                  </div>
+                </div>
+              </>
+            )}
+
           </div>
         </div>
       </main>

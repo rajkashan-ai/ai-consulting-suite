@@ -146,3 +146,32 @@
   .tools__row{grid-template-columns:1fr}
   .tools__row .t-kind{grid-column:1; grid-row:auto}
 }
+
+/* ---- While the research is running --------------------------------------- */
+
+/* Bars at the real line lengths of what is coming, not a spinner. A spinner
+   says "something is happening"; this says "a table with six rows is coming",
+   which is the difference between waiting and knowing. */
+.sk{display:block; background:var(--card-2); border-radius:var(--r-chip);
+  height:14px; margin-top:var(--s3)}
+.sk--title{height:22px; width:42%}
+.sk--row{height:38px; margin-top:var(--s2)}
+.sk--wide{width:100%}  .sk--mid{width:72%}  .sk--short{width:38%}
+@media (prefers-reduced-motion: no-preference){
+  .sk{animation:sk 1.6s var(--ease) infinite}
+  @keyframes sk{0%,100%{opacity:.55} 50%{opacity:1}}
+}
+
+/* What is happening, in the customer's units. Never a percentage: we do not
+   know what fraction of the work is done and a made-up percentage is a lie
+   that people watch tick. */
+.working{display:flex; align-items:center; gap:var(--s3); flex-wrap:wrap;
+  padding:var(--s4) var(--s5); background:var(--card-2);
+  border-radius:var(--r-card); margin-top:var(--s4)}
+.working__dot{width:8px; height:8px; border-radius:var(--r-pill);
+  background:var(--brand); flex:none}
+@media (prefers-reduced-motion: no-preference){
+  .working__dot{animation:pulse 1.4s var(--ease) infinite}
+  @keyframes pulse{0%,100%{opacity:.35} 50%{opacity:1}}
+}
+.working__note{flex-basis:100%}

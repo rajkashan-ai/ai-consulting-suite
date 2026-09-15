@@ -13,7 +13,7 @@ export const TOOLS: Tool[] = [
     slug: "competitor-tracker",
     name: "Competitor Tracker",
     does: "Who you are up against, what they charge, and what to do about it.",
-    built: false,
+    built: true,
   },
   {
     slug: "content-social-planner",

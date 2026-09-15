@@ -132,7 +132,7 @@ export async function step(runId: string): Promise<Progress | null> {
         workspace_id: business.id,
         tool: "competitor-tracker",
         title: `Competitor Tracker, ${new Date().toLocaleDateString("en-GB")}`,
-        body: result.state.card as never,
+        body: { ...result.state.card, standing: result.state.standing } as never,
       })
       .select("id")
       .single();

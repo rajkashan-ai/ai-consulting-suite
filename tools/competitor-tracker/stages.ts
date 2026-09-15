@@ -60,9 +60,17 @@ export type RunState = {
   queue?: { name: string; url: string }[];
   pages?: Record<string, ReadPage[]>;
   card?: Battlecard;
+  /**
+   * The two columns at the top of the screen. Kept beside the battlecard rather
+   * than inside it, because Battlecard is the agent's type and a screen wanting
+   * a new field is not a reason to change the shape the guards check.
+   */
+  standing?: { winning: Side[]; losing: Side[] };
   /** Why it failed, in words a customer reads. */
   reason?: string;
 };
+
+export type Side = { point: string; detail: string };
 
 export type Step = {
   stage: Stage;
@@ -296,7 +304,12 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
       `Everything we read:\n\n${evidence}`,
     shape: BATTLECARD_SHAPE,
     maxTokens: 16_000,
-  })) as { competitors?: unknown; actions?: unknown };
+  })) as {
+    competitors?: unknown;
+    actions?: unknown;
+    where_you_win?: Side[];
+    where_they_win?: Side[];
+  };
 
   const sources: Source[] = Object.values(pages)
     .flat()
@@ -323,7 +336,18 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
     if (own) own.claims.channels = [...(own.claims.channels ?? []), ...claims];
   }
 
-  return { stage: "checking", state: { ...state, card }, progress: "Checking it" };
+  return {
+    stage: "checking",
+    state: {
+      ...state,
+      card,
+      standing: {
+        winning: (built.where_you_win ?? []).slice(0, 4),
+        losing: (built.where_they_win ?? []).slice(0, 4),
+      },
+    },
+    progress: "Checking it",
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -489,6 +513,25 @@ const BATTLECARD_SHAPE = {
           required: ["name", "claims"],
         },
       },
+      where_you_win: {
+        type: "array",
+        description:
+          "Up to four things this business does better than the others, each from a page we read. Empty is an honest answer.",
+        items: {
+          type: "object",
+          properties: { point: { type: "string" }, detail: { type: "string" } },
+          required: ["point", "detail"],
+        },
+      },
+      where_they_win: {
+        type: "array",
+        description: "Up to four things the others do better, each from a page we read.",
+        items: {
+          type: "object",
+          properties: { point: { type: "string" }, detail: { type: "string" } },
+          required: ["point", "detail"],
+        },
+      },
       actions: {
         type: "array",
         description: "Exactly three, strongest first.",
@@ -506,7 +549,7 @@ const BATTLECARD_SHAPE = {
         },
       },
     },
-    required: ["competitors", "actions"],
+    required: ["competitors", "where_you_win", "where_they_win", "actions"],
     $defs: {
       claim: {
         type: "object",
