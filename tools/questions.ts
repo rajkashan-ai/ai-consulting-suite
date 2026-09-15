@@ -42,7 +42,19 @@ export const PROXIMITY_WEIGHT: Record<Reach, number> = {
 export const FOUND_VIA: { id: string; label: string; platforms: string[] }[] = [
   { id: "word-of-mouth", label: "Word of mouth", platforms: [] },
   { id: "google", label: "Google", platforms: [] },
-  { id: "social", label: "Facebook or Instagram", platforms: ["facebook.com", "instagram.com"] },
+  /**
+   * No platforms against social, deliberately.
+   *
+   * Where customers find you is not the same as where your competitors are
+   * listed, and Facebook and Instagram have no page listing every barber in a
+   * town. Searching them for one returned individual profiles, the listing
+   * stage found nothing, and a run failed with "we could only find 0 other
+   * barbers" while the real Booksy listing sat there untouched.
+   *
+   * It is still worth asking and worth recording. It just does not tell us
+   * where to look for a comparison.
+   */
+  { id: "social", label: "Facebook or Instagram", platforms: [] },
   { id: "booking", label: "A booking site like Booksy, Fresha or Treatwell", platforms: ["booksy.com", "fresha.com", "treatwell.co.uk"] },
   { id: "trades", label: "Checkatrade, MyBuilder or similar", platforms: ["checkatrade.com", "mybuilder.com", "ratedpeople.com"] },
   { id: "marketplace", label: "A marketplace or directory", platforms: ["yell.com", "bark.com", "trustpilot.com"] },

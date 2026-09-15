@@ -244,3 +244,52 @@ test("the comparison is a grid, not a list under each name", async () => {
   assert.match(stages, /One row per thing, one column per business|one column per business/i);
   assert.match(stages, /attribute/, "rows are named, comparable things");
 });
+
+/* ── The playbook poisoning itself ───────────────────────────────────────── */
+
+test("a venue page is never mistaken for a listing", async () => {
+  /**
+   * 15 September. Once a host was trusted, any page on it counted as a listing.
+   * A single shop's Booksy venue page was read as "every barber in Shrewsbury",
+   * named one business, and then overwrote the playbook's record of where the
+   * real listing was. The next run went to the wrong page and found nobody.
+   *
+   * Being on Booksy is not the same as being Booksy's list of everybody.
+   */
+  // I wrote my own pattern for this and it flagged the real Booksy listing as a
+  // venue, because /s/barber/1227928_shrewsbury also carries digits. Their
+  // isVenuePage checks for the search path first, which is the whole
+  // difference. Third time today that the agent already had the answer.
+  const { isVenuePage } = await import(
+    "../../Agents/Competitor Tracker/src/search-visibility.ts"
+  );
+
+  assert.equal(isVenuePage("https://booksy.com/en-gb/78530_armando-barbershop_barber_1227928_shrewsbury"), true);
+  assert.equal(isVenuePage("https://www.fresha.com/lvp/the-barber-shop-shrewsbury-smithfield-road-VEy9er"), true);
+  assert.equal(isVenuePage("https://booksy.com/en-gb/s/barber/1227928_shrewsbury"), false);
+  assert.equal(isVenuePage("https://www.fresha.com/lp/en/bt/barbershops/in/gb-shrewsbury"), false);
+
+  const stages = readFileSync(join(ROOT, "tools/competitor-tracker/stages.ts"), "utf8");
+  assert.match(stages, /!isVenuePage/, "the listing check is bypassed for trusted hosts again");
+});
+
+test("a page naming one business is not filed as a platform", () => {
+  // It used to record every page it read with the run's total against each, so
+  // a venue naming one shop was filed as a listing naming eighteen.
+  const stages = readFileSync(join(ROOT, "tools/competitor-tracker/stages.ts"), "utf8");
+  assert.match(stages, /rows\.length >= 3/, "anything is being learned as a platform again");
+});
+
+test("where customers find you is not where competitors are listed", async () => {
+  /**
+   * 15 September. Answering "Facebook or Instagram" sent the searches to
+   * facebook.com and instagram.com, which have no page listing every barber in
+   * a town. The listing stage found nothing and the run failed with "we could
+   * only find 0 other barbers" while the real Booksy listing sat untouched.
+   */
+  const { platformsFrom } = await import("../tools/questions.ts");
+  assert.deepEqual(platformsFrom(["social"]), []);
+  // The ones that really are listings still count.
+  assert.ok(platformsFrom(["booking"]).includes("booksy.com"));
+  assert.ok(platformsFrom(["trades"]).includes("checkatrade.com"));
+});

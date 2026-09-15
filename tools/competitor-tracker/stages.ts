@@ -1,6 +1,7 @@
 import {
   buildSearchTerms,
   candidatesFromSearch,
+  isVenuePage,
   measure,
   searchToolConfig,
   summarise,
@@ -279,12 +280,25 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
       const isListing = /\/(s|lp|search|browse)\//.test(url) || /\/in\/gb-/.test(url);
       const isOurs = url.includes("/en-gb/") || url.includes("/gb-") || url.includes(".co.uk");
 
-      // A host the playbook already trusts counts as a listing even if the url
-      // shape is one we have not seen, because platforms change their paths and
-      // the playbook is evidence that this one lists this trade.
+      /**
+       * A trusted host still has to serve a listing.
+       *
+       * This used to accept any page on a known host, so a single shop's venue
+       * page was read as "every barber in Shrewsbury". It named one business,
+       * and that one page then overwrote the playbook's record of where the
+       * real listing was.
+       *
+       * Being on Booksy is not the same as being Booksy's list of everybody.
+       */
       const trusted = knownHosts.some((h) => url.includes(h));
 
-      if ((isListing || trusted) && isOurs && url.includes(town)) wanted.add(r.url);
+      // Their isVenuePage, not a pattern of my own. Mine flagged the real
+      // Booksy listing as a venue, because /s/barber/1227928_shrewsbury also
+      // carries digits. Theirs checks for the search path first, which is the
+      // whole difference, and it is written down in their file with the reason.
+      const looksLikeAListing = isListing && !isVenuePage(r.url);
+
+      if (looksLikeAListing && (isOurs || trusted) && url.includes(town)) wanted.add(r.url);
     }
   }
 
@@ -381,14 +395,22 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
 
   // What this run found that the playbook did not have. Folded back in at the
   // end, so the next business in this trade starts from it.
-  const learned = pages
-    .filter((p) => p.ok)
-    .map((p) => ({
-      host: hostOf(p.url),
-      example: p.url,
-      named: names.length,
-    }))
-    .filter((p) => p.host);
+  /**
+   * A platform is only learned when a page on it actually named several
+   * businesses.
+   *
+   * It used to record every page it read, with the run's total against each,
+   * so a venue page naming one shop was filed as a listing naming eighteen and
+   * the playbook sent the next run to the wrong page. Three is the fewest that
+   * makes something a list rather than a shop.
+   */
+  const learned =
+    rows.length >= 3
+      ? pages
+          .filter((p) => p.ok)
+          .map((p) => ({ host: hostOf(p.url), example: p.url, named: rows.length }))
+          .filter((p) => p.host)
+      : [];
 
   return {
     stage: "choosing",
