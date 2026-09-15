@@ -47,6 +47,8 @@ export default function SignInForm() {
     setError(null);
     setStage("working");
     try {
+      // A job may set its own message and return null, meaning "handled, and
+      // what I said stands". Only a returned string is turned into an error.
       const problem = await job();
       if (problem) {
         setError(readable(problem));
@@ -79,6 +81,19 @@ export default function SignInForm() {
         // creating an auth user for somebody who was never getting in.
         options: { shouldCreateUser: true },
       });
+
+      // Being told to slow down is not a dead end. A code from a few minutes
+      // ago is still good for an hour, and the only way to type one was to
+      // trigger an email first, which is the request that just got refused.
+      if (error && /rate|many|seconds|limit/i.test(error.message)) {
+        setStage("code-sent");
+        setError(
+          "We could not send another just yet. If you already have a code, " +
+            "from an earlier email or from the terminal, type it here.",
+        );
+        return null;
+      }
+
       if (error) return error.message;
       setStage("code-sent");
       return null;
@@ -170,6 +185,19 @@ export default function SignInForm() {
         {error && <p className="auth__error t-doc-sm">{error}</p>}
         <button className="btn--ghost" type="submit" disabled={stage === "working"}>
           {stage === "working" ? "Sending" : "Email me a code"}
+        </button>
+        {/* The code box used to be reachable only by sending an email. When the
+            email was refused, or arrived as a link, or arrived an hour late,
+            there was no way to type a code you already had. */}
+        <button
+          className="auth__already t-meta"
+          type="button"
+          onClick={() => {
+            setError(null);
+            setStage("code-sent");
+          }}
+        >
+          I already have a code
         </button>
       </form>
     </div>

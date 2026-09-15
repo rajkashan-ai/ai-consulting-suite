@@ -175,3 +175,13 @@
   @keyframes pulse{0%,100%{opacity:.35} 50%{opacity:1}}
 }
 .working__note{flex-basis:100%}
+
+/* A quiet way to the code box for anyone who already has a code. Underlined,
+   because it is a control that looks like text and the underline is what says
+   so without colour doing the work. */
+.auth__already{
+  background:none; border:0; padding:var(--s2) 0; cursor:pointer;
+  text-align:left; color:var(--muted); text-decoration:underline;
+  text-underline-offset:2px;
+}
+@media (any-hover:hover){ .auth__already:hover{color:var(--ink)} }
