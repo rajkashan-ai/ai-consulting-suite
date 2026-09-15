@@ -6,6 +6,7 @@ import { fetchPage } from "@/lib/research/fetch";
 import { advance, type RunState, type Stage } from "@/tools/competitor-tracker/stages";
 import { EMPTY, learn, type Playbook } from "@/tools/competitor-tracker/playbook";
 import type { Business, ToolContext } from "@/tools/types";
+import { check, note, type Watch } from "@/lib/watchdog";
 
 /**
  * Advances one run by one step, and stops.
@@ -37,6 +38,23 @@ export async function step(runId: string): Promise<Progress | null> {
   const { data: claimed } = await db.rpc("claim_run", { run: runId });
   const run = Array.isArray(claimed) ? claimed[0] : claimed;
   if (!run) return null;
+
+  /**
+   * Has this one already gone wrong? Asked before any money is spent, so a run
+   * that is circling does not pay for one more lap to prove it.
+   */
+  const watch = ((run.state ?? {}) as { watch?: Watch }).watch ?? {};
+  const verdict = check(watch, { stage: run.stage as Stage, startedAt: run.started_at });
+  if (verdict) {
+    // The reason the customer reads and the reason we need are different
+    // things. Theirs goes in the error, ours goes in the state, where it is
+    // still here tomorrow when somebody asks what happened.
+    await db
+      .from("runs")
+      .update({ state: { ...(run.state ?? {}), watch: { ...watch, stopped: verdict.why } } as never })
+      .eq("id", runId);
+    return fail(db, runId, verdict.say);
+  }
 
   const { data: workspace } = await db
     .from("workspaces")
@@ -262,6 +280,16 @@ export async function step(runId: string): Promise<Progress | null> {
   } catch (e) {
     return fail(db, runId, e instanceof Error ? e.message : String(e), spent, pages);
   }
+
+  /**
+   * Count the step that just happened, against the stage it was spent in.
+   *
+   * Recorded against `run.stage`, the stage we were in when we started, not
+   * `result.stage`, where we ended up. A run that circles between checking and
+   * fixing spends a step in each every time round, and counting the destination
+   * would credit the work to the wrong one and never trip a cap.
+   */
+  result.state.watch = note(watch, run.stage as Stage, result.progress);
 
   /**
    * Fold what this run learned back into the trade's playbook.

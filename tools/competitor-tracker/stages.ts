@@ -1,3 +1,4 @@
+import type { Watch } from "@/lib/watchdog";
 import {
   buildSearchTerms,
   candidatesFromSearch,
@@ -102,6 +103,8 @@ export type RunState = {
   repairs?: number;
   /** Why it failed, in words a customer reads. */
   reason?: string;
+  /** What the watchdog has seen. See lib/watchdog.ts. */
+  watch?: Watch;
 };
 
 export type Side = { point: string; detail: string };
