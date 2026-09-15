@@ -4,27 +4,32 @@
  *
  *     npm run key
  *
- * You paste it into your own terminal. It is not shown as you type, it is never
- * printed back, and it goes into a file only you can read. Nothing about this
- * command puts the key into a chat, a log or a commit.
+ * You paste it into your own terminal. It does not appear on screen, it is
+ * never printed back, and it is written to a file only you can read.
  *
- * Which is the whole reason it exists. A key pasted into a conversation has to
- * be rotated afterwards, and a key typed into a file by somebody else is a key
- * they have seen.
+ * WHY THE HIDING IS DONE WITH stty AND NOT WITH READLINE
+ * The first version muted readline's output stream while readline ran in
+ * terminal mode. Terminal mode processes a paste keystroke by keystroke, and a
+ * long paste arrived in pieces: a 108 character key was saved as 23 characters,
+ * silently, and the only symptom was a 401 later. Turning the echo off at the
+ * terminal itself and then reading one plain line keeps the paste whole.
+ *
+ * And the length is checked, so a truncated paste cannot be saved quietly ever
+ * again.
  */
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { execFileSync } from "node:child_process";
 import { createInterface } from "node:readline";
-import { Writable } from "node:stream";
 
 const ENV = join(import.meta.dirname, ".env.local");
 
 const KEYS = {
   anthropic: {
     name: "ANTHROPIC_API_KEY",
-    from: "console.anthropic.com, API keys",
-    looksLike: /^sk-ant-/,
-    expect: "sk-ant-",
+    from: "console.anthropic.com, then API keys",
+    starts: "sk-ant-",
+    minLength: 60,
     why: "Needed before reading a website does anything.",
   },
 };
@@ -36,47 +41,46 @@ if (!key) {
   process.exit(1);
 }
 
-/**
- * Ask for something without it appearing on screen. A key visible in a terminal
- * ends up in a screenshot, a screen share, or scrollback somebody else reads.
- */
-function askHidden(question) {
-  let hide = false;
-  const muted = new Writable({
-    write(chunk, encoding, done) {
-      if (!hide) process.stdout.write(chunk, encoding);
-      done();
-    },
-  });
-  const rl = createInterface({ input: process.stdin, output: muted, terminal: true });
+const tty = process.stdin.isTTY;
+
+function echo(on) {
+  if (!tty) return;
+  try {
+    execFileSync("stty", [on ? "echo" : "-echo"], { stdio: ["inherit", "ignore", "ignore"] });
+  } catch {
+    /* not a terminal we can control. The paste still works, it is just visible. */
+  }
+}
+
+function askLine(question) {
   return new Promise((resolve) => {
-    rl.question(question, (answer) => {
+    // terminal:false, so the whole pasted line arrives as one line.
+    const rl = createInterface({ input: process.stdin, terminal: false });
+    process.stdout.write(question);
+    rl.once("line", (line) => {
       rl.close();
-      process.stdout.write("\n");
-      resolve(answer.trim());
+      resolve(line.trim());
     });
-    hide = true;
   });
 }
 
 console.log("\n" + key.name);
 console.log("  " + key.why);
 console.log("  Get it from: " + key.from);
-console.log("  It will not appear as you type.\n");
+console.log(tty ? "  It will not appear as you paste. That is normal.\n" : "");
 
-const value = await askHidden("  Paste it here: ");
-
-if (!value) {
-  console.log("Nothing entered. Nothing changed.");
-  process.exit(1);
+echo(false);
+let value;
+try {
+  value = await askLine("  Paste it here, then press enter: ");
+} finally {
+  echo(true);
+  process.stdout.write("\n");
 }
-if (!key.looksLike.test(value)) {
-  console.log(
-    "That does not look like an Anthropic key. They all start with " +
-      key.expect + "\n" +
-      "  Nothing was changed. Run npm run key again and paste the whole thing,\n" +
-      "  including the sk-ant- at the front.",
-  );
+
+const problem = check(value, key);
+if (problem) {
+  console.log(problem + "\n  Nothing was changed. Run it again.\n");
   process.exit(1);
 }
 
@@ -88,7 +92,31 @@ const next = new RegExp("^" + key.name + "=", "m").test(existing)
 
 writeFileSync(ENV, next.replace(/^\n+/, ""), { mode: 0o600 });
 
-console.log("Saved to .env.local. " + value.length + " characters, not shown.");
-console.log("It is gitignored and readable only by you.\n");
-console.log("Now:   npm run dev");
-console.log("Then:  http://localhost:3000/try\n");
+console.log("  Saved. " + value.length + " characters, not shown.");
+console.log("  .env.local is readable only by you and is never committed.\n");
+console.log("  Now:   npm run dev");
+console.log("  Then:  http://localhost:3000/try\n");
+
+/** Every way a paste goes wrong, each with what to do about it. */
+function check(value, key) {
+  if (!value) return "  Nothing was pasted.";
+
+  if (/\s/.test(value)) {
+    return "  That has a space or a line break in it, so something else came with it.";
+  }
+  if (!value.startsWith(key.starts)) {
+    return (
+      "  That does not start with " + key.starts + ", so the front is missing.\n" +
+      "  Select the whole key, including the " + key.starts + " at the start."
+    );
+  }
+  if (value.length < key.minLength) {
+    // This is the one that bit us: 23 characters saved silently, and the only
+    // symptom was a 401 an hour later.
+    return (
+      "  Only " + value.length + " characters. A real key is about 100.\n" +
+      "  The paste was cut short. Copy it again and paste the whole thing."
+    );
+  }
+  return null;
+}
