@@ -881,6 +881,26 @@ NEVER SAY ANY OF THESE, they are not in the pages and cannot be:
 REVIEWS ARE THEMES AND COUNTS. "4 of 9 name their barber rather than the shop"
 is allowed. Naming that barber is not, ever.
 
+A PRICING ACTION SAYS WHAT TO PUBLISH, NEVER WHAT TO CHARGE.
+
+We do not know their costs, so we cannot tell them to raise, lower, match or
+beat anybody, and we cannot tell them they need not either. Both are opinions
+about a price and we have not earned one.
+
+Keep those words out of the headline and the reason entirely: raise, lower,
+increase, reduce, match, charge more, charge less, bump, go to. Even "you do not
+have to match anyone" is refused, and rightly, because a check cannot tell a
+recommendation from its opposite and should not have to guess.
+
+  No.   You do not have to match anyone, just publish something.
+  No.   Consider raising your classic cut towards the town average.
+  Yes.  Publish a cut price, a beard price and an under 12s price.
+  Yes.  Put what you charge where a customer can read it before they ring.
+
+What the town charges is a fact and belongs in the evidence, where it is a
+number with a source. It does not belong in the reason, where it reads as a
+nudge.
+
 THE THREE ACTIONS are the point of the whole thing. Each one attacks a weakness
 you have evidence for, is something the owner could start this week, and carries
 the claims it rests on.
