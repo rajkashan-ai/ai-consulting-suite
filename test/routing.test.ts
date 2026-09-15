@@ -108,3 +108,17 @@ test("a sign-in code landing on the root is not lost", () => {
   assert.equal(lands("/", false), "/");
   assert.equal(lands("/sign-in", true), "/sign-in");
 });
+
+test("routes that carry their own authentication are not sent to sign in", () => {
+  // /api/dev-signin is what creates a session: requiring one to reach it is a
+  // locked door with the key inside. /api/tick is called by a scheduler that
+  // has no session and checks a shared secret instead. Left out, the only
+  // symptom is runs that never finish when nobody is watching.
+  assert.deepEqual(decide("/api/dev-signin", false), { go: "through" });
+  assert.deepEqual(decide("/api/tick", false), { go: "through" });
+  // And nothing else under /api is let through by accident.
+  assert.deepEqual(decide("/api/runs/abc/step", false), {
+    go: "sign-in",
+    next: "/api/runs/abc/step",
+  });
+});

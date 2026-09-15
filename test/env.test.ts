@@ -81,3 +81,23 @@ test("the no-sign-in reader refuses itself on a deployed site", () => {
     assert.match(text, /notFound\(\)/, f);
   }
 });
+
+test("the no-email sign-in cannot exist on a deployed site", () => {
+  // It hands out a real session. Three refusals, not one, because one is a
+  // single careless edit away from being gone: production, any deploy on
+  // Vercel including previews, and an explicit opt-in in .env.local.
+  for (const f of ["app/api/dev-signin/route.ts", "app/sign-in/page.tsx"]) {
+    const text = readFileSync(join(ROOT, f), "utf8");
+    assert.match(text, /NODE_ENV [!=]== "production"/, `${f}: production check`);
+    assert.match(text, /process\.env\.VERCEL/, `${f}: Vercel check`);
+    assert.match(text, /ALLOW_DEV_SIGNIN/, `${f}: explicit opt-in`);
+  }
+});
+
+test("the no-email sign-in still checks the allowlist", () => {
+  // Skipping delivery is not the same as skipping who is allowed in, and this
+  // is the assertion that stops the two being conflated later.
+  const text = readFileSync(join(ROOT, "app/api/dev-signin/route.ts"), "utf8");
+  assert.match(text, /allowed_emails/);
+  assert.match(text, /not-invited/);
+});

@@ -185,3 +185,9 @@
   text-underline-offset:2px;
 }
 @media (any-hover:hover){ .auth__already:hover{color:var(--ink)} }
+
+/* The no-email way in. Deliberately plain and deliberately labelled: it should
+   look like the workshop door it is, not like part of the product. */
+.bypass{display:flex; flex-direction:column; gap:var(--s2);
+  margin-top:var(--s6); padding-top:var(--s5); border-top:1px dashed var(--muted)}
+.bypass .btn--ghost{width:100%; justify-content:flex-start}

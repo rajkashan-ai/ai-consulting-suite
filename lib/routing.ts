@@ -21,6 +21,22 @@ export const PUBLIC_PATHS = [
   // Development only, and it refuses itself on a deployed site. Listed here so
   // it is reachable without an account, which is the entire point of it.
   "/try",
+  /**
+   * These two carry their own authentication, so the session check here would
+   * only ever be wrong about them.
+   *
+   * /api/dev-signin is the thing that creates a session. Requiring one to reach
+   * it is a locked door with the key inside: it redirected to the sign-in page,
+   * from the sign-in page.
+   *
+   * /api/tick is called by a scheduler, which has no session and never will. It
+   * checks a shared secret instead and refuses everything without one. Left out
+   * of this list it would have been redirected to a sign-in page for ever, and
+   * the only symptom would have been runs that never finish when nobody is
+   * watching, which is the exact thing it exists to prevent.
+   */
+  "/api/dev-signin",
+  "/api/tick",
 ];
 
 export type Decision =
