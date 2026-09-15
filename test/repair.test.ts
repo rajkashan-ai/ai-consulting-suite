@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { advance, type RunState } from "../tools/competitor-tracker/stages.ts";
 import type { Business, ToolContext } from "../tools/types.ts";
 
@@ -117,4 +119,41 @@ test("the refusal names the rule in words, not as a function name", async () => 
 test("nothing built at all is a refusal, not a repair", async () => {
   const out = await advance("checking", {} as RunState, business, noContext());
   assert.equal(out.stage, "failed");
+});
+
+test("a rewrite that loses the actions is not accepted", async () => {
+  /**
+   * 15 September. The repair was handed the whole battlecard shape. Once the
+   * comparison grid joined that shape it had to regenerate the grid too, ran
+   * out of output tokens partway, and returned no actions. The card then failed
+   * on "wrong count": a refusal caused by the thing sent to fix a refusal.
+   */
+  const emptyRewrite = (): ToolContext => ({
+    read: async () => { throw new Error("no"); },
+    search: async () => { throw new Error("no"); },
+    progress: () => {},
+    think: async () => ({ competitors: [], actions: [], where_you_win: [], where_they_win: [] }),
+  });
+
+  const out = await advance(
+    "fixing",
+    {
+      card: brokenCard,
+      problems: [{ rule: "unboundedCounts", sentences: ["hundreds of reviews"] }],
+    } as RunState,
+    business,
+    emptyRewrite(),
+  );
+
+  assert.equal(out.stage, "checking");
+  assert.equal(out.state.card?.actions.length, 3, "the three actions must survive a bad rewrite");
+  assert.equal(out.state.card?.competitors.length, 1);
+});
+
+test("the repair is not asked to rewrite the comparison grid", () => {
+  // Structured data cannot trip a guard that reads prose, so regenerating it
+  // was pure risk and it is what blew the token budget.
+  const stages = readFileSync(join(import.meta.dirname, "..", "tools", "competitor-tracker", "stages.ts"), "utf8");
+  const shape = stages.slice(stages.indexOf("const REPAIR_SHAPE"), stages.indexOf("const REPAIR_RULES"));
+  assert.ok(!shape.includes("comparison"), "the repair shape is asking for the grid again");
 });

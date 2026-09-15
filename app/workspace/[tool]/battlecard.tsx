@@ -1,9 +1,12 @@
 import type { Battlecard, Claim, Competitor } from "../../../../Agents/Competitor Tracker/src/types";
-import type { Side } from "@/tools/competitor-tracker/stages";
+import type { Grid, Side } from "@/tools/competitor-tracker/stages";
 import Tabs from "./tabs";
 import Mark, { CopyEverything } from "./mark";
 
-type Stored = Battlecard & { standing?: { winning: Side[]; losing: Side[] } };
+type Stored = Battlecard & {
+  standing?: { winning: Side[]; losing: Side[] };
+  grid?: Grid[];
+};
 
 const AREAS = [
   { key: "pricing", label: "Pricing & packaging" },
@@ -43,8 +46,6 @@ export default function BattlecardView({
     />
   );
   const ran = new Date(card.ranAt);
-  const you = card.competitors[0];
-  const rest = card.competitors.slice(1);
 
   return (
     <>
@@ -87,8 +88,8 @@ export default function BattlecardView({
           panel: (
             <Area
               area={area.key}
-              you={you}
-              rest={rest}
+              grid={card.grid?.find((g) => g.area === area.key)}
+              competitors={card.competitors}
               label={area.label}
               mark={mark}
             />
@@ -243,59 +244,116 @@ function Column({
   );
 }
 
+/**
+ * One area, as a grid.
+ *
+ * A row is one comparable thing and a column is one business, so "who is
+ * cheapest" is a glance along a row. It was a list of bullet points under each
+ * name, which meant holding six paragraphs in your head to answer that.
+ *
+ * The customer is the first column and is never one of the competitors. The old
+ * version took competitors[0] as the customer, so once they were correctly
+ * removed from that list a competitor's opening hours appeared under "You".
+ */
 function Area({
   area,
-  you,
-  rest,
+  grid,
+  competitors,
   label,
   mark,
 }: {
   area: (typeof AREAS)[number]["key"];
-  you?: Competitor;
-  rest: Competitor[];
+  grid?: Grid;
+  competitors: Competitor[];
   label: string;
   mark: (target: string, said: string) => React.ReactNode;
 }) {
-  const all = [you, ...rest].filter(Boolean) as Competitor[];
-  const anything = all.some((c) => (c.claims[area]?.length ?? 0) > 0);
-
-  if (!anything) {
+  if (!grid || !grid.rows.length) {
+    // Fall back to whatever claims exist, so an older battlecard still reads.
+    const anything = competitors.some((c) => (c.claims[area]?.length ?? 0) > 0);
+    if (!anything) {
+      return (
+        <div className="panel">
+          <h3 className="t-sub">Nothing on {label.toLowerCase()} yet.</h3>
+          <p className="t-doc">
+            None of the pages we read said anything about this. That is a result
+            rather than a gap: it is not published, so nobody choosing between
+            you can see it either.
+          </p>
+        </div>
+      );
+    }
     return (
-      <div className="panel">
-        <h3 className="t-sub">Nothing on {label.toLowerCase()} yet.</h3>
-        <p className="t-doc">
-          None of the pages we read said anything about this. That is a result
-          rather than a gap: it is not published, so nobody choosing between you
-          can see it either.
-        </p>
+      <div className="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Business</th>
+              <th>What we found</th>
+            </tr>
+          </thead>
+          <tbody>
+            {competitors.map((c) => (
+              <tr key={c.name}>
+                <td>
+                  <strong>{c.name}</strong>
+                </td>
+                <td>
+                  <ClaimList claims={c.claims[area] ?? []} mark={mark} who={c.name} area={area} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     );
   }
 
   return (
-    <div className="tablewrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Business</th>
-            <th>What we found</th>
-          </tr>
-        </thead>
-        <tbody>
-          {all.map((c, i) => (
-            <tr key={c.name} className={i === 0 ? "row-you" : undefined}>
-              <td>
-                <strong>{i === 0 ? "You" : c.name}</strong>
-                {i === 0 && <span className="cell-note">{c.name}</span>}
-              </td>
-              <td>
-                <ClaimList claims={c.claims[area] ?? []} mark={mark} who={c.name} area={area} />
-              </td>
+    <>
+      <div className="tablewrap">
+        <table className="grid">
+          <thead>
+            <tr>
+              <th>&nbsp;</th>
+              {grid.columns.map((name, i) => (
+                <th key={name} className={i === 0 ? "grid__you" : undefined}>
+                  {i === 0 ? "You" : name}
+                  {i === 0 && <span className="cell-note">{name}</span>}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {grid.rows.map((row) => (
+              <tr key={row.attribute}>
+                <th scope="row" className="grid__what">
+                  {row.attribute}
+                  {mark(`grid:${area}:${row.attribute}`, row.attribute)}
+                </th>
+                {row.cells.map((cell, i) => (
+                  <td key={i} className={i === 0 ? "grid__you" : undefined}>
+                    {cell.value ? (
+                      <>
+                        <strong>{cell.value}</strong>
+                        {cell.source && (
+                          <span className="cell-note">
+                            {host(cell.source.url)} &middot; {day(cell.source.fetchedOn)}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="cell-none">Not published</span>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {grid.note && <p className="t-meta">{grid.note}</p>}
+    </>
   );
 }
 

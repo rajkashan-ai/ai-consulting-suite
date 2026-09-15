@@ -219,3 +219,20 @@
 .diag{display:flex; flex-wrap:wrap; gap:var(--s3); align-items:center;
   margin-top:var(--s10); padding-top:var(--s5); border-top:1px dashed var(--muted)}
 .diag .t-meta{flex:1; min-width:260px}
+
+/* ---- The comparison grid -------------------------------------------------- */
+
+/* One row per thing, one column per business, so "who is cheapest" is a glance
+   along a row rather than six paragraphs held in your head. */
+.grid{min-width:760px}
+.grid th[scope="row"]{font-size:15px; line-height:20px; font-weight:600;
+  text-transform:none; letter-spacing:-.006em; color:var(--ink);
+  background:var(--card); white-space:normal; vertical-align:top}
+.grid__what{min-width:170px}
+/* The customer's column, marked once in the header and once down the side, so
+   you can find yourself without counting across. */
+.grid__you{background:var(--card-2)}
+.grid thead .grid__you{box-shadow:inset 0 3px 0 var(--ink)}
+.grid td{vertical-align:top}
+.grid td strong{font-weight:600}
+@media (max-width:640px){ .grid__what{min-width:120px} }

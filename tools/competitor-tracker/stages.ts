@@ -78,6 +78,8 @@ export type RunState = {
   listed?: Found[];
   /** The five that were picked, and why each one. */
   picked?: Scored[];
+  /** The comparison as a grid, one row per thing and one column per business. */
+  grid?: Grid[];
   listingPages?: ReadPage[];
   card?: Battlecard;
   /**
@@ -95,6 +97,32 @@ export type RunState = {
 };
 
 export type Side = { point: string; detail: string };
+
+/**
+ * The comparison, as a grid rather than a list per business.
+ *
+ * A row of bullet points under each name cannot be compared: to find out who is
+ * cheapest you read six paragraphs and hold them in your head. One row per
+ * thing, one column per business, and the answer is a glance.
+ *
+ * Kept beside the agent's Battlecard rather than inside it, for the same reason
+ * `standing` is: Battlecard is their type and the guards check it, and a screen
+ * wanting a different arrangement is not a reason to change the shape they
+ * validate. The same facts appear in both.
+ */
+export type Grid = {
+  area: string;
+  /** Businesses, the customer first. The customer is not in `competitors`. */
+  columns: string[];
+  rows: {
+    /** "Classic cut", "Reviews", "Opens". One comparable thing. */
+    attribute: string;
+    /** One per column, in the same order. Null where nothing was published. */
+    cells: { value: string | null; source: { url: string; fetchedOn: string } | null }[];
+  }[];
+  /** Said under the table. One line, the thing the table shows. */
+  note?: string;
+};
 
 export type Step = {
   stage: Stage;
@@ -701,6 +729,7 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
     maxTokens: 16_000,
   })) as {
     competitors?: unknown;
+    comparison?: Grid[];
     actions?: unknown;
     where_you_win?: Side[];
     where_they_win?: Side[];
@@ -735,6 +764,7 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
     state: {
       ...state,
       card,
+      grid: shapeGrid(built.comparison, profile.name, competitors.map((c) => c.name)),
       standing: {
         winning: (built.where_you_win ?? []).slice(0, 4),
         losing: (built.where_they_win ?? []).slice(0, 4),
@@ -853,6 +883,7 @@ async function fix(state: RunState, ctx: ToolContext): Promise<Step> {
     maxTokens: 16_000,
   })) as {
     competitors?: unknown;
+    comparison?: Grid[];
     actions?: unknown;
     where_you_win?: Side[];
     where_they_win?: Side[];
@@ -865,14 +896,21 @@ async function fix(state: RunState, ctx: ToolContext): Promise<Step> {
     stage: "checking",
     state: {
       ...state,
+      /**
+       * A repair may improve the wording and may never lose a part of the card.
+       *
+       * On its first real outing it came back with no actions, the card failed
+       * on "wrong count" and Raj saw a refusal caused by the thing sent to fix
+       * a different refusal. Three actions in, fewer than three out, keep what
+       * we had.
+       */
       card: {
         ...card,
-        competitors: Array.isArray(reworded.competitors) && reworded.competitors.length
-          ? shapeCompetitors(reworded.competitors, card.competitors, card.business)
-          : card.competitors,
-        actions: Array.isArray(reworded.actions) && reworded.actions.length
-          ? shapeActions(reworded.actions)
-          : card.actions,
+        competitors: keepBetter(
+          shapeCompetitors(reworded.competitors, card.competitors, card.business),
+          card.competitors,
+        ),
+        actions: keepBetter(shapeActions(reworded.actions), card.actions),
       },
       repairs: (state.repairs ?? 0) + 1,
       standing: {
@@ -883,6 +921,12 @@ async function fix(state: RunState, ctx: ToolContext): Promise<Step> {
     },
     progress: "Checking it",
   };
+}
+
+/** A rewrite that came back shorter than it went in is a rewrite that lost
+ *  something, and the thing it lost is worth more than the wording. */
+function keepBetter<T>(fresh: T[], before: T[]): T[] {
+  return fresh.length >= before.length ? fresh : before;
 }
 
 /** What each guard is actually complaining about, said so it can be acted on. */
@@ -996,6 +1040,42 @@ export function asText(card: Battlecard): string {
   for (const u of card.unreadable) lines.push(ended(`${u.name}: ${u.reason}`));
 
   return lines.filter(Boolean).join("\n");
+}
+
+/**
+ * The grid, with the columns forced to the right businesses.
+ *
+ * The customer goes first and is never one of the competitors. The screen used
+ * to take the first competitor as the customer, which put SY1 Hair's opening
+ * hours under the heading "You" on a real battlecard Raj was reading.
+ */
+function shapeGrid(raw: unknown, own: string, five: string[]): Grid[] {
+  if (!Array.isArray(raw)) return [];
+  const columns = [own, ...five];
+
+  return raw.slice(0, 4).map((g: Record<string, unknown>) => {
+    const given = Array.isArray(g.columns) ? (g.columns as string[]) : [];
+    // Where each of our columns sits in what came back, so a reordering or a
+    // renamed column moves the cells with it instead of shifting the table.
+    const where = columns.map((name) =>
+      given.findIndex(
+        (c) => c.toLowerCase().replace(/[^a-z0-9]/g, "") === name.toLowerCase().replace(/[^a-z0-9]/g, ""),
+      ),
+    );
+
+    return {
+      area: String(g.area ?? "pricing"),
+      columns,
+      note: typeof g.note === "string" ? g.note : undefined,
+      rows: (Array.isArray(g.rows) ? g.rows : []).slice(0, 8).map((r: Record<string, unknown>) => {
+        const cells = Array.isArray(r.cells) ? (r.cells as Grid["rows"][0]["cells"]) : [];
+        return {
+          attribute: String(r.attribute ?? ""),
+          cells: where.map((i) => (i >= 0 && cells[i] ? cells[i] : { value: null, source: null })),
+        };
+      }),
+    };
+  });
 }
 
 function shapeCompetitors(raw: unknown, known: Competitor[], own: string): Competitor[] {
@@ -1151,6 +1231,57 @@ const BATTLECARD_SHAPE = {
           required: ["name", "claims"],
         },
       },
+      comparison: {
+        type: "array",
+        description:
+          "One grid per area. A row is one comparable thing and a cell is what each " +
+          "business publishes about it. This is what the customer reads to compare.",
+        items: {
+          type: "object",
+          properties: {
+            area: { type: "string", enum: ["pricing", "channels", "reviews", "blindspots"] },
+            columns: {
+              type: "array",
+              description: "The customer's name first, then the competitors, exactly as named.",
+              items: { type: "string" },
+            },
+            rows: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  attribute: {
+                    type: "string",
+                    description: "One comparable thing: 'Classic cut', 'Reviews', 'Opens'.",
+                  },
+                  cells: {
+                    type: "array",
+                    description: "One per column, same order. Null where nothing is published.",
+                    items: {
+                      type: "object",
+                      properties: {
+                        value: { type: ["string", "null"] },
+                        source: {
+                          type: ["object", "null"],
+                          properties: {
+                            url: { type: "string" },
+                            fetchedOn: { type: "string" },
+                          },
+                          required: ["url", "fetchedOn"],
+                        },
+                      },
+                      required: ["value", "source"],
+                    },
+                  },
+                },
+                required: ["attribute", "cells"],
+              },
+            },
+            note: { type: ["string", "null"] },
+          },
+          required: ["area", "columns", "rows"],
+        },
+      },
       where_you_win: {
         type: "array",
         description:
@@ -1187,7 +1318,7 @@ const BATTLECARD_SHAPE = {
         },
       },
     },
-    required: ["competitors", "where_you_win", "where_they_win", "actions"],
+    required: ["competitors", "comparison", "where_you_win", "where_they_win", "actions"],
     $defs: {
       claim: {
         type: "object",
@@ -1203,5 +1334,33 @@ const BATTLECARD_SHAPE = {
         required: ["text", "value", "source"],
       },
     },
+  },
+};
+
+/**
+ * What the repair is allowed to return: the words, and nothing else.
+ *
+ * It used to be handed the whole battlecard shape. Once the comparison grid was
+ * added to that shape, a rewrite had to regenerate the grid as well, ran out of
+ * output tokens partway, and came back with no actions at all. The card then
+ * failed on "wrong-count" — a fault introduced by the thing sent to fix a
+ * different fault.
+ *
+ * The grid is structured data and cannot trip a guard that reads prose, so
+ * there was never a reason to rewrite it.
+ */
+const REPAIR_SHAPE = {
+  name: "reworded",
+  description: "The same battlecard with the refused wording changed and nothing else.",
+  input_schema: {
+    type: "object",
+    properties: {
+      competitors: BATTLECARD_SHAPE.input_schema.properties.competitors,
+      actions: BATTLECARD_SHAPE.input_schema.properties.actions,
+      where_you_win: BATTLECARD_SHAPE.input_schema.properties.where_you_win,
+      where_they_win: BATTLECARD_SHAPE.input_schema.properties.where_they_win,
+    },
+    required: ["competitors", "actions", "where_you_win", "where_they_win"],
+    $defs: BATTLECARD_SHAPE.input_schema.$defs,
   },
 };

@@ -221,3 +221,26 @@ test("the repair is told the exact wordings the guard accepts", () => {
     assert.ok(stages.includes(accepted), `the repair never mentions "${accepted}"`);
   }
 });
+
+test("the customer is the first column and never one of the competitors", async () => {
+  /**
+   * 15 September. Once the customer was correctly removed from the competitor
+   * list, the table kept taking competitors[0] as the customer, so SY1 Hair's
+   * opening hours appeared under the heading "You" on a battlecard Raj was
+   * reading. A competitor wearing your name is worse than no comparison at all.
+   */
+  const view = readFileSync(join(ROOT, "app/workspace/[tool]/battlecard.tsx"), "utf8");
+  assert.ok(
+    !/card\.competitors\[0\]/.test(view),
+    "the first competitor is being treated as the customer again",
+  );
+  assert.match(view, /grid\.columns\.map/, "columns come from the grid, which puts the customer first");
+});
+
+test("the comparison is a grid, not a list under each name", async () => {
+  // A row of bullet points per business cannot be compared: finding who is
+  // cheapest meant reading six paragraphs and holding them in your head.
+  const stages = readFileSync(join(ROOT, "tools/competitor-tracker/stages.ts"), "utf8");
+  assert.match(stages, /One row per thing, one column per business|one column per business/i);
+  assert.match(stages, /attribute/, "rows are named, comparable things");
+});
