@@ -17,7 +17,22 @@ const recorded = JSON.parse(
   readFileSync(join(import.meta.dirname, "fixtures", "shrewsbury.json"), "utf8"),
 ) as Recorded;
 
-/** A grid shaped the way the model is asked to return one. */
+/**
+ * A grid shaped the way the model is asked to return one.
+ *
+ * Every cell is sourced to the town listing page, which is a page the run
+ * really reads and which really does cover every business in it. It used to be
+ * sourced to "https://booksy.com/x", a url nothing ever read. That passed until
+ * 2026-09-16, when a cell sourced to a page belonging to somebody else began to
+ * be blanked, and an unknown url counts as somebody else: we cannot say whose
+ * it is, and "we do not know" must not read as "yes".
+ *
+ * The fixture was wrong rather than the rule. In the product a cell's source
+ * can only come from expanding a page number, so it is always a page that was
+ * read. A helper that invents one is testing a state the product cannot reach.
+ */
+const LISTING_URL = "https://booksy.com/en-gb/s/barber/1227928_shrewsbury";
+
 const aGrid = (columns: string[]) => ({
   comparison: [
     {
@@ -28,7 +43,7 @@ const aGrid = (columns: string[]) => ({
           attribute: "Classic cut",
           cells: columns.map((c, i) => ({
             value: i === 0 ? "£15" : `£${15 + i * 2}`,
-            source: { url: "https://booksy.com/x", fetchedOn: "2026-09-15" },
+            source: { url: LISTING_URL, fetchedOn: "2026-09-15" },
           })),
         },
       ],
@@ -84,9 +99,15 @@ test("the customer is always the first column, whatever order came back", async 
           rows: [
             {
               attribute: "Classic cut",
+              // Sourced to the town listing, which really does cover both.
+              // These used to carry `source: null`, and from 2026-09-16 a value
+              // with no source behind it is blanked, because an unsourced fact
+              // on the page is the thing this product exists not to do. This
+              // test is about which column a price lands in, so its input has
+              // to be a price that is allowed to be on the page at all.
               cells: [
-                { value: "£35", source: null },
-                { value: "£15", source: null },
+                { value: "£35", source: { url: LISTING_URL, fetchedOn: "2026-09-15" } },
+                { value: "£15", source: { url: LISTING_URL, fetchedOn: "2026-09-15" } },
               ],
             },
           ],

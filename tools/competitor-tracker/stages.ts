@@ -22,7 +22,14 @@ import { isProfile, profileFor } from "./profile.ts";
 import { confidence, isDeadEnd, startWith, type Playbook } from "./playbook.ts";
 import { rank, type Found, type Scored } from "./rank.ts";
 import { sift } from "./sift.ts";
-import { cite, citeRules, numberPages, type Page } from "./sources.ts";
+import {
+  cite,
+  citeRules,
+  dropMisattributed,
+  dropMisattributedClaims,
+  numberPages,
+  type Page,
+} from "./sources.ts";
 import {
   droppable,
   find,
@@ -736,12 +743,34 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
    * The listing pages go first so the market context keeps the low numbers
    * whatever else was read.
    */
-  const asPage = (p: ReadPage): Page => ({ url: p.url, fetchedOn: p.fetchedOn });
   const readable = (list: ReadPage[]) => list.filter((p) => p.ok);
 
+  /**
+   * Every page remembers the business it was read for.
+   *
+   * The listing pages are market wide and carry null: one Booksy page prints
+   * every barber in the town, so it can honestly source a fact about any of
+   * them. A competitor's own page carries their name and cannot source a fact
+   * about anybody else.
+   *
+   * The customer's own page is queued under "you", because that is what the
+   * reading step calls it, while the grid column is their real name. Mapped
+   * here, once, or their own prices are judged against a name nothing matches
+   * and every one of their own cells is blanked.
+   */
   const numbered: Page[] = numberPages([
-    ...readable(state.listingPages ?? []).map(asPage),
-    ...readable(Object.values(pages).flat()).map(asPage),
+    ...readable(state.listingPages ?? []).map((p) => ({
+      url: p.url,
+      fetchedOn: p.fetchedOn,
+      about: null,
+    })),
+    ...Object.entries(pages).flatMap(([name, list]) =>
+      readable(list).map((p) => ({
+        url: p.url,
+        fetchedOn: p.fetchedOn,
+        about: name === "you" ? profile.name : name,
+      })),
+    ),
   ]);
 
   const numberOf = (url: string) => numbered.findIndex((p) => p.url === url) + 1;
@@ -954,12 +983,25 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
     if (own) own.claims.channels = [...(own.claims.channels ?? []), ...claims];
   }
 
+  /**
+   * Nothing is sourced to somebody else's page.
+   *
+   * Run after shaping, because shaping is what puts each cell in a column, and
+   * a cell only has a business to be checked against once it is in one.
+   */
+  const checked = dropMisattributed(
+    shapeGrid(grid.comparison, profile.name, competitors.map((c) => c.name)),
+    numbered,
+  );
+  const claimsChecked = dropMisattributedClaims(card.competitors, numbered);
+  card.competitors = claimsChecked.competitors;
+
   return {
     stage: "checking",
     state: {
       ...state,
       card,
-      grid: shapeGrid(grid.comparison, profile.name, competitors.map((c) => c.name)),
+      grid: checked.grids,
       standing: {
         winning: (built.where_you_win ?? []).slice(0, 4),
         losing: (built.where_they_win ?? []).slice(0, 4),

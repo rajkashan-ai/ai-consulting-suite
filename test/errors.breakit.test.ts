@@ -1,0 +1,93 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { advance, type RunState } from "../tools/competitor-tracker/stages.ts";
+import { aBusiness, fakeContext, type Recorded } from "./fake.ts";
+
+/**
+ * What an owner is shown when something throws.
+ *
+ * lib/engine.ts imports `server-only`, so it cannot be imported here. The
+ * project already tests that file by reading it, in regressions.test.ts
+ * ("every model call is streamed"), so the same method is used.
+ *
+ * The rule being tested: nothing about how the product is built reaches the
+ * customer's screen. UI/CLAUDE.md section 7 rule 7.
+ */
+
+const engine = readFileSync(join(import.meta.dirname, "..", "lib", "engine.ts"), "utf8");
+
+const recorded = JSON.parse(
+  readFileSync(join(import.meta.dirname, "fixtures", "shrewsbury.json"), "utf8"),
+) as Recorded;
+
+const MACHINERY =
+  /\btoken\b|\btokens\b|\bshape\b|\bschema\b|\bprompt\b|\bmodel\b|\bapi\b|\bjson\b|max_tokens|tool_use|stop_reason/i;
+
+test("breakit: a thrown error is not handed to the customer word for word", () => {
+  // The only catch around the pipeline. Whatever it caught becomes the run's
+  // `progress` and `error`, which is what the screen reads.
+  const caught = engine.match(/catch \(e\) \{[\s\S]{0,300}?\n  \}/);
+  assert.ok(caught, "could not find the catch around advance()");
+
+  assert.doesNotMatch(
+    caught![0],
+    /e instanceof Error \? e\.message : String\(e\)/,
+    `the raw exception text is shown to the customer:\n${caught![0]}`,
+  );
+});
+
+test("breakit: the errors this product throws would be safe to show", () => {
+  // Every `throw new Error(` inside the engine, since each one can reach the
+  // screen through that catch.
+  const thrown = [...engine.matchAll(/throw new Error\(([\s\S]*?)\);\n/g)].map((m) =>
+    m[1].replace(/\s+/g, " ").trim(),
+  );
+  assert.ok(thrown.length >= 2, `only found ${thrown.length} thrown errors`);
+
+  const leaks = thrown.filter((t) => MACHINERY.test(t));
+  assert.deepEqual(
+    leaks,
+    [],
+    `messages that would go straight to an owner's screen:\n  ${leaks.join("\n  ")}`,
+  );
+});
+
+test("breakit: an exception inside a step does not escape as raw text", async () => {
+  // A stage that throws for any reason at all. The fake throws a message with
+  // our own vocabulary in it, exactly as the real `think` does.
+  const ctx = {
+    read: async (url: string) => ({
+      ok: true, url, text: recorded.competitorPage.text, title: "x",
+      fetchedAt: new Date().toISOString(), note: "",
+    }),
+    think: async () => {
+      throw new Error('The answer was cut off at 9000 tokens while building "comparison".');
+    },
+    search: async () => recorded.searchResults,
+    progress: () => {},
+  } as never;
+
+  let state: RunState = {};
+  let stage = "searching" as never;
+  let thrown: unknown = null;
+  try {
+    for (let i = 0; i < 30; i++) {
+      const step = await advance(stage, state, aBusiness(), ctx);
+      stage = step.stage as never;
+      state = step.state;
+      if (stage === "done" || stage === "failed") break;
+    }
+  } catch (e) {
+    thrown = e;
+  }
+
+  assert.equal(
+    thrown,
+    null,
+    `the pipeline threw instead of failing cleanly: ${(thrown as Error)?.message}`,
+  );
+  assert.equal(stage, "failed");
+  assert.doesNotMatch(state.reason ?? "", MACHINERY, state.reason ?? "");
+});
