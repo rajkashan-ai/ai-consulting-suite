@@ -48,8 +48,17 @@ export default async function ToolPage({
             is belong to the frame; everything below is the answer. */}
         <div className="toolhead">
           <div className="band__in">
+            {/* The business is the subject of the page, so the business is the
+                heading. The tool's name labels which tool you are in, and the
+                line saying what it does sits under both.
+
+                It was the other way round for an afternoon: the tool's tagline
+                as the page title, which put a sentence in a slot sized for two
+                or three words and told the reader something they already knew
+                from clicking the tab. */}
             <p className="toolhead__kind">{tool.name}</p>
-            <h1 className="t-page toolhead__h">{tool.does}</h1>
+            <h1 className="t-page toolhead__h">{current.name ?? current.website}</h1>
+            <p className="toolhead__does">{tool.does}</p>
           </div>
         </div>
 

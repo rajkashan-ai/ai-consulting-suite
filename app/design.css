@@ -1148,6 +1148,11 @@ main{padding:0}
   line-height:14px; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
   color:var(--brand-wash)}
 .toolhead__h{margin:0; color:#f3f0eb; max-width:var(--measure)}
+/* What the tool does, under the business it is doing it for. Quiet, because a
+   reader who clicked the tab already knows, and it is here for the one who
+   arrived by a link. */
+.toolhead__does{margin:var(--s3) 0 0; max-width:var(--measure);
+  font-size:var(--t-row); line-height:23px; color:var(--chrome-soft)}
 
 /* The band under the frame carries no top gap of its own: the frame's padding
    is the gap, and two of them is the doubled-section-gap mistake again. */
