@@ -33,6 +33,15 @@ const recorded = JSON.parse(
  */
 const LISTING_URL = "https://booksy.com/en-gb/s/barber/1227928_shrewsbury";
 
+/** The five the fixture always picks, in the order the pipeline numbers them. */
+const FIVE = [
+  "NO.1 BARBERS",
+  "ARMANDO Barbershop",
+  "Barbering AJ",
+  "Fish Street Barbers",
+  "The Fade Inn Barbershop",
+];
+
 const aGrid = (columns: string[]) => ({
   comparison: [
     {
@@ -344,4 +353,98 @@ test("the model is never asked to write a url", async () => {
     assert.doesNotMatch(shape, /"url"/, `${call.shape} still asks for a url`);
     assert.doesNotMatch(shape, /"fetchedOn"/, `${call.shape} still asks for a date`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// A fact can only be sourced to a page about that business. Added 2026-09-16.
+// ---------------------------------------------------------------------------
+
+/**
+ * Through the pipeline, not in isolation.
+ *
+ * `sources.test.ts` tests the rule on its own and passes. That is exactly what
+ * was true of the bug it exists to stop: page numbers were tested, the grid was
+ * tested, and the join between them was not. Breaking the claims check on
+ * purpose on 2026-09-16 changed no test result at all, which is how this gap
+ * was found. Anything that runs only inside the pipeline needs a test that runs
+ * the pipeline.
+ *
+ * The numbering, printed from a real run of the fake:
+ *   [1] [2] the two town listings   [3] you
+ *   [4] NO.1 BARBERS   [5] ARMANDO Barbershop   [6] Barbering AJ
+ *   [7] Fish Street Barbers   [8] The Fade Inn Barbershop
+ */
+
+test("a claim about one business cited to another's page is dropped", async () => {
+  const { state, stage } = await write({
+    comparison: aGrid(["The Barber Shop Shrewsbury", ...FIVE]),
+    battlecard: {
+      competitors: [
+        {
+          name: "NO.1 BARBERS",
+          claims: {
+            pricing: [
+              // Their own page. Stays.
+              { text: "Haircut is £18.", value: "£18", from: 4 },
+              // ARMANDO's page, under NO.1's name. A real url, the wrong shop.
+              { text: "Gentleman cut is £20.", value: "£20", from: 5 },
+              // The town listing, which covers everybody. Stays.
+              { text: "A cut here averages £17.", value: "£17", from: 1 },
+            ],
+          },
+        },
+      ],
+      where_you_win: [],
+      where_they_win: [],
+      actions: [1, 2, 3].map((rank) => ({
+        rank, area: "pricing", headline: `Do ${rank}.`, why: "Because.",
+        evidence: [{ text: "A fact.", value: 1, from: 1 }],
+      })),
+    },
+  });
+
+  assert.notEqual(stage, "failed");
+
+  const kept = state.card?.competitors.find((c) => c.name === "NO.1 BARBERS");
+  const texts = (kept?.claims.pricing ?? []).map((c) => c.text);
+
+  assert.ok(texts.includes("Haircut is £18."), "their own page was refused");
+  assert.ok(texts.includes("A cut here averages £17."), "the town listing was refused");
+  assert.ok(
+    !texts.includes("Gentleman cut is £20."),
+    "a competitor's page sourced a claim about a different business",
+  );
+});
+
+test("a cell in one column cited to another column's page is blanked", async () => {
+  // The same rule for the table, which is the part an owner actually reads
+  // across. Column 0 is the customer; page 4 is NO.1 BARBERS.
+  const { state, stage } = await write({
+    comparison: {
+      comparison: [
+        {
+          area: "pricing",
+          columns: ["The Barber Shop Shrewsbury", ...FIVE],
+          rows: [
+            {
+              attribute: "Classic cut",
+              cells: [
+                { value: "£15", from: 4 },
+                ...FIVE.map((_, i) => ({ value: `£${18 + i}`, from: 4 + i })),
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    battlecard: recorded.battlecard,
+  });
+
+  assert.notEqual(stage, "failed", state.reason ?? "");
+  const row = state.grid?.[0]?.rows[0];
+  assert.ok(row, "no row");
+
+  assert.equal(row!.cells[0].value, null, "the customer's price kept a competitor's url");
+  assert.equal(row!.cells[0].source, null);
+  assert.equal(row!.cells[1].value, "£18", "NO.1's own price was blanked");
 });
