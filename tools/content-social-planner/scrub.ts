@@ -62,6 +62,41 @@ const HOUSE: [RegExp, string][] = [
 ];
 
 /**
+ * Hashtags come off. They do not do what people think they do.
+ *
+ * Adam Mosseri, who runs Instagram, on the record: hashtags are not a way to
+ * get more reach. LinkedIn removed hashtag following and hashtag pages in late
+ * 2024, and vendor measurement since puts posts without them slightly ahead.
+ * Both platforms now read the caption itself for topic.
+ *
+ * So a trailing block of hashtags is 2019's tactic taking up the end of every
+ * post, and the thing that replaced it is plain keywords in the sentence. That
+ * is a change to how we write, not something a guard can add, and it is in the
+ * writing prompt.
+ *
+ * Stripped rather than refused, on the same reasoning as the dash: it is a
+ * keystroke, not a claim, and dropping a finished post over one costs the owner
+ * a post to fix nothing. A tag written into a sentence ("book your #skinfade")
+ * keeps its word and loses its hash, because removing the word would change
+ * what the sentence says.
+ */
+export function unTag(text: string): string {
+  return String(text)
+    /* A block of them at the end, which is where they nearly always sit. */
+    .replace(/(?:\s*#[A-Za-z0-9_]+)+\s*$/g, "")
+    /* A line that is nothing but tags. */
+    .replace(/^\s*(?:#[A-Za-z0-9_]+\s*)+$/gm, "")
+    /* One inside a sentence keeps the word: the sentence needs it. */
+    .replace(/#([A-Za-z][A-Za-z0-9_]*)/g, "$1")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/** A hashtag that survived. After unTag this should never be true. */
+export const hasTag = (text: string): boolean => /#[A-Za-z][A-Za-z0-9_]*/.test(text);
+
+/**
  * Put back what a person would have typed.
  *
  * Deterministic, and nothing but the mark changes. A dash closing a sentence
@@ -142,6 +177,7 @@ export function unsafe(post: WrittenPost, pages: Page[], known: KnownFacts): str
   if (house) return `a word nobody would say out loud ("${house}")`;
 
   if (hasDash(text)) return "a dash we could not put right";
+  if (hasTag(text)) return "a hashtag we could not put right";
 
   return null;
 }

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { CRITIQUES } from "../../../../Agents/Content & Social Planner/src/types";
+import { CHANNEL, CRITIQUES } from "../../../../Agents/Content & Social Planner/src/types";
 import { FIRST_STAGE } from "@/tools/content-social-planner/index";
 
 /**
@@ -103,6 +103,43 @@ export async function changeCadence(form: FormData) {
   await supabase
     .from("runs")
     .insert({ workspace_id: workspaceId, tool: "content-social-planner", stage: FIRST_STAGE, state: { hoursAWeek } });
+
+  revalidatePath("/workspace/content-social-planner");
+}
+
+/**
+ * Where they post, in their own words rather than ours.
+ *
+ * CLAUDE.md 2 has always said channels are detected and then shown for
+ * confirmation, and nothing confirmed anything: the tool read the words
+ * "instagram" and "facebook" out of their own page copy and took that as the
+ * answer. That worked for a barber whose home page happens to name both, and
+ * gave nothing at all to a business whose copy never names a platform.
+ *
+ * Stored on the workspace, because where they post is a fact about the
+ * business and the other five tools have the same right to it.
+ *
+ * An empty answer is recorded as empty rather than left null. "We asked and
+ * they post nowhere" and "nobody asked" are different, and only one of them
+ * should ever fall back to reading their page text.
+ */
+export async function saveChannels(form: FormData) {
+  const workspaceId = String(form.get("workspaceId") ?? "");
+  if (!workspaceId) return;
+
+  const chosen = form
+    .getAll("channel")
+    .map(String)
+    .filter((c) => c in CHANNEL);
+
+  const supabase = await createClient();
+  await supabase.from("workspaces").update({ channels: chosen }).eq("id", workspaceId);
+
+  /* The month is built from the channels, so changing them makes the stored
+     plan wrong rather than out of date. Clear it and let the page start a run,
+     the same as changing the cadence. */
+  await supabase.from("documents").delete().eq("workspace_id", workspaceId).eq("tool", "content-social-planner");
+  await supabase.from("runs").delete().eq("workspace_id", workspaceId).eq("tool", "content-social-planner");
 
   revalidatePath("/workspace/content-social-planner");
 }

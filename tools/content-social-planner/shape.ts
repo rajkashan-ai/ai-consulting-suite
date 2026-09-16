@@ -38,7 +38,21 @@ const BY_PURPOSE: Record<Purpose, Angle[]> = {
 /** How often one angle may appear in a month. */
 const MAX_PER_MONTH = 3;
 
-export function shapeMonth(cadence: Cadence, ranAt: string, channels: Channel[]): Slot[] {
+export function shapeMonth(
+  cadence: Cadence,
+  ranAt: string,
+  channels: Channel[],
+  /**
+   * Angles this business has already had. They go to the back of the queue, so
+   * a second month does not open with the first month's post.
+   *
+   * Pushed back rather than banned: at `most days` there are twenty-two slots
+   * and ten angles, so banning last month's would leave nothing to say. A
+   * ranking degrades into the old behaviour when everything has been used,
+   * which is the right failure.
+   */
+  alreadyHad: string[] = [],
+): Slot[] {
   const dates = planDates(cadence, ranAt);
   const weeks = slotWeeks(cadence);
   const mix = MIX[cadence];
@@ -64,7 +78,12 @@ export function shapeMonth(cadence: Cadence, ranAt: string, channels: Channel[])
   return dates.map((date, i) => {
     const purpose = purposes[i];
     const pool = BY_PURPOSE[purpose].filter((a) => a !== last && (used[a] ?? 0) < MAX_PER_MONTH);
-    const angle = (pool.length ? pool : BY_PURPOSE[purpose])[0];
+    const choose = pool.length ? pool : BY_PURPOSE[purpose];
+    /* Stable: equal ranks keep their written order, so the mix is unchanged for
+       a business with no history and this is a tie-break, not a reshuffle. */
+    const angle = [...choose].sort(
+      (a, b) => Number(alreadyHad.includes(a)) - Number(alreadyHad.includes(b)),
+    )[0];
     used[angle] = (used[angle] ?? 0) + 1;
     last = angle;
     return {

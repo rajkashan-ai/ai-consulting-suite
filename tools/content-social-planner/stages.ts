@@ -19,7 +19,7 @@ import { cite, citeRules, numberPages, type Cited, type Page } from "./sources.t
 import { pagesFrom } from "../../lib/research/sitemap.ts";
 import { shapeMonth } from "./shape.ts";
 import { belowTheBar, sayBar } from "./bar.ts";
-import { houseStyle, keep, unDash, unsafe } from "./scrub.ts";
+import { houseStyle, keep, unDash, unTag, unsafe } from "./scrub.ts";
 
 /**
  * A month of posts, a step at a time.
@@ -72,7 +72,14 @@ export const isWrittenPost = (p: PlannedPost): p is WrittenPost =>
 
 export type WeekRow = { week: string; about: string; channels: Channel[]; posts: number };
 
+/** What we suggested last time, so this time is not the same. */
+export type Before = { angles: string[]; openings: string[] };
+
 export type RunState = {
+  /** The last plan, narrowed. Null when there has not been one. */
+  before?: Before | null;
+  /** Where they told us they post. Undefined means nobody has asked. */
+  told?: string[];
   /** Pages actually read, numbered, in the order the model is shown them. */
   pages?: Page[];
   read?: ReadPage[];
@@ -394,7 +401,7 @@ async function shaping(state: RunState, business: Business, ctx: ToolContext): P
   if (!channels.length) {
     return fail(
       state,
-      "We could not tell which accounts you post from, so there is nowhere to plan for yet.",
+      "We do not know where you post yet. Tell us on this page and we will write the month.",
     );
   }
 
@@ -406,7 +413,7 @@ async function shaping(state: RunState, business: Business, ctx: ToolContext): P
     return fail(state, "We could not put a recommendation together we would stand behind.");
   }
 
-  const slots = shapeMonth(rec.cadence, new Date().toISOString(), channels);
+  const slots = shapeMonth(rec.cadence, new Date().toISOString(), channels, state.before?.angles ?? []);
   /* The whole plan, not just the posts: validateShape also checks that every
      channel they confirmed actually gets written for, and it cannot check that
      against a plan with no channels on it. */
@@ -495,11 +502,35 @@ export function knownFacts(business: Business): KnownFacts {
  * nothing behind it.
  */
 export function channelsFor(_business: Business, state: RunState): Channel[] {
-  const text = (state.read ?? [])
-    .filter((p) => p.ok)
-    .map((p) => p.text)
-    .join("\n");
+  /**
+   * What they told us, if anyone has ever asked.
+   *
+   * Carried on the run's own state rather than on `Business`, because the
+   * engine builds `Business` and `lib/engine.ts` is read-only to a tool
+   * (CLAUDE.md 1.4b). The screen reads the column and puts it on the run when
+   * it starts one, which needs no shared file changed at all.
+   *
+   * `undefined` means nobody asked. An empty array means they were asked and
+   * post nowhere, which is a different thing and must not fall back to a guess.
+   */
+  if (state.told) return state.told.filter((c): c is Channel => c in CHANNEL);
 
+  return detectChannels((state.read ?? []).filter((p) => p.ok).map((p) => p.text).join("\n"));
+}
+
+/**
+ * What their own copy says, as a suggestion to put in front of them.
+ *
+ * Their words, not their links: the links are gone by the time we see the page,
+ * because `visibleText` strips the footer and a footer is where a small
+ * business keeps its social icons. What survives on this barber's home page is
+ * "you can also contact us via social media through Facebook and Instagram".
+ *
+ * `business.foundVia` is deliberately not used. It looks like the right field
+ * and is not: its values are `social`, `booking`, `trades`, `marketplace` and
+ * `unknown`, which is how customers find them, not where they post.
+ */
+export function detectChannels(text: string): Channel[] {
   /* Word boundaries both sides. "Tik tok" is two words on a page about clocks,
      and a bare "tok" is not a platform. */
   const named: [Channel, RegExp][] = [
@@ -509,7 +540,6 @@ export function channelsFor(_business: Business, state: RunState): Channel[] {
     ["tiktok", /\btiktok\b|\btik tok\b/i],
     ["youtube", /\byoutube\b/i],
   ];
-
   return named.filter(([, shape]) => shape.test(text)).map(([channel]) => channel);
 }
 
@@ -549,13 +579,23 @@ async function writing(state: RunState, business: Business, ctx: ToolContext): P
       "you write under their own name, so anything you invent becomes their lie. " +
       "You never use an em dash or an en dash: a comma or a full stop, the way they would type it. " +
       "You never use a word nobody says out loud, such as leverage, seamless, robust, bespoke, " +
-      "cutting edge, elevate, unlock, delve, boasts or nestled. You never invent " +
+      "cutting edge, elevate, unlock, delve, boasts or nestled. " +
+      "You never write a hashtag. Instagram and LinkedIn both read the caption itself for topic " +
+      "now, and hashtags do not carry reach, so put the words somebody would actually search for " +
+      "into the sentence instead: the trade, the town, the service, the thing they want. " +
+      "You never invent " +
       "a client, a result, a percentage, a timescale, a qualification, an award, a review, a " +
       "number of years, or a number of customers. Where a post needs something only they know, " +
       "you leave a square bracket saying exactly what to put in it.",
     prompt:
       `${citeRules(pages)}\n\nTHEIR PAGES\n\n${text}\n\n` +
       `HOW THEY SOUND\n${state.voice?.words ?? ""}\n\n` +
+      (state.before?.openings?.length
+        ? `WHAT WE WROTE FOR THEM LAST MONTH, WHICH MUST NOT BE WRITTEN AGAIN\n` +
+          state.before.openings.map((o) => `  ${o}`).join("\n") +
+          `\n\nSame facts are fine, the same post is not. If the only thing left to say ` +
+          `about a subject is what we said last month, write about something else on their pages.\n\n`
+        : "") +
       `WRITE THESE POSTS\n${brief}\n\n` +
       `Each post is finished words, ready to paste, not a theme and an opening line. ` +
       `Each carries one line saying what to ${
@@ -612,7 +652,7 @@ async function writing(state: RunState, business: Business, ctx: ToolContext): P
        stage never has to decide whether a keystroke is worth a whole post. */
     const out: WrittenPost = {
       ...slot,
-      words: unDash((w.words ?? "").trim()),
+      words: unTag(unDash((w.words ?? "").trim())),
       shot: unDash((w.shot ?? "").trim()),
       why: unDash((w.why ?? "").trim()),
       source: w.source ?? null,

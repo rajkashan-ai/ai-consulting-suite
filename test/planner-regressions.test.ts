@@ -593,3 +593,141 @@ test("every check in this tool is wired to something that runs", () => {
     assert.ok(mentions >= 1, `${name} is written and nothing that runs refers to it`);
   }
 });
+
+/* ── what we already said, and where they actually post ──────────────────── */
+
+test("the next month does not open with this month's post", async () => {
+  /**
+   * Raj: we keep a record of what we have already suggested, surely. We do,
+   * every plan is stored with all thirty days on it, and nothing read it, so
+   * the no-repeat rule ran inside one month and reset on the thirty first day.
+   *
+   * This is the half of "make next month different" that needs no connected
+   * account and no metrics. Knowing what worked still does.
+   */
+  const { shapeMonth } = await import("../tools/content-social-planner/shape.ts");
+  const first = shapeMonth("twice-weekly", "2026-09-16T09:00:00.000Z", ["instagram"]);
+  const had = [...new Set(first.map((s) => s.angle))];
+  const second = shapeMonth("twice-weekly", "2026-10-16T09:00:00.000Z", ["instagram"], had);
+
+  assert.notEqual(second[0].angle, first[0].angle, "month two opens on month one's angle");
+  const repeated = [...new Set(second.map((s) => s.angle))].filter((a) => had.includes(a));
+  assert.ok(repeated.length <= 1, `month two repeats ${repeated.length} of month one's angles`);
+
+  /* A business with no history is unchanged: this is a tie-break, not a
+     reshuffle, and the mix table still has to hold. */
+  const fresh = shapeMonth("twice-weekly", "2026-09-16T09:00:00.000Z", ["instagram"], []);
+  assert.deepEqual(fresh.map((s) => s.angle), first.map((s) => s.angle));
+});
+
+test("the run actually hands the last plan to the shape", async () => {
+  /**
+   * `shapeMonth` takes the angles already used and pushes them back, and that
+   * was tested by calling it directly. Nothing tested that the pipeline passes
+   * them, so replacing the argument with an empty list changed nothing and the
+   * suite stayed green: the unwired guard again, one layer up.
+   */
+  const stages = readFileSync(join(here, "..", "tools", "content-social-planner", "stages.ts"), "utf8");
+  assert.match(
+    code(stages),
+    /* [^)]* stops at toISOString(), so the match never reached the argument
+       it was looking for and the test failed on correct code. */
+    /shapeMonth\([\s\S]{0,120}?state\.before\?\.angles/,
+    "the shape is built without what we already suggested",
+  );
+
+  const index = readFileSync(join(here, "..", "tools", "content-social-planner", "index.ts"), "utf8");
+  assert.match(code(index), /async prepare\(/, "nothing loads the last plan before a run");
+  assert.match(code(index), /\.from\("documents"\)/, "prepare reads something other than the stored plans");
+
+  /* And the writer is told, or it will write the same post in new words, which
+     the angle rule cannot see. */
+  assert.match(code(stages), /MUST NOT BE WRITTEN AGAIN/, "the writer is not told what it said last month");
+});
+
+test("what a stored plan hands to the next one is narrow on purpose", async () => {
+  const { lastPlan } = await import("../tools/content-social-planner/index.ts");
+  const before = lastPlan({
+    posts: [
+      { angle: "what-it-costs", words: "Our prices, so nobody has to ask. Clipper cut is £8." },
+      { angle: "the-ask", words: "Chairs free this week. Come in." },
+      { angle: "how-it-works" },
+    ],
+  });
+  assert.deepEqual(before?.angles, ["what-it-costs", "the-ask", "how-it-works"]);
+  assert.deepEqual(before?.openings, ["Our prices, so nobody has to ask.", "Chairs free this week."]);
+  /* Carrying the whole document forward would have the writer echo last month
+     word for word, which is the opposite of the point. */
+  assert.equal(JSON.stringify(before).includes("Clipper cut is £8"), false);
+  assert.equal(lastPlan(null), null);
+  assert.equal(lastPlan({ posts: [] }), null);
+});
+
+test("where they post is asked, not inferred, and empty is not the same as unasked", async () => {
+  const { channelsFor, detectChannels } = await import("../tools/content-social-planner/stages.ts");
+  const page = { url: "u", ok: true, title: null, text: "We are on Facebook and Instagram.", fetchedOn: "d", note: "" };
+
+  /* Told beats read. */
+  assert.deepEqual(channelsFor({} as never, { told: ["tiktok"], read: [page] } as never), ["tiktok"]);
+  /* Asked, and they post nowhere. Must not fall back to reading the page. */
+  assert.deepEqual(channelsFor({} as never, { told: [], read: [page] } as never), []);
+  /* Never asked. Reading the page is all we have. */
+  assert.deepEqual(channelsFor({} as never, { read: [page] } as never), ["instagram", "facebook"]);
+  /* Detection is their words, because their links do not survive the reader. */
+  assert.deepEqual(detectChannels("Find us on LinkedIn and TikTok."), ["linkedin", "tiktok"]);
+  assert.deepEqual(detectChannels("We cut hair."), []);
+});
+
+test("the screen asks where they post, and stores the answer on the business", () => {
+  const ask = screen("channels.tsx");
+  assert.match(ask, /Where do you post\?/);
+  assert.match(ask, /type="checkbox"/, "it is a free text box, which a count cannot be read from");
+  assert.match(ask, /action=\{saveChannels\}/, "the answer is collected and written nowhere");
+
+  const actions = readFileSync(join(here, "..", "app", "workspace", "[tool]", "planner-actions.ts"), "utf8");
+  assert.match(actions, /\.from\("workspaces"\)\.update\(\{ channels/, "it is not stored on the business");
+  /* The month is built from the channels, so changing them makes the stored
+     plan wrong rather than out of date. */
+  assert.match(actions.slice(actions.indexOf("saveChannels")), /\.from\("documents"\)\.delete\(\)/);
+});
+
+test("this tool writes no fetch of its own", () => {
+  /**
+   * I wrote one on the channels screen to read their home page and suggest
+   * platforms, with a comment explaining why that one was fine. CLAUDE.md 1.5
+   * says reading the web goes through lib/research/fetch.ts, which obeys robots
+   * and queues per host, and a comment arguing an exception is how a rule stops
+   * being a rule.
+   */
+  const files = ["plan.tsx", "resizer.tsx", "post-controls.tsx", "plan-controls.tsx", "send-week.tsx", "channels.tsx", "content-social-planner.tsx"];
+  for (const f of files) {
+    assert.doesNotMatch(code(screen(f)), /\bfetch\(/, `${f} fetches the web without going through lib/research`);
+  }
+  const dir = join(here, "..", "tools", "content-social-planner");
+  for (const f of readdirSync(dir).filter((x) => x.endsWith(".ts"))) {
+    assert.doesNotMatch(
+      code(readFileSync(join(dir, f), "utf8")),
+      /\bfetch\(/,
+      `${f} fetches the web without going through lib/research`,
+    );
+  }
+});
+
+test("hashtags come off, because they do not do what people think", async () => {
+  const { unTag, hasTag } = await import("../tools/content-social-planner/scrub.ts");
+  /**
+   * Adam Mosseri, who runs Instagram, on the record: hashtags are not a way to
+   * get more reach. LinkedIn removed hashtag following and hashtag pages in
+   * late 2024. Both read the caption itself for topic now, so the thing that
+   * replaced them is plain keywords in the sentence.
+   */
+
+  assert.equal(unTag("Come in this week.\n\n#barber #shrewsbury"), "Come in this week.");
+  assert.equal(unTag("Book your #skinfade today."), "Book your skinfade today.");
+  assert.equal(hasTag(unTag("Words.\n#one\n#two\nMore.")), false);
+
+  const stages = readFileSync(join(here, "..", "tools", "content-social-planner", "stages.ts"), "utf8");
+  assert.match(stages, /never write a hashtag/i, "the model is not told");
+  assert.match(stages, /words somebody would actually search for/i, "it is not told what to do instead");
+  assert.match(stages, /unTag\(/, "the guard exists and nothing calls it");
+});

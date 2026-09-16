@@ -79,7 +79,13 @@ export default function PlanView({
 }) {
   const written = plan.posts.filter(isWrittenPost);
   const blanks = written.flatMap((p) => p.words.match(/\[[^\]]+\]/g) ?? []);
-  const ahead = plan.weeks.slice(1);
+  /**
+   * Every week, with this one marked. It used to slice(1), which dropped the
+   * week they are actually in and labelled the rest "Ahead", so the section
+   * meant to show the shape of the month showed four fifths of it and said
+   * nothing about where they were standing.
+   */
+  const thisWeek = plan.posts.find((p) => isWrittenPost(p))?.week ?? 1;
   const posted = plan.posts.filter((p) => postState[`${p.date}|${p.channel}`]?.postedAt).length;
   const last = plan.posts.map((p) => p.date).sort().pop();
 
@@ -231,9 +237,16 @@ export default function PlanView({
         </p>
         <div className="card">
           <ul className="feed">
-            {ahead.map((w) => (
-              <li className="feed__row feed__row--static" key={w.week}>
-                <span className="t-kind">Ahead</span>
+            {plan.weeks.map((w, i) => (
+              <li
+                /* Marked by its label, which is how the mockup does it and
+                   needs no class that does not exist. aria-current carries the
+                   same fact to a reader who cannot see the column. */
+                className="feed__row feed__row--static"
+                key={w.week}
+                aria-current={i + 1 === thisWeek ? "true" : undefined}
+              >
+                <span className="t-kind">{i + 1 === thisWeek ? "This week" : "Ahead"}</span>
                 <span className="t-row t-strong">{w.week}</span>
                 <span className="t-meta">
                   {w.posts} {w.posts === 1 ? "post" : "posts"} &middot;{" "}
