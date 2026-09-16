@@ -137,7 +137,7 @@ export default async function ContentSocialPlanner({
     return (
       <div className="band band--a band--first band--last">
         <div className="band__in">
-          <Channels workspaceId={workspaceId} detected={[]} confirmed={null} />
+          <Channels workspaceId={workspaceId} detected={null} confirmed={null} />
         </div>
       </div>
     );
