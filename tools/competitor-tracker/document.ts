@@ -24,12 +24,28 @@ import type { Grid, RunState, Side } from "./stages.ts";
 export type DocumentBody = Battlecard & {
   standing?: { winning: Side[]; losing: Side[] };
   grid?: Grid[];
+  /**
+   * What is not here, and why.
+   *
+   * A comparison of two businesses and a comparison missing its reviews table
+   * both used to arrive with nothing said about them, so a shortfall in our own
+   * research was indistinguishable from a fact about the owner's market. These
+   * two lines are the difference. See shortfall.ts.
+   */
+  shortfall?: string;
+  areas?: string;
 };
 
 /** Assemble the document from a finished run. */
 export function buildBody(state: RunState): DocumentBody | null {
   if (!state.card) return null;
-  return { ...state.card, standing: state.standing, grid: state.grid };
+  return {
+    ...state.card,
+    standing: state.standing,
+    grid: state.grid,
+    shortfall: state.shortfallSay,
+    areas: state.areasSay,
+  };
 }
 
 /**

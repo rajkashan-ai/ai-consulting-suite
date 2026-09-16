@@ -248,7 +248,32 @@ test("breakit: a document stored as done covers all four areas", async () => {
   const stored = stage === "done" && hollow(body) === null;
   if (!stored) return; // it refused it, which is the right answer
 
+  /**
+   * Contract settled by Raj on 2026-09-16, after asking whether a business can
+   * genuinely have one competitor: four areas is a target, not a promise, and a
+   * shortfall must never be silent.
+   *
+   * An area is built by its own call and one that fails is dropped rather than
+   * taking the others with it, because three tables beat none. What was wrong,
+   * and what this now checks, is that the page said nothing: a missing reviews
+   * table could equally mean nobody publishes reviews or that our call fell
+   * over, and neither the owner nor we could tell which.
+   *
+   * So: all four, or a line on the document naming what is missing.
+   */
   const areas = new Set((body?.grid ?? []).map((g) => g.area));
+
+  if (areas.size < 4) {
+    assert.ok(
+      body?.areas,
+      `stored with ${areas.size} of 4 areas and nothing on the document saying so`,
+    );
+    for (const missing of ["channels", "reviews", "blindspots"].filter((a) => !areas.has(a))) {
+      assert.match(body!.areas!, new RegExp(missing), `"${missing}" is missing and unmentioned`);
+    }
+    return;
+  }
+
   assert.equal(areas.size, 4, `stored as done with ${areas.size} area(s): ${[...areas].join(", ")}`);
 });
 

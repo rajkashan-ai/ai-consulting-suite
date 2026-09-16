@@ -21,7 +21,8 @@ import type { Business, ToolContext } from "../types.ts";
 import { isProfile, profileFor } from "./profile.ts";
 import { confidence, isDeadEnd, startWith, type Playbook } from "./playbook.ts";
 import { rank, type Found, type Scored } from "./rank.ts";
-import { sift } from "./sift.ts";
+import { notYou, oneEach, rightTrade, sift } from "./sift.ts";
+import { areasMissing, shortfall, type Funnel } from "./shortfall.ts";
 import { displayName } from "../../../Agents/Competitor Tracker/src/normalise.ts";
 import { scrubGrid, scrubStanding } from "./scrub.ts";
 import { plainly } from "../../lib/plainly.ts";
@@ -116,6 +117,14 @@ export type RunState = {
   reason?: string;
   /** What the watchdog has seen. See lib/watchdog.ts. */
   watch?: Watch;
+  /** How many businesses survived each step. See shortfall.ts. */
+  funnel?: Funnel;
+  /** Said on the page when the town genuinely has fewer than we wanted. */
+  shortfallSay?: string;
+  /** Kept for us when a short list was our own fault. Never shown. */
+  shortfallWhy?: string;
+  /** Said on the page when one of the four comparisons could not be built. */
+  areasSay?: string;
 };
 
 /**
@@ -634,6 +643,20 @@ async function choose(state: RunState, business: Business): Promise<Step> {
       )
     : [];
 
+  /**
+   * Keep the numbers, so a short list can be explained rather than apologised
+   * for. They existed at each of these steps and were thrown away.
+   */
+  const allNames = new Set([
+    ...(state.fromListings ?? []),
+    ...(state.listed ?? []).map((r) => r.name),
+    ...candidates.map((c) => c.name),
+  ]);
+  const beforeSift = [...allNames].map((name) => ({ name }));
+  const afterYou = notYou(beforeSift, profile.name);
+  const afterTrade = rightTrade(afterYou, business.trade);
+  const distinct = oneEach(afterTrade);
+
   const competitors = sift(
     refreshSet(
       // A competitor the owner named survives every weekly run, for ever. That
@@ -656,6 +679,36 @@ async function choose(state: RunState, business: Business): Promise<Step> {
   // first real run: two junk candidates, and a card full of remarks about our
   // own research because there was nothing else to say.
   const real = competitors.filter((c) => c.name !== profile.name);
+
+  const funnel: Funnel = {
+    found: beforeSift.length,
+    notYou: afterYou.length,
+    rightTrade: afterTrade.length,
+    distinct: distinct.length,
+    compared: real.length,
+  };
+
+  /**
+   * A short list that is our fault stops the run rather than reaching a page.
+   *
+   * If there were five or more distinct businesses and we compared fewer, we
+   * discarded them, and nothing legitimate does that. Shown to the owner it
+   * reads as a fact about their market, which is the worst way for one of our
+   * bugs to arrive: they might price against it.
+   */
+  const verdict = shortfall(funnel, business.trade, profile.town);
+  if (verdict.kind === "ours") {
+    return {
+      ...stop(
+        state,
+        "We found more businesses to compare than we managed to compare. " +
+          "Rather than show you a short list as if it were the whole market, " +
+          "we have stopped. Start it again.",
+      ),
+      state: { ...state, funnel, shortfallWhy: verdict.why },
+    };
+  }
+
   if (real.length < 2) {
     return stop(
       state,
@@ -684,7 +737,18 @@ async function choose(state: RunState, business: Business): Promise<Step> {
 
   return {
     stage: "reading",
-    state: { ...state, competitors, visibility, queue, picked, pages: {} },
+    state: {
+      ...state,
+      competitors,
+      visibility,
+      queue,
+      picked,
+      pages: {},
+      funnel,
+      // Said on the page when the town is genuinely small, so a short list
+      // reads as a finding rather than as something missing.
+      shortfallSay: verdict.kind === "town" ? verdict.say : undefined,
+    },
     progress: `Found ${competitors.length} to look at. Reading their pages`,
   };
 }
@@ -941,6 +1005,8 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
     }
   }
 
+  const missingAreas = areasMissing(GRID_AREAS, comparison.map((g) => g.area));
+
   if (!comparison.length) {
     return stop(
       state,
@@ -1055,6 +1121,7 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
       card,
       grid: cleanGrid.grids,
       standing: cleanStanding.standing,
+      areasSay: missingAreas ?? undefined,
     },
     progress: "Checking it",
   };
@@ -1441,7 +1508,7 @@ function shapeCompetitors(raw: unknown, known: Competitor[], own: string): Compe
   const agreed = new Set(known.map((c) => c.name.toLowerCase().replace(/[^a-z0-9]/g, "")));
   const key = (n: string) => n.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-  return raw
+  const written = raw
     .filter((r: Record<string, unknown>) => !isOwn(String(r.name ?? "")))
     .filter((r: Record<string, unknown>) => {
       if (!agreed.size) return true;
@@ -1450,13 +1517,48 @@ function shapeCompetitors(raw: unknown, known: Competitor[], own: string): Compe
       // Barber" are the same shop and refusing one of them loses the evidence.
       return [...agreed].some((a) => a === k || a.includes(k) || k.includes(a));
     })
-    .slice(0, 5)
-    .map((r: Record<string, unknown>) => {
-    const name = String(r.name ?? "");
-    return {
-      name,
-      addedByCustomer: byName.get(name.toLowerCase())?.addedByCustomer ?? false,
+    .slice(0, 5);
+
+  /**
+   * The businesses we chose are the businesses on the card.
+   *
+   * This used to return whatever the model wrote about, so a write up that
+   * covered one of the five left the other four out of the card entirely, and
+   * the run still said done. Their pages had been found, fetched and paid for,
+   * and the grid still carried them as columns, so the card and the table
+   * disagreed about who was being compared.
+   *
+   * Starting from the five we chose and folding the write up into them means a
+   * business the model skipped appears with nothing said about it, which is
+   * honest and visible, rather than disappearing, which is neither.
+   *
+   * Found by an independent test pass on 2026-09-16: "the ranking picked five,
+   * the model wrote about one, nothing objects."
+   */
+  const saidAbout = new Map<string, Record<string, unknown>>();
+  for (const r of written as Record<string, unknown>[]) {
+    saidAbout.set(key(String(r.name ?? "")), r);
+  }
+
+  const chosen = known.filter((c) => !isOwn(c.name));
+  if (!chosen.length) {
+    return written.map((r: Record<string, unknown>) => ({
+      name: String(r.name ?? ""),
+      addedByCustomer: byName.get(String(r.name ?? "").toLowerCase())?.addedByCustomer ?? false,
       claims: (r.claims ?? {}) as Competitor["claims"],
+    }));
+  }
+
+  return chosen.slice(0, 5).map((c) => {
+    const k = key(c.name);
+    const r =
+      saidAbout.get(k) ??
+      [...saidAbout.entries()].find(([o]) => o.includes(k) || k.includes(o))?.[1];
+
+    return {
+      name: c.name,
+      addedByCustomer: c.addedByCustomer ?? false,
+      claims: (r?.claims ?? {}) as Competitor["claims"],
     };
   });
 }
