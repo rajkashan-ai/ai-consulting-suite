@@ -1,4 +1,6 @@
 import type { Tool } from "./types.ts";
+import type { AnyState, ToolRun } from "./contract.ts";
+import { competitorTracker } from "./competitor-tracker/index.ts";
 
 /**
  * The six. Names match the folders in Agents/, so there is one name to search
@@ -48,3 +50,19 @@ export const TOOLS: Tool[] = [
 ];
 
 export const toolBySlug = (slug: string) => TOOLS.find((t) => t.slug === slug);
+
+/**
+ * The tools that can actually run, by slug. One line each, and this is the only
+ * file outside a tool's own folder that a new tool touches.
+ *
+ * The engine used to import the Competitor Tracker by name, so every new tool
+ * meant editing the engine and two people building two tools collided on the
+ * first commit. The engine now looks the tool up here using the slug already
+ * stored on the run, and calls whatever it finds.
+ */
+export const RUNNABLE: Record<string, ToolRun<AnyState>> = {
+  [competitorTracker.slug]: competitorTracker as unknown as ToolRun<AnyState>,
+};
+
+export const runnerFor = (slug: string): ToolRun<AnyState> | null =>
+  RUNNABLE[slug] ?? null;

@@ -3,12 +3,11 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchPage } from "@/lib/research/fetch";
-import { advance, type RunState, type Stage } from "@/tools/competitor-tracker/stages";
-import { EMPTY, learn, type Playbook } from "@/tools/competitor-tracker/playbook";
+import { runnerFor } from "@/tools/registry";
+import type { AnyState } from "@/tools/contract";
 import type { Business, ToolContext } from "@/tools/types";
 import { check, note, type Watch } from "@/lib/watchdog";
 import { plainly } from "@/lib/plainly";
-import { buildBody, hollow } from "@/tools/competitor-tracker/document";
 
 /**
  * Advances one run by one step, and stops.
@@ -50,7 +49,8 @@ const SMALL = "claude-sonnet-5";
 const BIG = "claude-opus-5";
 
 export type Progress = {
-  stage: Stage;
+  /** The tool's own stage name. The engine does not know the set. */
+  stage: string;
   progress: string;
   documentId: string | null;
   reason: string | null;
@@ -68,8 +68,20 @@ export async function step(runId: string): Promise<Progress | null> {
    * Has this one already gone wrong? Asked before any money is spent, so a run
    * that is circling does not pay for one more lap to prove it.
    */
+  /**
+   * Which tool this run belongs to, by the slug already stored on it.
+   *
+   * The engine used to import the Competitor Tracker by name, so every new tool
+   * meant editing this file and two people building two tools collided on the
+   * first commit. It knows nothing about any tool now.
+   */
+  const tool = runnerFor(run.tool);
+  if (!tool) {
+    return fail(db, runId, "This tool cannot run yet. Nothing has been saved.");
+  }
+
   const watch = ((run.state ?? {}) as { watch?: Watch }).watch ?? {};
-  const verdict = check(watch, { stage: run.stage as Stage, startedAt: run.started_at });
+  const verdict = check(watch, { stage: run.stage, startedAt: run.started_at });
   if (verdict) {
     // The reason the customer reads and the reason we need are different
     // things. Theirs goes in the error, ours goes in the state, where it is
@@ -104,35 +116,17 @@ export async function step(runId: string): Promise<Progress | null> {
     knownCompetitor: workspace.known_competitor,
   };
 
-  const state = (run.state ?? {}) as RunState;
-
   /**
-   * What we already know about researching this trade.
+   * The tool's own state, which the engine stores and never looks inside.
    *
-   * Loaded once, at the start, and carried in the run's own state after that. A
-   * run that stops halfway and resumes an hour later uses what it started with
-   * rather than something that changed underneath it, so a run is consistent
-   * with itself.
+   * That is what lets a tool change its shape without anything outside its own
+   * folder knowing, and it is why this is AnyState rather than one tool's type.
    */
-  if (state.playbook === undefined && business.trade) {
-    const { data: found } = await db
-      .from("playbooks")
-      .select("*")
-      .eq("trade", business.trade)
-      .maybeSingle();
+  let state = (run.state ?? {}) as AnyState;
 
-    state.playbook = found
-      ? {
-          trade: found.trade,
-          platforms: found.platforms ?? [],
-          publishes: found.publishes ?? [],
-          deadEnds: found.dead_ends ?? [],
-          evidence: found.evidence ?? [],
-          timesUsed: found.times_used ?? 0,
-          builtFrom: found.built_from ?? null,
-        }
-      : null;
-  }
+  // Whatever this tool needs loaded before a step. It decides for itself
+  // whether there is anything to do; the engine does not know what it is.
+  if (tool.prepare) state = await tool.prepare(state as never, business, db as never);
 
   const spent = { input: 0, output: 0 };
   let pages = 0;
@@ -295,7 +289,7 @@ export async function step(runId: string): Promise<Progress | null> {
   let result;
   const startedStep = Date.now();
   try {
-    result = await advance(run.stage as Stage, state, business, ctx);
+    result = await tool.advance(run.stage, state as never, business, ctx);
   } catch (e) {
     return faulted(db, runId, run.state, watch, e, spent, pages);
   }
@@ -316,7 +310,11 @@ export async function step(runId: string): Promise<Progress | null> {
    * later and lost. A real run failed today with nothing stored to say why,
    * for the second time, by a different route to the first.
    */
-  result.state.watch = note(result.state.watch ?? watch, run.stage as Stage, result.progress, {
+  (result.state as { watch?: Watch }).watch = note(
+    (result.state as { watch?: Watch }).watch ?? watch,
+    run.stage,
+    result.progress,
+    {
     seconds: (Date.now() - startedStep) / 1000,
     input: spent.input,
     output: spent.output,
@@ -324,44 +322,19 @@ export async function step(runId: string): Promise<Progress | null> {
   });
 
   /**
-   * Fold what this run learned back into the trade's playbook.
+   * Whatever this tool wants to keep from the run, kept.
    *
-   * Done on the way past, not only on success. A run that found the right
-   * listing and then failed to write a decent battlecard still learned where
-   * the listing was, and throwing that away means the next business in this
-   * trade pays to find it again.
+   * Called on the way past, not only on success: the tracker's own comment for
+   * this said a run that found the right listing and then failed still learned
+   * where the listing was. The engine does not know what any of it is.
    */
-  if (result.state.learned?.length && business.trade) {
-    const before: Playbook = result.state.playbook ?? { trade: business.trade, ...EMPTY };
-    const after = learn(before, {
-      platforms: result.state.learned,
-      publishes: [],
-      deadEnds: (result.state.listingPages ?? [])
-        .filter((p) => !p.ok)
-        .map((p) => ({ host: new URL(p.url).hostname.replace(/^www\./, ""), why: p.note })),
-      evidence: (result.state.listingPages ?? [])
-        .filter((p) => p.ok)
-        .map((p) => ({ url: p.url, on: p.fetchedOn, what: "listed this trade in a town" })),
-      town: business.town ?? "",
-    });
-
-    await db.from("playbooks").upsert({
-      trade: after.trade,
-      platforms: after.platforms,
-      publishes: after.publishes,
-      dead_ends: after.deadEnds,
-      evidence: after.evidence,
-      times_used: after.timesUsed,
-      built_from: after.builtFrom,
-      rechecked_at: new Date().toISOString(),
-    });
-  }
+  if (tool.learn) await tool.learn(result.state as never, business, db as never);
 
   // A finished run becomes a document, and the document is what the screen
   // reads from then on. The run row is the machinery; the document is the work.
   let documentId: string | null = null;
   if (result.stage === "done") {
-    const body = buildBody(result.state);
+    const body = tool.buildBody(result.state as never);
 
     /**
      * Do not store a document that is not worth opening.
@@ -371,7 +344,7 @@ export async function step(runId: string): Promise<Progress | null> {
      * a card that passed every check on the way and still has nothing in it.
      * The alternative is a page that says "done" above an empty table.
      */
-    const why = hollow(body);
+    const why = tool.hollow(body);
     if (why) {
       return fail(
         db,
@@ -386,8 +359,8 @@ export async function step(runId: string): Promise<Progress | null> {
       .from("documents")
       .insert({
         workspace_id: business.id,
-        tool: "competitor-tracker",
-        title: `Competitor Tracker, ${new Date().toLocaleDateString("en-GB")}`,
+        tool: tool.slug,
+        title: tool.title(new Date()),
         body: body as never,
       })
       .select("id")
@@ -438,7 +411,7 @@ export async function step(runId: string): Promise<Progress | null> {
     stage: result.stage,
     progress: result.progress,
     documentId,
-    reason: result.state.reason ?? null,
+    reason: (result.state as { reason?: string }).reason ?? null,
   };
 }
 

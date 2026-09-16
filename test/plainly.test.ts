@@ -147,8 +147,10 @@ test("a reason recorded by the step survives the engine writing the run", () => 
     "utf8",
   ).replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\s+/g, " ");
 
-  assert.match(engine, /note\(result\.state\.watch \?\? watch,/);
-  assert.doesNotMatch(engine, /result\.state\.watch = note\(watch,/);
+  // Whitespace already flattened above, so this survives the line being
+  // wrapped differently. It broke once for exactly that and nothing was wrong.
+  assert.match(engine, /note\( \(result\.state as \{ watch\?: Watch \}\)\.watch \?\? watch,/);
+  assert.doesNotMatch(engine, /\.watch = note\( watch,/);
 });
 
 test("reading a town listing has room for a town's worth of businesses", () => {

@@ -58,6 +58,20 @@ function sql(text) {
   return out;
 }
 
+/**
+ * Applied in name order, and the name decides who collides with whom.
+ *
+ * A shared running number, 011 then 012 then 013, means two people building two
+ * tools in two sessions both write 013 and one of them silently loses. Name a
+ * migration for the tool and the day instead:
+ *
+ *   competitor-tracker-2026-09-17-retry.sql
+ *   content-planner-2026-09-17-drafts.sql
+ *
+ * Two sessions cannot pick the same name, the order is still stable, and the
+ * file says which tool owns it. The numbered ones already applied keep their
+ * names: renaming them would make every one look unapplied and run again.
+ */
 const files = readdirSync(DIR)
   .filter((f) => f.endsWith(".sql"))
   .sort();
