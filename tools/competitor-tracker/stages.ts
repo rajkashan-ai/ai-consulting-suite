@@ -363,10 +363,22 @@ async function name(state: RunState, business: Business, ctx: ToolContext): Prom
           addedByCustomer: k.source === "owner",
           claims: {},
         })),
-        // The same queue the normal route builds, so reading is one path and
-        // not two. A kept competitor with no url is still compared on what the
-        // last run learned; it just has no fresh page this week.
-        queue: kept.filter((k) => k.url).map((k) => ({ name: k.name, url: k.url! })),
+        /**
+         * The same queue the normal route builds, so reading is one path and
+         * not two. A kept competitor with no url is still in the comparison; it
+         * just has no fresh page this week.
+         *
+         * The owner's own site goes first, exactly as it does on the long
+         * route. Leaving it out was a real bug in the first version of this:
+         * the comparison's first column is the customer, every row is anchored
+         * to what they charge, and with their page unread every cell in the
+         * table lost its source and was blanked. A full grid came back empty
+         * and the week-on-week diff then found nothing to report.
+         */
+        queue: [
+          ...(business.website ? [{ name: "you", url: business.website }] : []),
+          ...kept.filter((k) => k.url).map((k) => ({ name: k.name, url: k.url! })),
+        ],
       },
       progress: `Checking the ${kept.length} we compare you against`,
     };

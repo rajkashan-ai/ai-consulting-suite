@@ -419,7 +419,17 @@ test("a run that already has the set does no discovery at all", async () => {
   assert.equal(step.stage, "reading", "it went looking despite already knowing");
   assert.equal(calls.think.length, 0, "it asked a model who competes, having been told");
   assert.equal(calls.search.length, 0, "it searched, having been told");
-  assert.equal(step.state.queue?.length, 3, "the known pages are not queued to read");
+  /**
+   * Three competitors plus the owner's own site.
+   *
+   * Their own page is not optional. The comparison's first column is the
+   * customer and every row is anchored to what they charge, so with their page
+   * unread every cell in the table loses its source and is blanked. The first
+   * version of the reuse path left it out and produced a full grid with nothing
+   * in it, which then made the week-on-week diff find nothing to report.
+   */
+  assert.equal(step.state.queue?.length, 4, "the known pages are not queued to read");
+  assert.equal(step.state.queue?.[0].name, "you", "the owner's own site was left out");
 });
 
 test("too few stored is not a set, and discovery runs", async () => {
