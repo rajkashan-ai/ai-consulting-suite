@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { CHANNEL, CRITIQUES } from "../../../../Agents/Content & Social Planner/src/types";
-import { FIRST_STAGE } from "@/tools/content-social-planner/index";
+import { FIRST_STAGE, lastPlan } from "@/tools/content-social-planner/index";
 
 /**
  * What the owner can do to a plan.
@@ -98,11 +98,35 @@ export async function changeCadence(form: FormData) {
   if (!workspaceId || !Number.isFinite(hoursAWeek)) return;
 
   const supabase = await createClient();
-  await supabase.from("documents").delete().eq("workspace_id", workspaceId).eq("tool", "content-social-planner");
+
+  /**
+   * The old plan is kept, not deleted.
+   *
+   * Deleting it was how this started a fresh run, and it threw away the only
+   * record of what we have already suggested this business, which is what stops
+   * the next month repeating the last one. The two buttons most likely to be
+   * pressed destroyed the feature that exists to make pressing them worthwhile.
+   *
+   * The page reads the newest document, so a new one supersedes the old without
+   * anything being removed. Only the runs go, because a finished run is what
+   * makes the page show a plan rather than start one.
+   */
+  const { data: before } = await supabase
+    .from("documents")
+    .select("body")
+    .eq("workspace_id", workspaceId)
+    .eq("tool", "content-social-planner")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   await supabase.from("runs").delete().eq("workspace_id", workspaceId).eq("tool", "content-social-planner");
-  await supabase
-    .from("runs")
-    .insert({ workspace_id: workspaceId, tool: "content-social-planner", stage: FIRST_STAGE, state: { hoursAWeek } });
+  await supabase.from("runs").insert({
+    workspace_id: workspaceId,
+    tool: "content-social-planner",
+    stage: FIRST_STAGE,
+    state: { hoursAWeek, before: lastPlan(before?.body) },
+  });
 
   revalidatePath("/workspace/content-social-planner");
 }
@@ -136,9 +160,9 @@ export async function saveChannels(form: FormData) {
   await supabase.from("workspaces").update({ channels: chosen }).eq("id", workspaceId);
 
   /* The month is built from the channels, so changing them makes the stored
-     plan wrong rather than out of date. Clear it and let the page start a run,
-     the same as changing the cadence. */
-  await supabase.from("documents").delete().eq("workspace_id", workspaceId).eq("tool", "content-social-planner");
+     plan wrong rather than out of date. The runs go so the page starts a new
+     one; the document stays, because it is the record of what we have already
+     suggested and the next run reads it. */
   await supabase.from("runs").delete().eq("workspace_id", workspaceId).eq("tool", "content-social-planner");
 
   revalidatePath("/workspace/content-social-planner");

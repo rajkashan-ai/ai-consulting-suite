@@ -636,9 +636,34 @@ test("the run actually hands the last plan to the shape", async () => {
     "the shape is built without what we already suggested",
   );
 
-  const index = readFileSync(join(here, "..", "tools", "content-social-planner", "index.ts"), "utf8");
-  assert.match(code(index), /async prepare\(/, "nothing loads the last plan before a run");
-  assert.match(code(index), /\.from\("documents"\)/, "prepare reads something other than the stored plans");
+  /* Put on the run by the screen, not loaded by `prepare`: the Db type a tool
+     is handed allows one eq and no ordering, so "this tool's newest document"
+     cannot be expressed through it, and widening the contract would mean
+     changing a file both tools depend on to suit one of them. */
+  const panel = screen("content-social-planner.tsx");
+  assert.match(code(panel), /before: lastPlan\(document\?\.body\)/, "a new run is started knowing nothing");
+
+  const actions = readFileSync(join(here, "..", "app", "workspace", "[tool]", "planner-actions.ts"), "utf8");
+  assert.equal(
+    (code(actions).match(/before: lastPlan\(/g) ?? []).length,
+    1,
+    "changing the cadence starts a run that has forgotten everything",
+  );
+
+  /**
+   * And the record survives the buttons that trigger a re-run.
+   *
+   * Both of them deleted the document to force a fresh run, which threw away
+   * the only record of what we have already suggested. The two buttons most
+   * likely to be pressed destroyed the feature that makes pressing them worth
+   * anything. The page reads the newest document, so a new one supersedes the
+   * old without anything being removed.
+   */
+  assert.doesNotMatch(
+    code(actions),
+    /from\("documents"\)\s*\.delete\(\)/,
+    "a re-run deletes the plan the next one learns from",
+  );
 
   /* And the writer is told, or it will write the same post in new words, which
      the angle rule cannot see. */
@@ -687,8 +712,12 @@ test("the screen asks where they post, and stores the answer on the business", (
   const actions = readFileSync(join(here, "..", "app", "workspace", "[tool]", "planner-actions.ts"), "utf8");
   assert.match(actions, /\.from\("workspaces"\)\.update\(\{ channels/, "it is not stored on the business");
   /* The month is built from the channels, so changing them makes the stored
-     plan wrong rather than out of date. */
-  assert.match(actions.slice(actions.indexOf("saveChannels")), /\.from\("documents"\)\.delete\(\)/);
+     plan wrong rather than out of date: the runs go, so the page starts a new
+     one. The document stays. It used to be deleted here, which threw away the
+     record the next run reads to avoid repeating itself. */
+  const after = actions.slice(actions.indexOf("export async function saveChannels"));
+  assert.match(after, /\.from\("runs"\)\.delete\(\)/, "changing the channels leaves the old plan up");
+  assert.doesNotMatch(after, /\.from\("documents"\)\s*\.delete\(\)/, "it deletes what the next run learns from");
 });
 
 test("this tool writes no fetch of its own", () => {

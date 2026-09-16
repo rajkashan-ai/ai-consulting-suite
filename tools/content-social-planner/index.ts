@@ -10,7 +10,7 @@ import { buildBody, hollow, type DocumentBody } from "./document.ts";
  * here: its stages and its document. The engine looks this up by the slug on
  * the run row and calls it, and knows nothing else.
  *
- * `prepare` reads the last plan before the first step.
+ * The last plan reaches a run on the run's own state, not through `prepare`.
  *
  * Raj, 2026-09-16: we keep a record of what we have already suggested, surely.
  * We do, and nothing read it. Every plan is stored with all thirty days on it:
@@ -22,9 +22,15 @@ import { buildBody, hollow, type DocumentBody } from "./document.ts";
  * account and no metrics. Knowing what worked still does. Knowing what we
  * already said never did.
  *
- * No `learn` yet. What this tool learns is the gap between what we wrote and
- * what they actually posted, which lives in `content_post_state` and is read
- * from there, so there is nothing to fold on the way past. */
+ * `prepare` would be the natural home and cannot do it: the `Db` type in
+ * `contract.ts` allows one `eq` and no ordering, so a query for this tool's
+ * newest plan cannot be expressed through it. Widening the contract would mean
+ * changing a file both tools depend on to suit one of them. The screen already
+ * holds the document, so it puts it on the run when it starts one.
+ *
+ * No `learn` either, for the same reason and one of its own: what this tool
+ * learns is the gap between what we wrote and what they actually posted, which
+ * lives in `content_post_state` and is read from there. */
 
 export const contentSocialPlanner: ToolRun<RunState> = {
   slug: "content-social-planner",
@@ -40,24 +46,6 @@ export const contentSocialPlanner: ToolRun<RunState> = {
 
   title: (now) => `Your posts, ${now.toLocaleDateString("en-GB")}`,
 
-  /**
-   * What we already suggested this business, so we do not suggest it again.
-   *
-   * Loaded once and carried in the run's own state, so a run that stops halfway
-   * and resumes an hour later uses what it started with rather than something
-   * that changed underneath it.
-   */
-  async prepare(state, business, db) {
-    if (state.before !== undefined) return state;
-
-    const { data } = (await db
-      .from("documents")
-      .select("body")
-      .eq("workspace_id", business.id)
-      .maybeSingle()) as { data: { body?: unknown } | null };
-
-    return { ...state, before: lastPlan(data?.body) };
-  },
 };
 
 /**

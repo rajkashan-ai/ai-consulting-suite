@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { decidePlan, sayNext } from "@/tools/content-social-planner/freshness";
-import { FIRST_STAGE } from "@/tools/content-social-planner/index";
+import { FIRST_STAGE, lastPlan } from "@/tools/content-social-planner/index";
 import Channels from "./channels";
 import PlanView from "./plan";
 import Running from "./running";
@@ -173,7 +173,15 @@ export default async function ContentSocialPlanner({
       stage: FIRST_STAGE,
       /* Carried on the run rather than read off Business, because the engine
          builds Business and lib/engine.ts is read-only to a tool. */
-      state: { told: confirmed ?? [] },
+      /**
+       * What they told us, and what we already suggested them.
+       *
+       * Both carried on the run rather than read inside it: the engine builds
+       * `Business` and `lib/engine.ts` is read-only to a tool, and the `Db`
+       * type a tool is handed cannot express "this tool's newest document".
+       * The screen holds both already.
+       */
+      state: { told: confirmed ?? [], before: lastPlan(document?.body) },
     })
     .select("id, started_at")
     .single();
