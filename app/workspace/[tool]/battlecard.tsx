@@ -1,6 +1,7 @@
 import type { Battlecard, Claim, Competitor } from "../../../../Agents/Competitor Tracker/src/types";
 import { groupNotChecked } from "@/tools/competitor-tracker/coverage";
 import { gapReads } from "@/tools/competitor-tracker/rankActions";
+import { funnelReads } from "@/tools/competitor-tracker/shortfall";
 import type { DocumentBody } from "@/tools/competitor-tracker/document";
 import type { Grid, Side } from "@/tools/competitor-tracker/stages";
 import Tabs from "./tabs";
@@ -231,6 +232,14 @@ export default function BattlecardView({
       <div className="checked">
         <section>
           <h2 className="t-section">What we checked</h2>
+          {/* The narrowing, before the list of what survived it. The page used
+              to show the eight pages we read and nothing else, so a reader
+              could not see that thirty two names became five, or that we looked
+              at forty eight results to get there. That is the work, and the
+              work is most of the reason to believe the answer. */}
+          {card.funnel && funnelReads(card.funnel) && (
+            <p className="t-meta checked__funnel">{funnelReads(card.funnel)}</p>
+          )}
           {/* The same shape as the list beside it, because they are a pair and
               two different formats side by side read as two different things.
 

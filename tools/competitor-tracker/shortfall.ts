@@ -37,6 +37,12 @@ export type Funnel = {
   distinct: number;
   /** What was actually compared. */
   compared: number;
+  /** How many things a customer might type that we searched for. */
+  searches?: number;
+  /** How many links those searches returned, before any were opened. */
+  links?: number;
+  /** How many town listings we actually read. */
+  listings?: number;
 };
 
 export const WANTED = 5;
@@ -103,4 +109,31 @@ export function areasMissing(asked: readonly string[], got: string[]): string | 
       : `${missing.slice(0, -1).join(", ")} and ${missing[missing.length - 1]}`;
 
   return `We could not build the ${list} comparison this time. Everything else here is unaffected.`;
+}
+
+
+/**
+ * The narrowing, in one line.
+ *
+ * The page showed the eight pages we read and nothing else, so a reader could
+ * not see that thirty two names became five, or that we looked at forty eight
+ * links to get there. Raj: "What did we check to understand possible
+ * competitors, then narrow down? We must have checked others."
+ *
+ * It is the work, and the work is most of the reason to believe the answer.
+ */
+export function funnelReads(f: Funnel): string | null {
+  if (!f.searches && !f.links && !f.found) return null;
+
+  const bits: string[] = [];
+  if (f.searches) bits.push(`ran ${f.searches} ${f.searches === 1 ? "search" : "searches"}`);
+  if (f.links) bits.push(`looked at ${f.links} results`);
+  if (f.listings) bits.push(`read ${f.listings} town ${f.listings === 1 ? "listing" : "listings"}`);
+  if (f.found) bits.push(`found ${f.found} businesses`);
+
+  const last = f.distinct && f.distinct !== f.compared
+    ? `narrowed them to ${f.distinct} separate businesses, and compared the ${f.compared} closest to you`
+    : `compared ${f.compared}`;
+
+  return `We ${bits.join(", ")}, ${last}.`;
 }

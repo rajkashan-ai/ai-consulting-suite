@@ -262,3 +262,25 @@ test("whose page it was comes from the grid, so old battlecards work too", () =>
   assert.match(screen, /if \(url && g\.columns\?\.\[i\] && !owners\.has\(url\)\)/);
   assert.match(screen, /owners\.get\(url\) \?\? null/);
 });
+
+test("the page shows the narrowing, not just what survived it", () => {
+  /**
+   * Raj, 2026-09-16: "What did we check to understand possible competitors,
+   * then narrow down? We must have checked others."
+   *
+   * It showed the eight pages we read and nothing else. A real run had ran 5
+   * searches, looked at 48 results, read 2 town listings and found 32
+   * businesses to get to those 8. None of that was on the page, so the reader
+   * could not see the work, and the work is most of the reason to believe the
+   * answer.
+   */
+  assert.match(screen, /funnelReads\(card\.funnel\)/);
+  const shortfall = readFileSync(
+    join(here, "..", "tools", "competitor-tracker", "shortfall.ts"),
+    "utf8",
+  );
+  assert.match(shortfall, /export function funnelReads/);
+  for (const part of ["searches", "results", "town", "businesses"]) {
+    assert.match(shortfall, new RegExp(part), `the narrowing never mentions ${part}`);
+  }
+});

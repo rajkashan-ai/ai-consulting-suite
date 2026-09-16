@@ -75,7 +75,13 @@ export function nextToTry(wanted: string[], tried: Attempt[]): string[] {
 
   if (tried.length >= MOST_TRIES) return [];
 
-  const untried = wanted.filter((u) => !attempts.has(u));
+  const touched = new Set(tried.map((a) => hostOf(a.url)));
+  const untried = wanted
+    .filter((u) => !attempts.has(u))
+    // A platform we have not looked at at all before a second page of one we
+    // have. Different platforms list different businesses; two pages of the
+    // same one mostly list the same businesses twice.
+    .sort((a, b) => Number(touched.has(hostOf(a))) - Number(touched.has(hostOf(b))));
 
   const askAgain = wanted.filter((u) => {
     const mine = attempts.get(u) ?? [];
@@ -87,10 +93,28 @@ export function nextToTry(wanted: string[], tried: Attempt[]): string[] {
   return [...untried, ...askAgain].slice(0, Math.min(AT_ONCE, MOST_TRIES - tried.length));
 }
 
-/** Have we finished looking? */
+/**
+ * Have we finished looking?
+ *
+ * Enough names is not the same as enough coverage, and treating them as the
+ * same cost us a whole platform. A real run searched Booksy and Fresha, got
+ * twelve Fresha results, read Booksy first, found thirty two names, decided
+ * that was plenty and stopped. Every barber who is on Fresha and not on Booksy
+ * was invisible, and nothing on the page said so.
+ *
+ * So: one page from each platform we found, before the name count is allowed
+ * to end the search. Different platforms list different businesses, which is
+ * the entire reason we look at more than one.
+ */
 export function enough(names: string[], wanted: string[], tried: Attempt[]): boolean {
-  if (names.length >= ENOUGH_NAMES) return true;
-  return nextToTry(wanted, tried).length === 0;
+  if (nextToTry(wanted, tried).length === 0) return true;
+
+  const seen = new Set(tried.map((a) => hostOf(a.url)));
+  const all = new Set(wanted.map(hostOf));
+  const platformsLeft = [...all].some((h) => !seen.has(h));
+
+  if (platformsLeft) return false;
+  return names.length >= ENOUGH_NAMES;
 }
 
 /**

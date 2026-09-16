@@ -1048,3 +1048,6 @@ main{padding:0}
    is being read, the address is there to be checked. */
 .checked .cell-note a { color: inherit; overflow-wrap: anywhere; }
 .checked .cell-note a:hover { color: var(--brand-ink); }
+
+/* The narrowing, above the list of pages that survived it. */
+.checked__funnel { margin: 0 0 var(--s4); font-variant-numeric: tabular-nums; }

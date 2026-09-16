@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   AT_ONCE,
   ENOUGH_NAMES,
@@ -135,9 +137,37 @@ test("the ceiling is respected part way through a batch", () => {
 // When to stop.
 // ---------------------------------------------------------------------------
 
-test("enough names stops the looking, even with places left", () => {
+test("enough names does not stop the looking while a platform is untouched", () => {
+  /**
+   * Changed deliberately on 2026-09-16. It asserted the opposite and the
+   * opposite was wrong.
+   *
+   * A real run searched Booksy and Fresha, got twelve Fresha results, read
+   * Booksy first, found thirty two names, decided that was plenty and stopped.
+   * Every barber on Fresha and not on Booksy was invisible, and nothing said
+   * so. Enough names is not the same as enough coverage.
+   */
   const names = Array.from({ length: ENOUGH_NAMES }, (_, i) => `Shop ${i}`);
-  assert.equal(enough(names, [BOOKSY, FRESHA, CHECKA], []), true);
+  assert.equal(enough(names, [BOOKSY, FRESHA, CHECKA], []), false);
+});
+
+test("enough names stops it once every platform has been looked at", () => {
+  const names = Array.from({ length: ENOUGH_NAMES }, (_, i) => `Shop ${i}`);
+  const tried = [a(BOOKSY, "", true), a(FRESHA, "", true), a(CHECKA, "403")];
+  assert.equal(enough(names, [BOOKSY, FRESHA, CHECKA], tried), true);
+});
+
+test("a second page of the same platform does not count as covering it", () => {
+  // Two pages of one platform mostly list the same businesses twice. A
+  // platform is covered when we have asked it, not when we have asked twice.
+  const names = Array.from({ length: ENOUGH_NAMES }, (_, i) => `Shop ${i}`);
+  const twoBooksy = [BOOKSY, `${BOOKSY}-2`, FRESHA];
+  assert.equal(enough(names, twoBooksy, [a(BOOKSY, "", true), a(`${BOOKSY}-2`, "", true)]), false);
+});
+
+test("an untouched platform is tried before a second page of one we have read", () => {
+  const next = nextToTry([`${BOOKSY}-2`, FRESHA], [a(BOOKSY, "", true)]);
+  assert.equal(next[0], FRESHA, "it went back to the same platform first");
 });
 
 test("running out of places stops it too, however few names we have", () => {
@@ -181,8 +211,6 @@ test("an unparseable address does not crash the report", () => {
 // Through the pipeline, which is where the last three gaps were. 2026-09-16.
 // ---------------------------------------------------------------------------
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { advance, type RunState } from "../tools/competitor-tracker/stages.ts";
 import { aBusiness, fakeContext, type Recorded } from "./fake.ts";
 
@@ -305,4 +333,34 @@ test("looking harder stops once there are enough names", async () => {
   const { asked } = await withRefusals(() => null);
   const listings = asked.filter((u) => /\/(s|lp)\//.test(u));
   assert.ok(listings.length <= AT_ONCE, `read ${listings.length} listings when the first was enough`);
+});
+
+test("a listing for the wrong country is never fetched, however trusted the host", () => {
+  /**
+   * A real run read booksy.com/en-us/s/barber-shop/28689_shrewsbury:
+   * Shrewsbury in the United States. The check was `(isOurs || trusted)`, so a
+   * known platform skipped the country test altogether, and "shrewsbury" is in
+   * the address of both towns. We paid to read it and fed its businesses into a
+   * Shropshire comparison.
+   *
+   * Read off the source, because the choosing happens inside the listings step
+   * and nothing else can reach it.
+   */
+  // Comments stripped: the note explaining why the old check went still
+  // contains the old check, and a test that fires on its own explanation is a
+  // test that can never pass. Third time today.
+  const src = readFileSync(
+    join(import.meta.dirname, "..", "tools", "competitor-tracker", "stages.ts"),
+    "utf8",
+  )
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/\/\/[^\n]*/g, " ")
+    .replace(/\s+/g, " ");
+
+  assert.doesNotMatch(src, /\(isOurs \|\| trusted\)/, "a trusted host bypasses the country check again");
+  // The playbook may still vouch for a page being a listing. It may never
+  // vouch for the country: clearlyNotOurs is checked whoever serves the page.
+  assert.match(src, /looksLikeAListing && ours && !clearlyNotOurs/);
+  assert.match(src, /const ours = isOurs \|\| \(trusted && !clearlyNotOurs\)/);
+  assert.match(src, /en-us/, "nothing rules out an American listing");
 });

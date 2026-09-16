@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { WANTED, areasMissing, shortfall, type Funnel } from "../tools/competitor-tracker/shortfall.ts";
+import { WANTED, areasMissing, funnelReads, shortfall, type Funnel } from "../tools/competitor-tracker/shortfall.ts";
 import { GRID_AREAS } from "../tools/competitor-tracker/stages.ts";
 
 /**
@@ -97,4 +97,46 @@ test("several missing areas read as a sentence, not a list dump", () => {
 test("the areas message never blames the owner or names our machinery", () => {
   const said = areasMissing(GRID_AREAS, ["pricing"]) ?? "";
   assert.doesNotMatch(said, /you did|your fault|call|token|stage|model|api/i);
+});
+
+// ---------------------------------------------------------------------------
+// The narrowing, said in one line. Added 2026-09-16.
+// ---------------------------------------------------------------------------
+
+test("the narrowing reads as the work it was", () => {
+  // The real numbers off the run Raj was looking at.
+  const said = funnelReads({
+    searches: 5, links: 48, listings: 2,
+    found: 32, notYou: 32, rightTrade: 30, distinct: 15, compared: 5,
+  });
+
+  assert.match(said ?? "", /ran 5 searches/);
+  assert.match(said ?? "", /looked at 48 results/);
+  assert.match(said ?? "", /read 2 town listings/);
+  assert.match(said ?? "", /found 32 businesses/);
+  assert.match(said ?? "", /compared the 5 closest/);
+});
+
+test("one of a thing is not said as one things", () => {
+  const said = funnelReads({
+    searches: 1, links: 3, listings: 1,
+    found: 2, notYou: 2, rightTrade: 2, distinct: 2, compared: 2,
+  });
+  assert.match(said ?? "", /ran 1 search\b/);
+  assert.match(said ?? "", /read 1 town listing\b/);
+});
+
+test("nothing is claimed about a step that did not happen", () => {
+  // A run that read no listing must not say it read zero of them: a sentence
+  // about an absence we did not need to mention.
+  const said = funnelReads({
+    searches: 3, links: 10, listings: 0,
+    found: 4, notYou: 4, rightTrade: 4, distinct: 4, compared: 4,
+  });
+  assert.doesNotMatch(said ?? "", /0 town|no town/i);
+});
+
+test("a run with nothing recorded says nothing at all", () => {
+  // Old battlecards have no funnel. Silence beats a line of zeroes.
+  assert.equal(funnelReads({ found: 0, notYou: 0, rightTrade: 0, distinct: 0, compared: 0 }), null);
 });

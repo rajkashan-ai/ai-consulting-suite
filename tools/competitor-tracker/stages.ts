@@ -406,7 +406,37 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
       // whole difference, and it is written down in their file with the reason.
       const looksLikeAListing = isListing && !isVenuePage(r.url);
 
-      if (looksLikeAListing && (isOurs || trusted) && url.includes(town)) wanted.add(r.url);
+      /**
+       * Trusted is about the page being a listing. It is not about the country.
+       *
+       * This was `(isOurs || trusted)`, so a known platform skipped the country
+       * test altogether, and a real run read
+       * booksy.com/en-us/s/barber-shop/28689_shrewsbury: Shrewsbury in the
+       * United States. We paid to read it and fed its businesses into a
+       * Shropshire comparison.
+       *
+       * Both have to hold. Being Booksy's list of everybody does not make it
+       * everybody here, and "shrewsbury" is in the address of both towns.
+       */
+      const clearlyNotOurs = /\/en-us\/|\/us\/|\.com\/us|\/en-au\/|\/en-ca\//.test(url);
+
+      /**
+       * What the playbook is still for, now that it cannot vouch for a country.
+       *
+       * It knows which platforms have actually named businesses for this trade,
+       * learned from every run before this one. That earns a known platform one
+       * thing: its listing is accepted even when the address does not carry the
+       * /en-gb/ marker, because a platform we have read a real UK listing from
+       * before is a platform whose addresses we have seen work.
+       *
+       * It does not earn anything about the country. An address that says
+       * plainly it is somewhere else is refused whoever serves it.
+       */
+      const ours = isOurs || (trusted && !clearlyNotOurs);
+
+      if (looksLikeAListing && ours && !clearlyNotOurs && url.includes(town)) {
+        wanted.add(r.url);
+      }
     }
   }
 
@@ -798,7 +828,12 @@ async function choose(state: RunState, business: Business): Promise<Step> {
       queue,
       picked,
       pages: {},
-      funnel,
+      funnel: {
+        ...funnel,
+        searches: (seen ?? []).length,
+        links: (seen ?? []).reduce((n, x) => n + x.results.length, 0),
+        listings: (state.listingPages ?? []).filter((p) => p.ok).length,
+      },
       // Said on the page when the town is genuinely small, so a short list
       // reads as a finding rather than as something missing.
       shortfallSay: verdict.kind === "town" ? verdict.say : undefined,

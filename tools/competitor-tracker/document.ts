@@ -1,5 +1,6 @@
 import type { Battlecard } from "../../../Agents/Competitor Tracker/src/types.ts";
 import type { Grid, RunState, Side } from "./stages.ts";
+import type { Funnel } from "./shortfall.ts";
 
 /**
  * What gets stored, and whether it is worth storing.
@@ -36,6 +37,8 @@ export type DocumentBody = Battlecard & {
   areas?: string;
   /** The one thing worth knowing, first. Absent when it did not survive. */
   headline?: string;
+  /** Searches run, links seen, names found, and how they narrowed. */
+  funnel?: Funnel;
 };
 
 /** Assemble the document from a finished run. */
@@ -48,6 +51,7 @@ export function buildBody(state: RunState): DocumentBody | null {
     shortfall: state.shortfallSay,
     areas: state.areasSay,
     headline: state.headline,
+    funnel: state.funnel,
   };
 }
 
