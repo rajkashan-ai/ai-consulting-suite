@@ -3,6 +3,7 @@ import type { Business, ToolContext } from "../types.ts";
 import { advance as advanceStage, type RunState } from "./stages.ts";
 import { buildBody, hollow } from "./document.ts";
 import { EMPTY, learn as fold, type Playbook } from "./playbook.ts";
+import { playbookKey } from "./where.ts";
 
 /**
  * The Competitor Tracker, as the engine sees it.
@@ -37,12 +38,19 @@ export const competitorTracker: ToolRun<RunState> = {
    * consistent with itself.
    */
   async prepare(state, business, db) {
-    if (state.playbook !== undefined || !business.trade) return state;
+    if (state.playbook !== undefined) return state;
+
+    // An unmatched business is filed under its own words, never under the bare
+    // `other`, which every unmatched business in the country would share. No
+    // words at all means no playbook: better to learn nothing than to learn
+    // into a row that mixes trades.
+    const key = playbookKey(business);
+    if (!key) return { ...state, playbook: null };
 
     const { data: found } = (await db
       .from("playbooks")
       .select("*")
-      .eq("trade", business.trade)
+      .eq("trade", key)
       .maybeSingle()) as { data: Record<string, unknown> | null };
 
     return {
@@ -56,6 +64,8 @@ export const competitorTracker: ToolRun<RunState> = {
             evidence: (found.evidence ?? []) as Playbook["evidence"],
             timesUsed: (found.times_used ?? 0) as number,
             builtFrom: (found.built_from ?? null) as Playbook["builtFrom"],
+            nothingIn: (found.nothing_in ?? []) as Playbook["nothingIn"],
+            towns: (found.towns ?? []) as Playbook["towns"],
           }
         : null,
     };
@@ -70,11 +80,22 @@ export const competitorTracker: ToolRun<RunState> = {
    * trade pays to find it again.
    */
   async learn(state, business, db) {
-    if (!state.learned?.length || !business.trade) return;
+    const key = playbookKey(business);
+    if (!key) return;
 
-    const before: Playbook = state.playbook ?? { trade: business.trade, ...EMPTY };
+    // A run that found nothing is worth writing down, and so is a known host
+    // that we searched for on purpose and got nothing from. Both used to be
+    // dropped, so a trade could come back empty forever and a platform that
+    // had stopped listing it was searched on every run.
+    const foundNothing = !state.learned?.length && !state.listed?.length;
+    const blank = state.blankHosts ?? [];
+    if (!state.learned?.length && !foundNothing && !blank.length) return;
+
+    const before: Playbook = state.playbook ?? { trade: key, ...EMPTY };
     const after = fold(before, {
-      platforms: state.learned,
+      platforms: state.learned ?? [],
+      blank,
+      foundNothing,
       publishes: [],
       deadEnds: (state.listingPages ?? [])
         .filter((p) => !p.ok)
@@ -93,6 +114,8 @@ export const competitorTracker: ToolRun<RunState> = {
       evidence: after.evidence,
       times_used: after.timesUsed,
       built_from: after.builtFrom,
+      nothing_in: after.nothingIn,
+      towns: after.towns,
       rechecked_at: new Date().toISOString(),
     });
   },

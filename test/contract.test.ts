@@ -89,10 +89,19 @@ test("no tool reaches into another tool", () => {
    * files makes two sessions dependent on each other again, quietly, without
    * either editing a shared file.
    */
+  /**
+   * Not every folder under tools/ is a tool. `sources/` is seed data about the
+   * UK web that any tool may read and none of them owns, the same as
+   * categories.ts beside it. Listing the shared ones by name means adding one
+   * is a deliberate act rather than a way round this test.
+   */
+  const SHARED = ["sources"];
+
   const toolsDir = join(here, "..", "tools");
   const folders = readdirSync(toolsDir, { withFileTypes: true })
     .filter((d) => d.isDirectory())
-    .map((d) => d.name);
+    .map((d) => d.name)
+    .filter((name) => !SHARED.includes(name));
 
   const offenders: string[] = [];
 

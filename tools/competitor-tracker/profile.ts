@@ -1,6 +1,7 @@
 import type { SearchProfile } from "../../../Agents/Competitor Tracker/src/search-visibility.ts";
 import { displayName } from "../../../Agents/Competitor Tracker/src/normalise.ts";
 import type { Business } from "../types.ts";
+import { wordsFor } from "./where.ts";
 
 /**
  * What the workspace knows about a business, in the shape the agent expects.
@@ -12,8 +13,19 @@ import type { Business } from "../types.ts";
  * nothing useful and costs the same as a real search.
  */
 export function profileFor(business: Business): SearchProfile | { missing: string[] } {
+  /**
+   * The words we search with, not the category id.
+   *
+   * These are the same for every trade but one. "Something else" is a real
+   * choice in the dropdown and its id is `other`, so this used to search for
+   * "other shrewsbury" and "best other shrewsbury", which is a search for the
+   * word other. For those, wordsFor falls back to what the business said about
+   * itself, and when it said nothing we stop and ask rather than guess.
+   */
+  const words = wordsFor(business);
+
   const missing = [
-    !business.trade && "what they do",
+    !words && "what they do",
     !business.town && "what town they are in",
   ].filter(Boolean) as string[];
 
@@ -29,7 +41,7 @@ export function profileFor(business: Business): SearchProfile | { missing: strin
      * comparing names: the one we print kept them.
      */
     name: displayName(business.name ?? business.website),
-    trade: business.trade!,
+    trade: words!,
     town: business.town!,
     // GB is not a guess about this business: the whole product is sold to UK
     // small businesses, and the search tool needs a country or it returns the

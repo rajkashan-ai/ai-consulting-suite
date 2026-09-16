@@ -19,7 +19,8 @@ import type {
 } from "../../../Agents/Competitor Tracker/src/types.ts";
 import type { Business, ToolContext } from "../types.ts";
 import { isProfile, profileFor } from "./profile.ts";
-import { confidence, isDeadEnd, startWith, type Playbook } from "./playbook.ts";
+import { confidence, exhausted, isDeadEnd, type Playbook } from "./playbook.ts";
+import { whereToLook } from "./where.ts";
 import { rank, type Found, type Scored } from "./rank.ts";
 import { notYou, oneEach, rightTrade, sift } from "./sift.ts";
 import { areasMissing, shortfall, type Funnel } from "./shortfall.ts";
@@ -84,6 +85,12 @@ export type RunState = {
   profile?: SearchProfile;
   /** What we already know about researching this trade. Null the first time. */
   playbook?: Playbook | null;
+  /** Every host the four tiers offered, best evidence first. */
+  knownHosts?: string[];
+  /** Hosts we searched for on purpose, so a blank one can be counted. */
+  targetedHosts?: string[];
+  /** Of those, the ones that gave us no listing. Folded back in at the end. */
+  blankHosts?: string[];
   /** Platforms this run found that the playbook did not have. */
   learned?: { host: string; example: string; named: number }[];
   terms?: { term: string; why: string }[];
@@ -292,10 +299,30 @@ async function search(state: RunState, business: Business, ctx: ToolContext): Pr
    * barber telling us customers arrive from Booksy is a better signal about
    * where barbers are listed than any number of searches, and it is free.
    */
-  const known = [
-    ...platformsFrom(business.foundVia),
-    ...startWith(state.playbook ?? null),
-  ].filter((v, i, all) => all.indexOf(v) === i);
+  /**
+   * Four tiers: what the owner said, what a past run measured, what the seeded
+   * list says for this trade, and the general floor. See where.ts for why that
+   * order. The floor is what stops a trade nobody has run before starting with
+   * nowhere to look, which is how the bakery run died.
+   */
+  const look = whereToLook(business.trade, state.playbook ?? null, platformsFrom(business.foundVia));
+  const known = look.hosts;
+
+  /**
+   * Tried everywhere, three towns over, and found nothing every time.
+   *
+   * Searching again is not research at this point, it is a habit, and it costs
+   * the owner money to be told the same nothing a fourth time. Saying so is
+   * more use than another empty grid.
+   */
+  if (exhausted(state.playbook ?? null)) {
+    return stop(
+      state,
+      `We have looked for other ${profile.trade}s in three different towns now ` +
+        `and found no list of them anywhere. There may not be one. Tell us a ` +
+        `competitor by name on Your business and we will work from that instead.`,
+    );
+  }
 
   /**
    * The targeted searches AND the broad ones, always.
@@ -310,9 +337,15 @@ async function search(state: RunState, business: Business, ctx: ToolContext): Pr
    * ones are the floor: they are what worked before any playbook existed, and
    * they cost a few pence against a run that otherwise fails entirely.
    */
-  const targeted = known.slice(0, 2).map((host) => ({
+  const targetedHosts = known.slice(0, 2);
+  const targeted = targetedHosts.map((host) => ({
     term: `${profile.trade} ${profile.town} site:${host}`,
-    why: `${host} lists this trade, from a previous run`,
+    why:
+      look.from[host] === "playbook"
+        ? `${host} listed this trade on a previous run`
+        : look.from[host] === "owner"
+          ? `${host} is where this owner says customers find them`
+          : `${host} is recorded as listing this trade`,
   }));
 
   const terms = [...targeted, ...buildSearchTerms(profile)].slice(0, 5);
@@ -338,7 +371,9 @@ async function search(state: RunState, business: Business, ctx: ToolContext): Pr
 
   return {
     stage: "listings",
-    state: { ...state, profile, terms, seen: withResults },
+    // Kept so listings can tell a host that gave us nothing from one that
+    // simply never came up. Only a host we asked for counts as a blank.
+    state: { ...state, profile, terms, seen: withResults, targetedHosts, knownHosts: known },
     progress: `Searched ${withResults.length} of the ${terms.length} things a customer would type`,
   };
 }
@@ -373,7 +408,15 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
   const town = profile.town.toLowerCase().replace(/\s+/g, "-");
   const wanted = new Set<string>();
 
-  const knownHosts = startWith(state.playbook ?? null);
+  /**
+   * Hosts a listing is accepted from without the /en-gb/ marker.
+   *
+   * Was the playbook alone. Now the seeded list too, for the same reason: a
+   * source we have recorded as listing this trade in the UK is one whose
+   * addresses we have reason to trust. The country test below still applies,
+   * so this buys a shape, not a pass.
+   */
+  const knownHosts = state.knownHosts ?? [];
 
   for (const { results } of seen) {
     for (const r of results) {
@@ -586,6 +629,20 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
           .filter((p) => p.host)
       : [];
 
+  /**
+   * Hosts we asked for by name and got no listing from.
+   *
+   * Only the ones we searched for on purpose. A host that never came up in the
+   * results is not evidence that it has stopped listing the trade, it is
+   * evidence that we did not ask. Counting those would slowly empty a good
+   * playbook for no reason.
+   *
+   * Two of these in a row and playbook.ts drops the platform.
+   */
+  const blankHosts = (state.targetedHosts ?? []).filter(
+    (host) => !learned.some((p) => p.host === host),
+  );
+
   return {
     stage: "choosing",
     state: {
@@ -594,6 +651,7 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
       listed: rows,
       listingPages: pages,
       learned,
+      blankHosts,
       // Every place that turned us away, shown on the page. A source we could
       // not read is a fact about the run and the owner is entitled to it.
       refusedSources: refusals(tried),

@@ -20,6 +20,18 @@ export type Platform = {
   example: string;
   /** How many businesses it actually named. Two is not seventy. */
   named: number;
+  /**
+   * Consecutive targeted searches of this host that came back with nothing.
+   *
+   * A platform that stops listing a trade does not announce it. Its count
+   * would sit in the playbook at whatever it was on the day it last worked,
+   * and every run after that would keep spending a search on it. Two in a row
+   * is the point where it stops being bad luck.
+   *
+   * Only counted when we deliberately searched for this host, so a platform
+   * that simply did not come up is not punished for it.
+   */
+  blanks?: number;
 };
 
 export type Playbook = {
@@ -30,12 +42,32 @@ export type Playbook = {
   evidence: { url: string; on: string; what: string }[];
   timesUsed: number;
   builtFrom: string | null;
+  /**
+   * The distinct towns this has been used in.
+   *
+   * `timesUsed` counts runs, and three runs can all be the same town, so
+   * `confidence` saying "used 3 times across different towns" was a claim the
+   * data could not support. This is the thing it was always describing.
+   */
+  towns: string[];
+  /**
+   * Towns where every tier was tried and nothing was found.
+   *
+   * Kept because finding nothing is a fact about the trade, not a failure of
+   * the run, and the next business in it should not pay to discover the same
+   * nothing. One town settles nothing: a trade invisible in Ludlow may be all
+   * over Manchester. Three different towns is the same bar `confidence` uses
+   * before it trusts a playbook, so the system has one idea of enough.
+   */
+  nothingIn: string[];
 };
 
 export const EMPTY: Omit<Playbook, "trade"> = {
   platforms: [],
   publishes: [],
   deadEnds: [],
+  nothingIn: [],
+  towns: [],
   evidence: [],
   timesUsed: 0,
   builtFrom: null,
@@ -77,10 +109,25 @@ export function learn(
     deadEnds: { host: string; why: string }[];
     evidence: { url: string; on: string; what: string }[];
     town: string;
+    /** Hosts we searched for on purpose that gave us no listing. */
+    blank?: string[];
+    /** True when the whole run found nothing anywhere. */
+    foundNothing?: boolean;
   },
 ): Playbook {
   const platforms = new Map(before.platforms.map((p) => [p.host, p]));
-  for (const p of learned.platforms) platforms.set(p.host, p);
+  // A host that worked is back to zero. Coming good wipes the record, because
+  // the count is meant to catch a platform that has stopped, not one that had
+  // a bad week.
+  for (const p of learned.platforms) platforms.set(p.host, { ...p, blanks: 0 });
+
+  for (const host of learned.blank ?? []) {
+    const had = platforms.get(host);
+    if (!had || learned.platforms.some((p) => p.host === host)) continue;
+    const blanks = (had.blanks ?? 0) + 1;
+    if (blanks >= BLANKS_BEFORE_DROPPED) platforms.delete(host);
+    else platforms.set(host, { ...had, blanks });
+  }
 
   const deadEnds = new Map(before.deadEnds.map((d) => [d.host, d]));
   for (const d of learned.deadEnds) {
@@ -101,7 +148,31 @@ export function learn(
     evidence: [...learned.evidence, ...before.evidence].slice(0, 30),
     timesUsed: before.timesUsed + 1,
     builtFrom: before.builtFrom ?? learned.town,
+    towns: [...new Set([...(before.towns ?? []), learned.town].filter(Boolean))],
+    nothingIn: learned.foundNothing
+      ? [...new Set([...(before.nothingIn ?? []), learned.town])]
+      : (before.nothingIn ?? []),
   };
+}
+
+/** Two in a row. One is a bad search, two is a platform that has stopped. */
+export const BLANKS_BEFORE_DROPPED = 2;
+
+/** Three towns, the same bar `confidence` uses before it trusts a playbook. */
+export const TOWNS_BEFORE_SETTLED = 3;
+
+/**
+ * Has this trade been tried enough times, in enough places, to stop?
+ *
+ * Not a permanent verdict. It is the point where spending another open search
+ * on a trade that has come back empty in three separate towns stops being
+ * research and starts being a habit. What the customer is told is that we
+ * could not find comparable businesses, which is true and is more use than a
+ * fifth empty grid.
+ */
+export function exhausted(playbook: Playbook | null): boolean {
+  if (!playbook || playbook.platforms.length) return false;
+  return (playbook.nothingIn ?? []).length >= TOWNS_BEFORE_SETTLED;
 }
 
 /**
@@ -119,7 +190,8 @@ export function confidence(playbook: Playbook | null): {
   if (!playbook || !playbook.platforms.length) {
     return { level: "none", say: "We have not researched this trade before." };
   }
-  if (playbook.timesUsed < 3) {
+  const towns = playbook.towns ?? [];
+  if (towns.length < TOWNS_BEFORE_SETTLED) {
     return {
       level: "one town",
       say: `Worked out from ${playbook.builtFrom ?? "one town"}, and not confirmed elsewhere yet.`,
@@ -127,6 +199,27 @@ export function confidence(playbook: Playbook | null): {
   }
   return {
     level: "confirmed",
-    say: `Used ${playbook.timesUsed} times across different towns.`,
+    say: `Confirmed in ${towns.length} different towns.`,
   };
+}
+
+
+/**
+ * Trades hiding inside "Something else", and how often we have seen them.
+ *
+ * An unmatched business is filed under its own words rather than a trade, so
+ * these rows are a record of what the category list is missing. Once the same
+ * wording turns up in three different towns it is not one odd business, it is a
+ * trade, and it should be added to categories.ts and TRADE_GROUP so it gets a
+ * dropdown entry and a group. Both, or you recreate the bug where a category
+ * exists with no group and gets the general floor only.
+ *
+ * Three towns again: one evidence rule, applied everywhere.
+ */
+export function needsATrade(all: Playbook[]): { words: string; towns: string[] }[] {
+  return all
+    .filter((p) => p.trade.startsWith("other:"))
+    .filter((p) => (p.towns ?? []).length >= TOWNS_BEFORE_SETTLED)
+    .map((p) => ({ words: p.trade.slice("other:".length).replace(/-/g, " "), towns: p.towns }))
+    .sort((a, b) => b.towns.length - a.towns.length);
 }
