@@ -1,0 +1,152 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+
+/**
+ * The design system, and the things that were silently lost from it.
+ *
+ * Inter, the warm sand ground and the teal accent all existed, were designed
+ * deliberately, and disappeared from the running app without anything failing.
+ * The mechanism was a line in globals.css telling whoever changed the design to
+ * "re-copy it: cp ../UI/app.css app/design.css". A hand copy only moves what
+ * the person doing it remembers to move, and a missing font does not error, it
+ * just looks like somebody else's product.
+ *
+ * So these are not style preferences. Each one is a thing that went missing
+ * once and nothing noticed. Raj, 2026-09-16: "ensure it does not regress this
+ * time."
+ */
+
+const here = import.meta.dirname;
+const css = readFileSync(join(here, "..", "app", "design.css"), "utf8");
+const globals = readFileSync(join(here, "..", "app", "globals.css"), "utf8");
+const layout = readFileSync(join(here, "..", "app", "layout.tsx"), "utf8");
+
+// ---------------------------------------------------------------------------
+// The tokens that went missing.
+// ---------------------------------------------------------------------------
+
+test("every token the suite is built from exists", () => {
+  for (const token of [
+    "--ink", "--ink-soft", "--muted",
+    "--sand", "--paper", "--card", "--card-2",
+    "--line", "--line-soft",
+    "--chrome", "--chrome-soft", "--chrome-line",
+    "--brand", "--brand-ink", "--brand-wash",
+    "--teal", "--teal-wash",
+    "--good", "--warn", "--bad", "--info",
+    "--sys", "--mono",
+  ]) {
+    assert.match(css, new RegExp(`${token}\\s*:`), `${token} is gone`);
+  }
+});
+
+test("the warm ground and the second accent are defined in both themes", () => {
+  // Lost once already. A token defined only in light renders as nothing in
+  // dark, which is the classic unreadable-page bug.
+  const dark = css.slice(css.indexOf("prefers-color-scheme:dark"));
+  for (const token of ["--sand", "--teal", "--chrome"]) {
+    assert.match(dark, new RegExp(`${token}\\s*:`), `${token} has no dark value`);
+  }
+});
+
+test("the neutrals are warm, not grey", () => {
+  /**
+   * Where most of the warmth actually comes from. A pure grey beside a berry
+   * accent reads as two unrelated decisions. These are pulled a few degrees
+   * towards the berry so the greys and the accent are one family.
+   *
+   * Checked by hue: a warm neutral has more red than blue in it.
+   */
+  const warm = (hex: string) => {
+    const [r, , b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    return r > b;
+  };
+  for (const token of ["--sand", "--paper", "--card-2", "--line"]) {
+    const found = css.match(new RegExp(`${token}\\s*:\\s*(#[0-9a-f]{6})`, "i"));
+    assert.ok(found, `${token} is not a plain hex any more`);
+    assert.ok(warm(found![1]), `${token} is ${found![1]}, which is not warm`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// The fonts, and where they are loaded.
+// ---------------------------------------------------------------------------
+
+test("both faces are loaded, once, in the layout and nowhere else", () => {
+  // The app fell back to the system stack and nothing failed, because a
+  // fallback stack does not fail.
+  assert.match(layout, /from "next\/font\/google"/);
+  assert.match(layout, /Inter\(/);
+  assert.match(layout, /IBM_Plex_Mono\(/);
+  assert.match(layout, /inter\.variable/);
+  assert.match(layout, /mono\.variable/);
+});
+
+test("the stylesheet reads the faces from the layout, not from a hardcoded name", () => {
+  assert.match(css, /--sys:\s*var\(--font-sys\)/);
+  assert.match(css, /--mono:\s*var\(--font-mono\)/);
+});
+
+// ---------------------------------------------------------------------------
+// One stylesheet, and the copy that lost the last one.
+// ---------------------------------------------------------------------------
+
+test("nothing tells anyone to hand copy the stylesheet", () => {
+  // The exact mechanism of the loss. A copy step in a comment is a promise
+  // that somebody will remember, and nobody did.
+  assert.doesNotMatch(globals, /cp .*app\.css/, "the copy instruction is back");
+  assert.doesNotMatch(globals, /source of truth/i, "UI/ is claiming to be the source again");
+});
+
+test("no tool defines its own colours or faces", () => {
+  /**
+   * Raj: "This should be done in a central place so it is used by the whole
+   * suite. Each tool should not have its own styling."
+   *
+   * A hex in a component is a colour nothing can change centrally, and it will
+   * be the one that stays navy when everything else goes warm.
+   */
+  const dir = join(here, "..", "app", "workspace", "[tool]");
+  const offenders: string[] = [];
+
+  for (const file of readdirSync(dir).filter((f) => f.endsWith(".tsx"))) {
+    const body = readFileSync(join(dir, file), "utf8");
+    if (/#[0-9a-fA-F]{6}\b/.test(body)) offenders.push(`${file}: a hex colour`);
+    if (/font-family\s*:/.test(body)) offenders.push(`${file}: a font-family`);
+    if (/style=\{\{[^}]*(color|background)/.test(body)) offenders.push(`${file}: an inline colour`);
+  }
+
+  assert.deepEqual(offenders, [], `styling that belongs in design.css:\n  ${offenders.join("\n  ")}`);
+});
+
+// ---------------------------------------------------------------------------
+// The rules the system is built on.
+// ---------------------------------------------------------------------------
+
+test("figures are set in the mono face and aligned", () => {
+  // A column of prices in a proportional face is a paragraph.
+  const kpi = css.slice(css.indexOf(".kpi__n"), css.indexOf(".kpi__n") + 300);
+  assert.match(kpi, /font-family:var\(--mono\)/);
+  assert.match(kpi, /tabular-nums/);
+});
+
+test("teal is a figure colour and never a status", () => {
+  // If something needs to look important and the only way found is a status
+  // colour, it is in the wrong place in the hierarchy. Those four mean what
+  // they mean.
+  assert.match(css, /\.t-win\{color:var\(--teal\)\}/);
+  assert.doesNotMatch(css, /--good\s*:\s*var\(--teal\)/);
+  assert.doesNotMatch(css, /--warn\s*:\s*var\(--teal\)/);
+});
+
+test("there are no shadow tokens", () => {
+  /**
+   * Flat is a scale problem, not a shadow problem. Linear ships three border
+   * tokens and zero shadow tokens; Stripe and Vercel moved from soft shadows to
+   * hairline borders across 2025 and 2026. A shadow is for something that
+   * genuinely floats: a menu, a dialog, a tooltip.
+   */
+  assert.doesNotMatch(css, /--shadow[a-z-]*\s*:/, "a shadow token is back");
+});

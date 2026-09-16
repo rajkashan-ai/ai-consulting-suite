@@ -30,66 +30,70 @@
    1. TOKENS.  Colour is brand.css verbatim. Layout and type are added here.
    -------------------------------------------------------------------------- */
 :root{
-  --ink:#1c2b40; --ink-soft:#3c4657; --muted:#5a6472;
-  --paper:#fafaf8; --card:#ffffff; --card-2:#f0efec;
-  --line:#d3d7dd; --line-soft:#e4e5e6;
-  --brand:#a61e4d; --brand-ink:#a61e4d; --brand-wash:#fbecf1;
+  /* ===========================================================================
+     THE TOKENS. One place, used by every tool. No tool defines its own.
+
+     Warm on purpose. A pure grey beside a berry accent reads as two unrelated
+     decisions; these are pulled a few degrees towards the berry so the greys
+     and the accent belong to the same family. That is where most of the warmth
+     comes from, more than any band colour.
+
+     Option C, chosen 2026-09-16: the permanent dark frame and mono figures of
+     the instrument, on the warm ground and reading measure of the document.
+     =========================================================================== */
+  --ink:#1c2b40; --ink-soft:#3f4a5a; --muted:#6b7280;
+
+  /* Sand is the ground. Paper is the lift. Card is the surface. */
+  --sand:#f6f2ec; --paper:#fdfcfa; --card:#ffffff; --card-2:#f1ece4;
+  --line:#e0d8cc; --line-soft:#ece5db;
+
+  /* The frame around every tool. Navy with warmth in it, never near-black. */
+  --chrome:#1b2635; --chrome-soft:#93a0b1; --chrome-line:#2c3a4d;
+
+  --brand:#a61e4d; --brand-ink:#951743; --brand-wash:#faeaf0;
   --btn-bg:#a61e4d; --btn-fg:#ffffff;
-  --good:#087443; --good-wash:#e6f4ec; --warn:#8f5700; --warn-wash:#fdf5e6;
-  --bad:#b42318;  --bad-wash:#fdecea;  --info:#175cd3; --info-wash:#e9f0fd;
+
+  /* The second accent. A figure that is good news, so a page is never berry
+     or nothing. Never a status: those four below mean what they mean. */
+  --teal:#0f6466; --teal-wash:#e3eeed;
+
+  --good:#087443; --good-wash:#e6f4ec; --warn:#8f5700; --warn-wash:#fbf2e3;
+  --bad:#b42318;  --bad-wash:#fbeae7;  --info:#175cd3; --info-wash:#e9f0fd;
   --glow-a:rgba(166,30,77,.075); --glow-b:rgba(166,30,77,.045);
 
-  /* Two grounds, and only two. A shade change then means exactly one thing:
-     a new section. With three, the reader cannot tell whether the shade moved
-     because the section changed or because the content did.
-     #fafaf8 on #ffffff is 1.05:1, the same step as Stripe's bg-min on
-     bg-quiet (#fff on #f8fafd). --card-2 survives as a component fill only. */
-  --ground-a:var(--paper);
-  --ground-b:var(--card);
-
-  --r-card:14px; --r-control:10px; --r-chip:8px; --r-pill:999px;
-  --sys:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,Helvetica,sans-serif;
-
-  /* Spacing: a strict 4px step, nothing between values.
-     Stripe's --hds-space-core-* is the same step from 0 to 200px. */
-  --s1:4px;  --s2:8px;  --s3:12px; --s4:16px;
-  --s5:20px; --s6:24px; --s7:32px; --s8:40px;
-  --s9:48px; --s10:64px; --s11:80px; --s12:96px;
-
-  /* Measure in characters, never pixels. A px cap wraps at a different
-     character count at every font size, which is a bug we shipped once.
-     "ch" is the width of "0", about .55em here, while lowercase prose averages
-     .50em, so 64ch renders about 70 characters. Inside the 45 to 75 band. */
-  --measure:64ch;
-  --shell-max:1120px;
-  --shell-pad:32px;
-  --header-h:64px;
-  --nav-h:56px;
-
-  /* Motion. 160ms on this curve is, to the millisecond and the control point,
-     Linear's .16s var(--ease-out-quad). */
-  --dur:160ms;
-  --ease:cubic-bezier(.25,.46,.45,.94);
+  /* INTER, AND A MONO FOR FIGURES. Loaded once in app/layout.tsx and nowhere
+     else. The app had fallen back to the system stack because design.css was
+     kept as a hand copy of UI/app.css and the copy lost it. */
+  --sys:var(--font-sys),-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif;
+  --mono:var(--font-mono),ui-monospace,SFMono-Regular,Menlo,monospace;
 }
 
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
-    --ink:#f2f1ee; --ink-soft:#c6cbd4; --muted:#8e97a5;
-    --paper:#11151c; --card:#1b2130; --card-2:#161b26;
-    --line:#2b3241; --line-soft:#232936;
+    /* Warm in the dark too: the grounds carry the same hue bias as the light
+       palette, so the two themes are one design rather than two. */
+    --ink:#f3f0eb; --ink-soft:#cbc8c2; --muted:#8f8b85;
+    --sand:#171512; --paper:#1d1a16; --card:#23201b; --card-2:#1a1713;
+    --line:#332e27; --line-soft:#282420;
+    --chrome:#0f0d0b; --chrome-soft:#8f8b85; --chrome-line:#26221d;
     --brand:#c9376a; --brand-ink:#e2648b; --brand-wash:#2a1620;
     --btn-bg:#c9376a; --btn-fg:#ffffff;
+    --teal:#5fc3c0; --teal-wash:#0e2322;
     --good:#4cc38a; --good-wash:#10241a; --warn:#e0a33c; --warn-wash:#241a09;
     --bad:#f2867c;  --bad-wash:#2a1513;  --info:#7fa9f5; --info-wash:#111d33;
     --glow-a:rgba(201,55,106,.16); --glow-b:rgba(201,55,106,.10);
   }
 }
 :root[data-theme="dark"]{
-  --ink:#f2f1ee; --ink-soft:#c6cbd4; --muted:#8e97a5;
-  --paper:#11151c; --card:#1b2130; --card-2:#161b26;
-  --line:#2b3241; --line-soft:#232936;
+    /* Warm in the dark too: the grounds carry the same hue bias as the light
+     palette, so the two themes are one design rather than two. */
+  --ink:#f3f0eb; --ink-soft:#cbc8c2; --muted:#8f8b85;
+  --sand:#171512; --paper:#1d1a16; --card:#23201b; --card-2:#1a1713;
+  --line:#332e27; --line-soft:#282420;
+  --chrome:#0f0d0b; --chrome-soft:#8f8b85; --chrome-line:#26221d;
   --brand:#c9376a; --brand-ink:#e2648b; --brand-wash:#2a1620;
   --btn-bg:#c9376a; --btn-fg:#ffffff;
+  --teal:#5fc3c0; --teal-wash:#0e2322;
   --good:#4cc38a; --good-wash:#10241a; --warn:#e0a33c; --warn-wash:#241a09;
   --bad:#f2867c;  --bad-wash:#2a1513;  --info:#7fa9f5; --info-wash:#111d33;
   --glow-a:rgba(201,55,106,.16); --glow-b:rgba(201,55,106,.10);
@@ -1051,3 +1055,35 @@ main{padding:0}
 
 /* The narrowing, above the list of pages that survived it. */
 .checked__funnel { margin: 0 0 var(--s4); font-variant-numeric: tabular-nums; }
+
+/* =============================================================================
+   OPTION C COMPONENTS, chosen 2026-09-16.
+
+   The permanent frame and mono figures of an instrument, on the warm ground and
+   reading measure of a document. Every tool uses these. No tool adds its own.
+   ============================================================================= */
+
+/* --- Figures. The measured fault was sixteen numbers all at body size, and no
+       amount of shadow or radius fixes a page with no hierarchy in it. ----- */
+.kpis{display:grid;grid-template-columns:2fr 1fr 1fr;gap:var(--s4);margin-top:var(--s6)}
+@media(max-width:880px){.kpis{grid-template-columns:1fr}}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--r-card);padding:var(--s6)}
+.kpi__n{display:block;font-family:var(--mono);font-size:32px;line-height:36px;
+  font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi--gap .kpi__n{color:var(--brand-ink)}
+.kpi--win .kpi__n{color:var(--teal)}
+.kpi__w{margin:var(--s3) 0 0;font-size:var(--t-row);line-height:22px;color:var(--ink-soft)}
+.kpi__s{display:block;margin-top:var(--s2);font-size:var(--t-meta);color:var(--muted)}
+
+/* --- A figure inside a table or a row. Same face, same alignment, so a number
+       is recognisable as a number wherever it appears. --------------------- */
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* --- The band that lifts. Alternating ground is what separates sections; a
+       rule between them would be doing the same job twice. ----------------- */
+.band--lift{background:var(--paper);border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line)}
+
+/* --- The second accent. Never a status, and never more than one figure. --- */
+.t-win{color:var(--teal)}
+.tag--ahead{background:var(--teal-wash); color:var(--teal)}

@@ -1,8 +1,13 @@
 @import "tailwindcss";
 
-/* The product's own stylesheet, copied from UI/app.css.
-   UI/app.css stays the source of truth and is edited there, never here.
-   Re-copy it after a design change:  cp ../UI/app.css app/design.css
-   Extending UI/sync-styles.py to do that automatically is a job still to do. */
+/* design.css is THE stylesheet for the whole suite. Every tool inherits it and
+   no tool styles itself. Edit it here.
+
+   This used to name a file in UI/ as the original and this one as a hand copy
+   of it, remade after every design change. That arrangement is exactly how
+   Inter, the sand ground and the teal accent were lost: a hand copy only moves
+   what the person doing it remembers to move, and a missing font does not
+   fail, it just looks like somebody else's product. UI/ is a mockup workspace
+   now. Nothing here is copied from anywhere. */
 @import "./design.css";
 @import "./auth.css";
