@@ -22,6 +22,7 @@ import { isProfile, profileFor } from "./profile.ts";
 import { confidence, isDeadEnd, startWith, type Playbook } from "./playbook.ts";
 import { rank, type Found, type Scored } from "./rank.ts";
 import { sift } from "./sift.ts";
+import { scrubGrid, scrubStanding } from "./scrub.ts";
 import {
   cite,
   citeRules,
@@ -115,7 +116,15 @@ export type RunState = {
   watch?: Watch;
 };
 
-export type Side = { point: string; detail: string };
+/**
+ * One of the two columns at the top of the screen.
+ *
+ * `source` was added on 2026-09-16. Until then this was the only thing in the
+ * whole document with no source field at all: four statements about the
+ * owner's business, first on the page, with nothing behind them by design.
+ * Everything else on the card had carried a source since the first version.
+ */
+export type Side = { point: string; detail: string; source?: Source | null };
 
 /**
  * The comparison, as a grid rather than a list per business.
@@ -996,16 +1005,28 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
   const claimsChecked = dropMisattributedClaims(card.competitors, numbered);
   card.competitors = claimsChecked.competitors;
 
+  /**
+   * And nothing goes on the page that we cannot stand behind.
+   *
+   * The guards knew how to spot an invented traffic figure and a Google
+   * ranking, and ran over text built from the card alone, while the grid and
+   * the standing columns are built beside it. Dropped rather than reworded:
+   * mending fixes a sentence that says a true thing badly, and there is no
+   * rewrite that makes an invented number sourced.
+   */
+  const cleanGrid = scrubGrid(checked.grids);
+  const cleanStanding = scrubStanding({
+    winning: (built.where_you_win ?? []).slice(0, 4),
+    losing: (built.where_they_win ?? []).slice(0, 4),
+  });
+
   return {
     stage: "checking",
     state: {
       ...state,
       card,
-      grid: checked.grids,
-      standing: {
-        winning: (built.where_you_win ?? []).slice(0, 4),
-        losing: (built.where_they_win ?? []).slice(0, 4),
-      },
+      grid: cleanGrid.grids,
+      standing: cleanStanding.standing,
     },
     progress: "Checking it",
   };
@@ -1017,7 +1038,11 @@ function check(state: RunState, business: Business): Step {
   const card = state.card;
   if (!card) return stop(state, "Nothing was built. Run it again.");
 
-  const found = validateBattlecard(card, asText(card), new Date());
+  const found = validateBattlecard(
+    card,
+    asText(card, { grid: state.grid, standing: state.standing }),
+    new Date(),
+  );
 
   const problems = Object.entries(found)
     .map(([rule, v]) => ({
@@ -1273,7 +1298,10 @@ function reasonFor(note: string) {
 }
 
 /** Everything the screen would show, as plain words, for the guards to scan. */
-export function asText(card: Battlecard): string {
+export function asText(
+  card: Battlecard,
+  also?: { grid?: Grid[]; standing?: { winning: Side[]; losing: Side[] } },
+): string {
   /**
    * Every line ends in a full stop.
    *
@@ -1308,6 +1336,31 @@ export function asText(card: Battlecard): string {
   }
 
   for (const u of card.unreadable) lines.push(ended(`${u.name}: ${u.reason}`));
+
+  /**
+   * The grid and the two columns, which are most of what an owner reads.
+   *
+   * They were checked by nothing. Every guard in the file ran over this text,
+   * and this text was built from the card alone, while the grid and the
+   * standing are assembled beside the card and stored alongside it. So a
+   * competitor's Google ranking, a made up visitor count and a reviewer's real
+   * name all reached a stored document with eleven guards watching and none of
+   * them looking at the right thing.
+   *
+   * Found by an independent test pass on 2026-09-16.
+   */
+  for (const g of also?.grid ?? []) {
+    if (g.note) lines.push(ended(g.note));
+    for (const row of g.rows ?? []) {
+      for (const cell of row.cells ?? []) {
+        if (cell?.value != null) lines.push(ended(`${row.attribute}: ${cell.value}`));
+      }
+    }
+  }
+
+  for (const side of [...(also?.standing?.winning ?? []), ...(also?.standing?.losing ?? [])]) {
+    lines.push(ended(side.point), ended(side.detail));
+  }
 
   return lines.filter(Boolean).join("\n");
 }
@@ -1405,6 +1458,11 @@ NEVER SAY ANY OF THESE, they are not in the pages and cannot be:
   - where anyone ranks on Google, or that they are "top" or "first"
   - what anyone is advertising
   - the name of anyone who wrote a review
+
+REVIEWS ARE COUNTS, STARS AND A SOURCE. NEVER THE REVIEWS THEMSELVES.
+Never quote a review, never paraphrase one, and never name anyone who wrote one.
+"4.8 from 607 reviews" is what we publish. Counting a theme is allowed because
+it is counted rather than copied: "3 of 9 mention waiting" is a number.
 
 REVIEWS ARE THEMES AND COUNTS. "4 of 9 name their barber rather than the shop"
 is allowed. Naming that barber is not, ever.
@@ -1556,8 +1614,12 @@ const BATTLECARD_SHAPE = {
           "Up to four things this business does better than the others, each from a page we read. Empty is an honest answer.",
         items: {
           type: "object",
-          properties: { point: { type: "string" }, detail: { type: "string" } },
-          required: ["point", "detail"],
+          properties: {
+            point: { type: "string" },
+            detail: { type: "string" },
+            from: { type: "integer", description: "The number of the page this came from." },
+          },
+          required: ["point", "detail", "from"],
         },
       },
       where_they_win: {
@@ -1565,8 +1627,12 @@ const BATTLECARD_SHAPE = {
         description: "Up to four things the others do better, each from a page we read.",
         items: {
           type: "object",
-          properties: { point: { type: "string" }, detail: { type: "string" } },
-          required: ["point", "detail"],
+          properties: {
+            point: { type: "string" },
+            detail: { type: "string" },
+            from: { type: "integer", description: "The number of the page this came from." },
+          },
+          required: ["point", "detail", "from"],
         },
       },
       actions: {
