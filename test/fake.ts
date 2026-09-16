@@ -20,6 +20,9 @@ export type Recorded = {
   ownPage: { url: string; text: string };
   listed: { name: string; reviews: number | null; rating: number | null;
     reviewedDaysAgo: number | null; area: string | null; price: number | null; url: string | null }[];
+  /** What the model says when asked who competes. Absent means it named
+   *  nobody, which is the case that falls back to the crawler. */
+  competitors?: { competitors: { name: string; why: string }[] };
   /** A grid and a narrative shaped the way the model returns them, so a test
    *  that does not care about them still exercises a complete card. */
   grid: unknown[];
@@ -112,6 +115,18 @@ export function fakeContext(
         if (!asked) return { comparison: all };
         return { comparison: all.filter((g) => g.area === asked) };
       }
+      /**
+       * Who competes, asked rather than crawled.
+       *
+       * Empty by default on purpose. Every test written before this stage
+       * existed starts at the front door and should carry on exercising the
+       * crawler behind it, which is still real behaviour and still runs when
+       * asking comes up short. A test about asking supplies its own names.
+       */
+      if (shape?.name === "competitors") {
+        return recorded.competitors ?? { competitors: [] };
+      }
+
       if (shape?.name === "battlecard") return recorded.battlecard;
 
       throw new Error(
@@ -122,7 +137,32 @@ export function fakeContext(
 
     search: async (terms) => {
       calls.search.push(terms);
-      return recorded.searchResults;
+
+      /**
+       * A term asking about one named business gets results about that
+       * business.
+       *
+       * The recorded sets are answers to three broad searches, returned in
+       * order. That is right for the crawler, which asks three broad things,
+       * and wrong for name checking, which asks one question per name: the
+       * second name was being checked against the answer to the first, so a
+       * business that plainly exists came back unproved. The fake was deciding
+       * the outcome, not the code.
+       *
+       * A quoted phrase means "is this business real", so answer that.
+       */
+      const everything = recorded.searchResults.flatMap((s) => s.results);
+
+      return terms.map((term, i) => {
+        const quoted = term.match(/"([^"]+)"/)?.[1];
+        if (!quoted) return recorded.searchResults[i] ?? { term, results: [] };
+
+        const want = quoted.toLowerCase();
+        return {
+          term,
+          results: everything.filter((r) => (r.title ?? "").toLowerCase().includes(want)),
+        };
+      });
     },
 
     progress: () => {},

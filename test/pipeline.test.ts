@@ -39,9 +39,86 @@ async function runTo(
 }
 
 test("the whole thing runs end to end, in the right order", async () => {
+  /**
+   * The front door is asking who competes. This fixture's model names nobody,
+   * so the run hands over to the crawler, which is why "searching" appears
+   * before "listings": that is the fallback working, not a detour.
+   */
   const { seen, stage } = await runTo("writing");
-  assert.deepEqual(seen.slice(0, 4), ["listings", "choosing", "reading", "writing"]);
+  assert.deepEqual(
+    seen.slice(0, 5),
+    ["searching", "listings", "choosing", "reading", "writing"],
+  );
   assert.notEqual(stage, "failed");
+});
+
+test("when the model names competitors, the crawler never runs", async () => {
+  // The point of the whole change: discovery stops being five searches and two
+  // listing pages. On 2026-09-16 that crawl took 8 minutes 41 seconds.
+  const named: Recorded = {
+    ...recorded,
+    competitors: {
+      // Real names out of the recorded results, so verification has something
+      // honest to find. Invented names would only prove the fake agrees.
+      competitors: [
+        { name: "ARMANDO Barbershop", why: "Same street, same price" },
+        { name: "The Fade Inn Barbershop", why: "Town centre" },
+        { name: "Medeiros", why: "Hair, overlapping services" },
+      ],
+    },
+  };
+
+  const { ctx, calls } = fakeContext(named);
+  let stage: Stage = "searching";
+  let state: RunState = {};
+  const seen: Stage[] = [];
+  for (let i = 0; i < 25; i++) {
+    const step = await advance(stage, state, aBusiness(), ctx);
+    stage = step.stage;
+    state = step.state;
+    seen.push(stage);
+    if (stage === "choosing" || stage === "failed") break;
+  }
+
+  assert.ok(!seen.includes("listings"), `the crawler ran anyway: ${seen.join(" -> ")}`);
+  assert.equal(seen[0], "choosing", "asking should go straight to choosing");
+  assert.equal(calls.search.length, 1, "one round of searches, to check the names");
+  assert.equal(state.namedThenChecked?.length, 3);
+});
+
+test("a name no page confirms never reaches the customer", async () => {
+  /**
+   * The rule that makes asking allowed at all. A model's recall goes stale: a
+   * salon that shut last year is still in there, and it will name it with
+   * complete confidence.
+   */
+  const withGhost: Recorded = {
+    ...recorded,
+    competitors: {
+      competitors: [
+        { name: "ARMANDO Barbershop", why: "Same street" },
+        { name: "Definitely Not A Real Barber Ltd", why: "Invented" },
+        { name: "The Fade Inn Barbershop", why: "Town centre" },
+        { name: "Medeiros", why: "Hair, overlapping services" },
+      ],
+    },
+  };
+
+  const { ctx } = fakeContext(withGhost);
+  let stage: Stage = "searching";
+  let state: RunState = {};
+  for (let i = 0; i < 25; i++) {
+    const step = await advance(stage, state, aBusiness(), ctx);
+    stage = step.stage;
+    state = step.state;
+    if (stage === "choosing" || stage === "failed") break;
+  }
+
+  const kept = (state.namedThenChecked ?? []).map((c) => c.name);
+  assert.ok(
+    !kept.some((n) => /Definitely Not A Real/i.test(n)),
+    `an unverified name survived: ${kept.join(", ")}`,
+  );
 });
 
 test("the searches are built from the trade and the town, never the business's own name", async () => {

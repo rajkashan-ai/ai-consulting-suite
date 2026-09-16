@@ -21,11 +21,20 @@ import type { Business, ToolContext } from "../types.ts";
 import { isProfile, profileFor } from "./profile.ts";
 import { confidence, exhausted, isDeadEnd, type Playbook } from "./playbook.ts";
 import { whereToLook } from "./where.ts";
+import {
+  NAMES_SHAPE,
+  askFor,
+  distinct,
+  proves,
+  searchFor,
+  type Checked,
+  type Named,
+} from "./naming.ts";
 import { rank, type Found, type Scored } from "./rank.ts";
 import { notYou, oneEach, rightTrade, sift } from "./sift.ts";
 import { areasMissing, shortfall, type Funnel } from "./shortfall.ts";
 import { enough, nextToTry, refusals, type Attempt } from "./retry.ts";
-import { displayName } from "../../../Agents/Competitor Tracker/src/normalise.ts";
+import { displayName, normaliseName } from "../../../Agents/Competitor Tracker/src/normalise.ts";
 import { scrubGrid, scrubHeadline, scrubStanding } from "./scrub.ts";
 import { rankActions } from "./rankActions.ts";
 import { plainly } from "../../lib/plainly.ts";
@@ -62,6 +71,7 @@ import { platformsFrom, proximityWeight } from "../questions.ts";
  */
 
 export type Stage =
+  | "naming"
   | "searching"
   | "listings"
   | "choosing"
@@ -85,6 +95,10 @@ export type RunState = {
   profile?: SearchProfile;
   /** What we already know about researching this trade. Null the first time. */
   playbook?: Playbook | null;
+  /** Competitors a model named and a search then confirmed exist. */
+  namedThenChecked?: Checked[];
+  /** Asking has had its turn. Stops the two discovery routes looping. */
+  triedNaming?: boolean;
   /** Every host the four tiers offered, best evidence first. */
   knownHosts?: string[];
   /** Hosts we searched for on purpose, so a blank one can be counted. */
@@ -263,8 +277,19 @@ async function run(
   ctx: ToolContext,
 ): Promise<Step> {
   switch (stage) {
+    case "naming":
+      return name(state, business, ctx);
+
+    /**
+     * A new run arrives here, because "searching" is the database default and
+     * that default is shared with every other tool. So this is the front door,
+     * and asking is what happens behind it.
+     *
+     * `triedNaming` is set when asking came up short and handed over, so the
+     * crawler runs once and the two cannot pass a run back and forth.
+     */
     case "searching":
-      return search(state, business, ctx);
+      return state.triedNaming ? search(state, business, ctx) : name(state, business, ctx);
     case "listings":
       return listings(state, ctx);
     case "choosing":
@@ -283,6 +308,107 @@ async function run(
 }
 
 // ---------------------------------------------------------------------------
+
+/**
+ * Ask who competes, then check that each one exists.
+ *
+ * This is the first stage now. `searching` and `listings` are still here and
+ * still work, and a run falls back to them when this comes up short, because
+ * a model that has never heard of a village plumber is a real case and the
+ * crawler does find those.
+ */
+async function name(state: RunState, business: Business, ctx: ToolContext): Promise<Step> {
+  const profile = profileFor(business);
+  if (!isProfile(profile)) {
+    return stop(
+      state,
+      `We do not know ${profile.missing.join(" or ")} for this business, and ` +
+        `everything here depends on it. Put it in on Your business and run it again.`,
+    );
+  }
+
+  const answered = (await ctx.think({
+    system:
+      "You are naming local competitors for a UK small business. Trading names " +
+      "only, no commentary, no directories, no listing sites.",
+    prompt: askFor(profile),
+    shape: NAMES_SHAPE,
+    maxTokens: 1_000,
+  })) as { competitors?: Named[] };
+
+  const proposed = (answered.competitors ?? [])
+    .filter((c) => c?.name && normaliseName(c.name) !== normaliseName(profile.name))
+    .slice(0, 8);
+
+  if (!proposed.length) {
+    // Nothing to check. The crawler is the fallback, not the failure.
+    return {
+      stage: "searching",
+      state: { ...state, profile, triedNaming: true },
+      progress: "Looking them up",
+    };
+  }
+
+  /**
+   * One search per name, all at once, and a name with nothing behind it goes.
+   *
+   * This is the whole reason asking a model is allowed. Its recall is a
+   * candidate and nothing more: it goes stale, and a salon that shut last year
+   * is still in there. A name that no page confirms never reaches the customer.
+   */
+  const seen = await ctx.search(
+    proposed.map((c) => searchFor(c, profile.town, profile.trade)),
+    searchToolConfig(profile, proposed.length),
+  );
+
+  const checked: Checked[] = [];
+  for (const [i, c] of proposed.entries()) {
+    const found = proves(c, seen[i]?.results ?? [], profile.town);
+    if (found) checked.push(found);
+  }
+
+  const confirmed = distinct(checked);
+
+  /**
+   * Fewer than three and we have not really answered the question.
+   *
+   * A comparison against one business is not a comparison, and the crawler is
+   * still there and still works. Falling back costs the searches we have just
+   * made, which is a few pence, and it is the difference between a thin card
+   * and no card.
+   */
+  if (confirmed.length < 3) {
+    return {
+      stage: "searching",
+      state: { ...state, profile, namedThenChecked: confirmed, seen, triedNaming: true },
+      progress: "Looking them up",
+    };
+  }
+
+  return {
+    stage: "choosing",
+    state: {
+      ...state,
+      profile,
+      seen,
+      namedThenChecked: confirmed,
+      // choose() ranks whatever is in `listed`. These carry no review counts or
+      // prices, which is correct: those come off their own pages in `reading`,
+      // and inventing them here is the thing the whole product refuses to do.
+      listed: confirmed.map((c) => ({
+        name: c.name,
+        reviews: null,
+        rating: null,
+        reviewedDaysAgo: null,
+        area: null,
+        price: null,
+        url: c.url,
+      })),
+      fromListings: confirmed.map((c) => c.name),
+    },
+    progress: `Found ${confirmed.length} to compare`,
+  };
+}
 
 async function search(state: RunState, business: Business, ctx: ToolContext): Promise<Step> {
   const profile = profileFor(business);
