@@ -44,7 +44,12 @@
   --ink:#1c2b40; --ink-soft:#3f4a5a; --muted:#6b7280;
 
   /* Sand is the ground. Paper is the lift. Card is the surface. */
-  --sand:#f6f2ec; --paper:#fdfcfa; --card:#ffffff; --card-2:#f1ece4;
+  /* Sand was #f6f2ec and read slightly bright. Duller and a shade lighter:
+     five points of colour at 97% rather than ten at 95%. Below about four
+     points the warmth stops reading as a choice and starts reading as a dirty
+     white, so this is close to the floor rather than a direction to continue in.
+     The second surface moves with it, or the card and the ground drift apart. */
+  --sand:#f9f7f4; --paper:#fdfcfa; --card:#ffffff; --card-2:#f2eee8;
   --line:#e0d8cc; --line-soft:#ece5db;
 
   /* The frame around every tool. Navy with warmth in it, never near-black. */
