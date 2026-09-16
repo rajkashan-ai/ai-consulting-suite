@@ -148,3 +148,26 @@ test("a competitor whose name we cannot read at all is dropped, not kept", () =>
   const kept = notYou([n("!!! ***"), n("NO.1 BARBERS")], "The Barber Shop").map((r) => r.name);
   assert.deepEqual(kept, ["NO.1 BARBERS"]);
 });
+
+test("a name made only of suffix words still recognises itself", () => {
+  // The other half of the empty-name fault, and the half a "keeps its
+  // competitors" test cannot see. If "The Company" normalises to nothing then
+  // it does not match itself either, so the customer shows up as their own
+  // competitor and spends one of five slots on themselves.
+  const kept = notYou([n("The Company"), n("NO.1 BARBERS")], "The Company").map((r) => r.name);
+  assert.deepEqual(kept, ["NO.1 BARBERS"]);
+});
+
+test("a name in another alphabet still recognises itself", () => {
+  const kept = notYou([n("محل الحلاقة"), n("NO.1 BARBERS")], "محل الحلاقة").map((r) => r.name);
+  assert.deepEqual(kept, ["NO.1 BARBERS"]);
+});
+
+test("the customer's words inside the middle of another name is not a match", () => {
+  // "Barber Shop" and "Shrewsbury Barber Shop" are two businesses. A rule built
+  // on "contains" cannot tell them apart from "The Barber Shop" and "The Barber
+  // Shop Shrewsbury", which are one. Matching from the start is what separates
+  // them, and this is the case that proves the rule is not just `includes`.
+  const kept = notYou([n("Shrewsbury Barber Shop")], "Barber Shop").map((r) => r.name);
+  assert.deepEqual(kept, ["Shrewsbury Barber Shop"]);
+});

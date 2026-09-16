@@ -21,11 +21,6 @@ export function notYou<T extends { name: string }>(rows: T[], you: string | null
 
   const mine = nameWords(you);
 
-  // A name we cannot read is not a licence to empty the list. This used to be a
-  // plain `includes`, and every string contains the empty string, so a customer
-  // whose name normalised to nothing lost every competitor they had.
-  if (!mine.length) return rows;
-
   return rows.filter((r) => {
     const theirs = nameWords(r.name);
     return theirs.length > 0 && !sameShop(mine, theirs);
@@ -43,6 +38,13 @@ export function notYou<T extends { name: string }>(rows: T[], you: string | null
  * Whole words, and one name has to START the other. "The Barber Shop" and "The
  * Barber Shop Shrewsbury" are one shop with a town added. "Cuts" and "Precision
  * Cuts" are not, and a rule built on "contains" cannot tell those apart.
+ *
+ * A name we cannot read matches nothing rather than everything. This used to
+ * be a plain `includes`, and every string contains the empty string, so a
+ * customer whose name normalised to nothing lost every competitor they had.
+ * That is handled by the first line below rather than by an early return: an
+ * early return was unreachable, and a guard that cannot be reached is a guard
+ * whose removal no test notices.
  *
  * A single word only matches exactly. "Cuts" starts "Cuts Above" on a word
  * boundary, and one common word is not enough to delete somebody's competitor
