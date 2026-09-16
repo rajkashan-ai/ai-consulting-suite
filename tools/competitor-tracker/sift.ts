@@ -1,4 +1,4 @@
-import { normaliseName } from "../../../Agents/Competitor Tracker/src/normalise.ts";
+import { nameWords, normaliseName } from "../../../Agents/Competitor Tracker/src/normalise.ts";
 import { matchTrade } from "../categories.ts";
 
 /**
@@ -18,11 +18,49 @@ import { matchTrade } from "../categories.ts";
  */
 export function notYou<T extends { name: string }>(rows: T[], you: string | null): T[] {
   if (!you) return rows;
-  const mine = normaliseName(you);
+
+  const mine = nameWords(you);
+
+  // A name we cannot read is not a licence to empty the list. This used to be a
+  // plain `includes`, and every string contains the empty string, so a customer
+  // whose name normalised to nothing lost every competitor they had.
+  if (!mine.length) return rows;
+
   return rows.filter((r) => {
-    const theirs = normaliseName(r.name);
-    return !(theirs === mine || theirs.includes(mine) || mine.includes(theirs));
+    const theirs = nameWords(r.name);
+    return theirs.length > 0 && !sameShop(mine, theirs);
   });
+}
+
+/**
+ * Is this the customer's own shop under a slightly different name?
+ *
+ * This was "is one name inside the other", which reads fine and quietly
+ * deleted real competitors. A barber trading as "Cuts" lost both "Cuts Above"
+ * and "Precision Cuts": two of their five slots, no warning, and then a message
+ * saying we could only find three barbers in their town.
+ *
+ * Whole words, and one name has to START the other. "The Barber Shop" and "The
+ * Barber Shop Shrewsbury" are one shop with a town added. "Cuts" and "Precision
+ * Cuts" are not, and a rule built on "contains" cannot tell those apart.
+ *
+ * A single word only matches exactly. "Cuts" starts "Cuts Above" on a word
+ * boundary, and one common word is not enough to delete somebody's competitor
+ * on. The cost of being careful here is that a customer called "Hinces" may see
+ * "Hinces Barber" in their own list, which is one wasted slot they can see and
+ * refreshSet drops later anyway. The cost of being clever is a rival deleted
+ * silently. Those are not the same size.
+ *
+ * What would settle it properly is the website, not the name: we already know
+ * the customer's url. Worth doing, and bigger than this fix.
+ */
+function sameShop(mine: string[], theirs: string[]): boolean {
+  const [short, long] = mine.length <= theirs.length ? [mine, theirs] : [theirs, mine];
+
+  if (short.length === 0) return false;
+  if (short.length === 1) return long.length === 1 && short[0] === long[0];
+
+  return short.every((word, i) => long[i] === word);
 }
 
 /**
