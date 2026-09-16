@@ -1,5 +1,6 @@
 import type { DocumentBody } from "@/tools/content-social-planner/document";
 import { isWrittenPost } from "@/tools/content-social-planner/stages";
+import Resizer from "./resizer";
 import { CADENCE_LABEL, CHANNEL } from "../../../../Agents/Content & Social Planner/src/types";
 
 /**
@@ -132,6 +133,11 @@ export default function PlanView({ plan, nextPlan }: { plan: DocumentBody; nextP
           </article>
         ))}
       </div>
+
+      {/* The photo each post asked for, sized for where it is going. It sits
+          after the posts because that is the order the owner does it in: read
+          the post, take the photo, size it. */}
+      <Resizer />
 
       <h2 className="t-sub">The rest of the month</h2>
       <p className="t-doc-sm">

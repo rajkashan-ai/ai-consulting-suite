@@ -21,6 +21,18 @@ const here = import.meta.dirname;
 const tool = (f: string) => readFileSync(join(here, "..", "tools", "content-social-planner", f), "utf8");
 const screen = (f: string) => readFileSync(join(here, "..", "app", "workspace", "[tool]", f), "utf8");
 
+/**
+ * Source with the comments taken out.
+ *
+ * A guard that reads a file's text will read the comment explaining the guard,
+ * and then fire on it. That has now happened three times in this codebase: the
+ * running screen "naming a tool" in a note about how it used to, the Meta
+ * connect prose, and the resizer "uploading" in a line saying it never does.
+ * A comment saying a file does not do something is not the file doing it.
+ */
+const code = (text: string) =>
+  text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/^\s*\/\/.*$/gm, "");
+
 /* ── 1. The fixture is what the reader hands back, not what curl does ─────── */
 
 const FIXTURE = JSON.parse(
@@ -137,17 +149,61 @@ test("the screen says what the voice note was read off", () => {
 
 /* ── 5. The screen shows the plan, and none of our machinery ─────────────── */
 
-test("the screen carries every section of the plan", () => {
-  const view = screen("plan.tsx");
-  for (const section of [
-    "How often we suggest you post",
-    "What you sound like",
-    "This week",
-    "The rest of the month",
-    "What we did not write",
-  ]) {
-    assert.ok(view.includes(section), `the screen lost "${section}"`);
+/**
+ * The sections, read out of the spec rather than typed here.
+ *
+ * The first version of this test listed the five sections I had built. The
+ * resizer had been built, tested and on the mockup, was never written into the
+ * spec's contract, and so was dropped when the screen was rebuilt for the app,
+ * with this test green the whole time. A test that enumerates what the code
+ * does is the first trap in TESTING.md 7, and I walked into it while writing
+ * the file whose whole purpose is stopping regressions.
+ *
+ * Reading the contract means adding a section to the spec makes this fail until
+ * the screen has it, which is the direction the dependency should run.
+ */
+function contract(): string[] {
+  const spec = readFileSync(
+    join(here, "..", "..", "Agents", "Content & Social Planner", "CLAUDE.md"),
+    "utf8",
+  );
+  const from = spec.indexOf("## What we suggest");
+  const to = spec.indexOf("```", from);
+  assert.ok(from > -1 && to > from, "the spec no longer holds a section contract");
+  return [...spec.slice(from, to).matchAll(/^## (.+)$/gm)].map((m) => m[1].trim());
+}
+
+test("the spec still holds a contract worth checking against", () => {
+  const sections = contract();
+  assert.ok(sections.length >= 6, `only ${sections.length} sections in the contract`);
+  assert.ok(sections.includes("Resize a photo"), "the resizer is out of the contract again");
+});
+
+test("the screen carries every section the spec promises", () => {
+  const view = screen("plan.tsx") + screen("resizer.tsx");
+  /* Two of the contract's names are the spec's words for things the screen
+     says in its own: the cadence panel and the blanks count. Named here so the
+     exception is visible rather than the test being loosened to let anything
+     through. */
+  const saidDifferently: Record<string, string> = {
+    "What we suggest": "How often we suggest you post",
+    "What to fill in": "line from you",
+  };
+  for (const section of contract()) {
+    const wanted = saidDifferently[section] ?? section;
+    assert.ok(view.includes(wanted), `the screen lost "${section}"`);
   }
+});
+
+test("the resizer does the work on their machine and says so", () => {
+  const view = screen("resizer.tsx");
+  assert.match(view, /never leaves your computer/i, "nothing tells them where the photo goes");
+  assert.doesNotMatch(code(view), /fetch\(|FormData|upload/i, "the photo is being sent somewhere");
+  /* The geometry is imported, not written again. Both bugs Raj found in the
+     resizer were geometric and both fixes live in preview.js. */
+  assert.match(view, /from "\.\.\/\.\.\/\.\.\/\.\.\/Agents\/Content & Social Planner\/src\/preview\.js"/);
+  assert.match(view, /cropBox|fitPreview/, "it no longer uses the tested geometry");
+  assert.doesNotMatch(view, /function cropBox|function fitPreview/, "a second copy of the geometry");
 });
 
 test("no stage name, page number or token count can reach the screen", () => {
