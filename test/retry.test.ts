@@ -108,6 +108,23 @@ test("no more than two at once, and never more than the ceiling in total", () =>
   assert.deepEqual(nextToTry(many, spent), [], "kept going past the ceiling");
 });
 
+test("past the ceiling it stops, rather than counting backwards", () => {
+  /**
+   * The case that a plain "exactly at the ceiling" test cannot see.
+   *
+   * The count is also clamped further down, with
+   * `slice(0, Math.min(AT_ONCE, MOST_TRIES - tried.length))`. At exactly the
+   * ceiling that clamp is slice(0, 0) and returns nothing, so removing the
+   * early return changed no test result. One attempt past it the clamp goes
+   * negative, slice counts from the end instead, and it starts handing back
+   * urls again. Two guards that agree in the normal case and disagree in the
+   * one that matters.
+   */
+  const many = Array.from({ length: 20 }, (_, i) => `https://x${i}.example/list`);
+  const over = many.slice(0, MOST_TRIES + 2).map((u) => a(u, "403"));
+  assert.deepEqual(nextToTry(many, over), [], "started again past the ceiling");
+});
+
 test("the ceiling is respected part way through a batch", () => {
   const many = Array.from({ length: 20 }, (_, i) => `https://x${i}.example/list`);
   const spent = many.slice(0, MOST_TRIES - 1).map((u) => a(u, "403"));
