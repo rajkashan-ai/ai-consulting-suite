@@ -308,7 +308,15 @@ export async function step(runId: string): Promise<Progress | null> {
    * fixing spends a step in each every time round, and counting the destination
    * would credit the work to the wrong one and never trip a cap.
    */
-  result.state.watch = note(watch, run.stage as Stage, result.progress, {
+  /**
+   * Built on what the step left behind, not on what it started with.
+   *
+   * This was `note(watch, ...)`, using the watch from before the step, so a
+   * failure reason that advance() had just recorded was overwritten one line
+   * later and lost. A real run failed today with nothing stored to say why,
+   * for the second time, by a different route to the first.
+   */
+  result.state.watch = note(result.state.watch ?? watch, run.stage as Stage, result.progress, {
     seconds: (Date.now() - startedStep) / 1000,
     input: spent.input,
     output: spent.output,

@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { MACHINERY, plainly } from "../lib/plainly.ts";
 
 /**
@@ -128,4 +130,35 @@ test("a billing failure is not mistaken for an ordinary refusal", () => {
   // alike, so the order of the checks matters and this pins it.
   assert.match(plainly(new Error("402 payment required")).say, /run out of credit/i);
   assert.match(plainly(new Error("403 forbidden")).say, /could not get through/i);
+});
+
+test("a reason recorded by the step survives the engine writing the run", () => {
+  /**
+   * advance() records why it failed, and the engine then folds the step's
+   * result into the run. It was building that from the watch as it stood
+   * BEFORE the step, so the reason was written and overwritten one line later.
+   *
+   * A real run failed with nothing stored to say why, for the second time in a
+   * day, by a different route to the first. Read off the engine, which imports
+   * server-only and cannot be called from here.
+   */
+  const engine = readFileSync(
+    join(import.meta.dirname, "..", "lib", "engine.ts"),
+    "utf8",
+  ).replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\s+/g, " ");
+
+  assert.match(engine, /note\(result\.state\.watch \?\? watch,/);
+  assert.doesNotMatch(engine, /result\.state\.watch = note\(watch,/);
+});
+
+test("reading a town listing has room for a town's worth of businesses", () => {
+  // A listing names thirty or more, each with six fields. That does not fit in
+  // the 4,000 token default, and a real run died at the first listing because
+  // the answer was cut off and we correctly refuse a half answer.
+  const stages = readFileSync(
+    join(import.meta.dirname, "..", "tools", "competitor-tracker", "stages.ts"),
+    "utf8",
+  );
+  const listing = stages.slice(stages.indexOf("Town: ${profile.town}"), stages.indexOf("Town: ${profile.town}") + 600);
+  assert.match(listing, /maxTokens: 12_000/, "the listing call has no budget of its own");
 });

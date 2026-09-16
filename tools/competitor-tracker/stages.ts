@@ -504,6 +504,14 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
         "and a business with no url is one we can say much less about. Never repair or " +
         "shorten an address, and never invent one: a made-up address is a made-up source.",
       prompt: `Town: ${profile.town}. Trade: ${profile.trade}.\n\n${got.text.slice(0, 20_000)}`,
+      /**
+       * A town listing names thirty or more businesses, each with a name, a
+       * rating, a review count, an area, a price and an address. That does not
+       * fit in the four thousand token default, and a real run died here: the
+       * answer was cut off, which we correctly refuse to accept, so the whole
+       * run failed at the first listing.
+       */
+      maxTokens: 12_000,
       shape: {
         name: "businesses",
         description:
