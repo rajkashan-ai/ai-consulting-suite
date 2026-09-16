@@ -21,6 +21,19 @@ export const maxDuration = 60;
  * way round: an open endpoint here would let anybody spend our Anthropic
  * budget by calling it in a loop.
  */
+/**
+ * Schedulers send GET, so both are accepted and do the same thing.
+ *
+ * Vercel Cron, and most others, invoke a path with a GET and put the shared
+ * secret in the Authorization header. The endpoint only answered POST, so the
+ * schedule would have been configured, would have appeared to be running, and
+ * would have returned 405 every minute in a log nobody reads. A tick that is
+ * scheduled and does nothing is worse than no tick, because it looks handled.
+ */
+export async function GET(request: Request) {
+  return POST(request);
+}
+
 export async function POST(request: Request) {
   const expected = process.env.CRON_SECRET;
   if (!expected) {

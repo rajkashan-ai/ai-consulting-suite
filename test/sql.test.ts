@@ -44,3 +44,37 @@ test("every table that is created also has row level security turned on", () => 
     );
   }
 });
+
+test("the tick looks far enough back for a closed laptop", () => {
+  /**
+   * stalled_runs only returned runs started within the last hour, so the
+   * scheduled tick, whose entire job is "close the tab and come back", quietly
+   * abandoned anything older. Close a laptop at six and the run was dead by
+   * seven with nothing saying so.
+   *
+   * How long a run may actually work is the watchdog's job now, and it measures
+   * time spent working rather than time on the wall, so this window only has to
+   * be generous enough for a laptop to be shut.
+   */
+  const sql = readFileSync(join(import.meta.dirname, "..", "supabase", "012_stalled_window.sql"), "utf8");
+  assert.match(sql, /started_at > now\(\) - interval '24 hours'/);
+  assert.doesNotMatch(sql, /interval '1 hour'/, "an hour is not long enough for a closed laptop");
+});
+
+test("the tick answers a scheduler's GET, not only a POST", () => {
+  // Schedulers invoke a path with GET and put the secret in the header. With
+  // only POST the cron would be configured, would look like it was running, and
+  // would return 405 every minute into a log nobody reads. A tick that is
+  // scheduled and does nothing is worse than none, because it looks handled.
+  const route = readFileSync(join(import.meta.dirname, "..", "app", "api", "tick", "route.ts"), "utf8");
+  assert.match(route, /export async function GET/);
+  assert.match(route, /CRON_SECRET/, "the endpoint stopped being protected");
+});
+
+test("the tick is actually scheduled, not just built", () => {
+  // It was built, protected and correct, and nothing ever called it.
+  const cron = JSON.parse(readFileSync(join(import.meta.dirname, "..", "vercel.json"), "utf8"));
+  const tick = (cron.crons ?? []).find((c: { path: string }) => c.path === "/api/tick");
+  assert.ok(tick, "nothing schedules the tick");
+  assert.equal(tick.schedule, "* * * * *");
+});
