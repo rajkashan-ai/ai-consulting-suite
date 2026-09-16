@@ -12,7 +12,8 @@
     "code": "node get-code.mjs",
     "typecheck": "rm -rf .next && tsc --noEmit",
     "check": "npm run typecheck && npm test",
-    "db": "node db.mjs"
+    "db": "node db.mjs",
+    "playbook-sources": "npx tsx scripts/playbook-sources.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",

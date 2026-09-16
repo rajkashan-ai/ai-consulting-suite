@@ -2,7 +2,16 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { GENERAL, NO_PUBLIC_PRICES, SPECIALIST, TRADE_GROUP, coverage, sourcesFor } from "../tools/sources/uk-directories.ts";
+import {
+  EVERY,
+  GENERAL,
+  NO_PUBLIC_PRICES,
+  SPECIALIST,
+  TRADE_GROUP,
+  coverage,
+  sourcesFor,
+  tradesCovered,
+} from "../tools/sources/uk-directories.ts";
 
 /**
  * The seeded directory list.
@@ -60,7 +69,7 @@ test("a specialist is tried before the general floor", () => {
   // name and a star, which cannot fill a comparison on its own.
   const list = sourcesFor("barber");
   assert.equal(list[0].name, "Booksy");
-  assert.ok(list.some((d) => d.covers.length === 0), "the general floor was dropped");
+  assert.ok(list.some((d) => d.covers.includes(EVERY)), "the general floor was dropped");
 });
 
 test("a trade with no specialist still gets somewhere to look", () => {
@@ -123,8 +132,11 @@ test("the coverage gap is stated rather than hidden", () => {
   // Not all of them. Moving sources from groups to named trades on 2026-09-16
   // took 20 trades from "covered" to "nothing", which is what they always were:
   // AutoTrader never covered car valeting, and Gudog never covered a vet.
+  // The same day, checking the published report found eleven more group tags
+  // doing it: DesignMyNight priced florists, Clutch claimed accountants, Rover
+  // and Pets4Homes claimed vets. Naming the trades took it from 74 to 65.
   // The general floor still applies to every trade; this counts specialists.
-  assert.ok(c.withSpecialist >= 70 && c.withSpecialist <= c.trades,
+  assert.ok(c.withSpecialist >= 60 && c.withSpecialist <= c.trades,
     `${c.withSpecialist} of ${c.trades} have a specialist, which looks wrong`);
   assert.ok(c.canComparePrices > 0 && c.canComparePrices < c.trades,
     `price coverage is ${c.canComparePrices} of ${c.trades}, which is suspicious`);
@@ -132,4 +144,68 @@ test("the coverage gap is stated rather than hidden", () => {
   // Bakery is covered now, by the FSA and Deliveroo. What this guards is that
   // the gap is still reported honestly, whatever is in it.
   assert.ok(Array.isArray(c.noPriceAnywhere));
+});
+
+/**
+ * A source may cover named trades, or everything, and the difference has to be
+ * written down rather than inferred from an empty list.
+ *
+ * It used to be inferred. Empty meant "every trade", so the two dog-walking
+ * sites, which were given an empty list to say they cover none of our trades,
+ * went out in the published report claiming all 100. Nobody spotted it in the
+ * code; it was only visible once the data was printed.
+ */
+test("only the general floor claims every trade", () => {
+  for (const d of SPECIALIST) {
+    assert.ok(
+      !d.covers.includes(EVERY),
+      `${d.name} is a specialist and claims every trade`,
+    );
+    assert.equal(
+      tradesCovered(d).length === Object.keys(TRADE_GROUP).length,
+      false,
+      `${d.name} covers every trade without saying so`,
+    );
+  }
+  for (const d of GENERAL) {
+    assert.ok(d.covers.includes(EVERY), `${d.name} is the floor and has to say so`);
+  }
+});
+
+test("a source that covers nothing is offered for nothing", () => {
+  const empty = SPECIALIST.filter((d) => d.covers.length === 0).map((d) => d.name);
+  assert.ok(empty.length > 0, "the test needs at least one to be meaningful");
+
+  for (const trade of Object.keys(TRADE_GROUP)) {
+    for (const d of sourcesFor(trade)) {
+      assert.ok(!empty.includes(d.name), `${d.name} was offered for ${trade}`);
+    }
+  }
+});
+
+/**
+ * Tagging by group is what let a bars-and-venues site become a price source for
+ * florists, and a dog-walking site cover vets. A group tag is still allowed,
+ * but only where the source genuinely lists the whole group, and each one is
+ * named here so adding a new group tag is a deliberate act.
+ */
+test("group tags are the exception, and each one is listed", () => {
+  const groups = new Set<string>(Object.values(TRADE_GROUP));
+  const allowed = new Set([
+    "Checkatrade", "Rated People", "TrustATrader", "MyBuilder", // all 26 home trades
+    "Booksy", "Fresha", "Treatwell", // all of hair, beauty and massage
+    "Care Quality Commission", "NHS service search", "Doctify", // registers, not a selection
+    "The Law Society", "Solicitors Regulation Authority",
+    "Rightmove", "OnTheMarket", "Zoopla",
+    "ClassPass", "Mindbody", "Hussle",
+    "Food Standards Agency", // rates every food business, caterers included
+  ]);
+
+  for (const d of SPECIALIST) {
+    if (!d.covers.some((c) => groups.has(c))) continue;
+    assert.ok(
+      allowed.has(d.name),
+      `${d.name} covers a whole group. Name the trades it lists, or add it here and say why.`,
+    );
+  }
 });

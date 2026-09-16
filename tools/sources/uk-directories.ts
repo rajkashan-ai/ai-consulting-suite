@@ -97,11 +97,21 @@ const OURS = "Our own runs";
  * reading about them. That is the single most useful fact in this file: without
  * it the obvious plan is to build discovery on Yell, which cannot work.
  */
+/**
+ * Covers every trade, rather than a named few.
+ *
+ * An empty `covers` used to mean this, and also meant "covers none of our
+ * trades" on the two dog-walking sites, so the published report had them
+ * claiming all 100. One list cannot carry two opposite meanings: this says
+ * "everything" out loud and leaves empty to mean empty.
+ */
+export const EVERY = "every-trade";
+
 export const GENERAL: Directory[] = [
   {
     name: "Yell",
     host: "yell.com",
-    covers: [],
+    covers: [EVERY],
     carries: ["names", "ratings", "reviewCount"],
     source: BIRDEYE,
     reachable: { state: "blocked", checked: CHECKED, how: "Cloudflare challenge on robots.txt" },
@@ -113,7 +123,7 @@ export const GENERAL: Directory[] = [
   {
     name: "Thomson Local",
     host: "thomsonlocal.com",
-    covers: [],
+    covers: [EVERY],
     carries: ["names", "ratings"],
     source: BIRDEYE,
     reachable: { state: "blocked", checked: CHECKED, how: "Returns 'You are blocked'" },
@@ -121,7 +131,7 @@ export const GENERAL: Directory[] = [
   {
     name: "Cylex UK",
     host: "cylex-uk.co.uk",
-    covers: [],
+    covers: [EVERY],
     carries: ["names"],
     source: BIRDEYE,
     reachable: { state: "blocked", checked: CHECKED, how: "Cloudflare challenge on robots.txt" },
@@ -129,7 +139,7 @@ export const GENERAL: Directory[] = [
   {
     name: "FreeIndex",
     host: "freeindex.co.uk",
-    covers: [],
+    covers: [EVERY],
     carries: ["names", "ratings", "reviewCount"],
     source: BIRDEYE,
     reachable: { state: "yes", checked: CHECKED },
@@ -138,7 +148,7 @@ export const GENERAL: Directory[] = [
   {
     name: "Bark",
     host: "bark.com",
-    covers: [],
+    covers: [EVERY],
     carries: ["names", "ratings", "reviewCount"],
     source: BIRDEYE,
     reachable: { state: "untested" },
@@ -146,7 +156,7 @@ export const GENERAL: Directory[] = [
   {
     name: "Trustpilot UK",
     host: "uk.trustpilot.com",
-    covers: [],
+    covers: [EVERY],
     carries: ["names", "ratings", "reviewCount"],
     source: BIRDEYE,
     reachable: { state: "untested" },
@@ -223,7 +233,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "RAC Approved Garages",
     host: "rac.co.uk",
-    covers: ["automotive"],
+    covers: ["garage", "servicing"],
     carries: ["names", "ratings"],
     source: BIRDEYE,
     reachable: { state: "untested" },
@@ -312,7 +322,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "BookMyGarage",
     host: "bookmygarage.com",
-    covers: ["automotive"],
+    covers: ["garage", "servicing"],
     carries: ["names", "ratings", "prices"],
     source: GEMINI,
     reachable: { state: "blocked", checked: CHECKED, how: "429 on robots.txt" },
@@ -415,7 +425,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "Clutch",
     host: "clutch.co",
-    covers: ["professional"],
+    covers: ["it-support", "marketing-agency", "branding", "recruiter", "staffing", "consultant"],
     carries: ["names", "ratings", "reviewCount"],
     source: GEMINI,
     reachable: { state: "blocked", checked: CHECKED, how: "403 on robots.txt" },
@@ -431,7 +441,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "Deliveroo",
     host: "deliveroo.co.uk",
-    covers: ["food-and-drink"],
+    covers: ["cafe", "restaurant", "takeaway", "kebab", "pizza", "bakery"],
     carries: ["names", "ratings", "reviewCount", "prices", "services"],
     source: CHATGPT,
     reachable: { state: "yes", checked: CHECKED },
@@ -440,7 +450,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "DesignMyNight",
     host: "designmynight.com",
-    covers: ["food-and-drink", "retail-and-events"],
+    covers: ["restaurant", "bistro", "eatery", "pub-bar", "events"],
     carries: ["names", "ratings", "reviewCount", "prices"],
     source: CHATGPT,
     reachable: { state: "yes", checked: CHECKED },
@@ -448,7 +458,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "TheFork",
     host: "thefork.co.uk",
-    covers: ["food-and-drink"],
+    covers: ["restaurant", "bistro", "eatery", "pub-bar"],
     carries: ["names", "ratings", "reviewCount", "prices"],
     source: CHATGPT,
     reachable: { state: "yes", checked: CHECKED },
@@ -456,7 +466,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "ResDiary",
     host: "resdiary.com",
-    covers: ["food-and-drink"],
+    covers: ["restaurant", "bistro", "eatery", "pub-bar"],
     carries: ["names", "prices"],
     source: CHATGPT,
     reachable: { state: "yes", checked: CHECKED },
@@ -542,7 +552,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "Pets4Homes",
     host: "pets4homes.co.uk",
-    covers: ["pets"],
+    covers: [],
     carries: ["names"],
     source: GEMINI,
     reachable: { state: "yes", checked: CHECKED },
@@ -576,7 +586,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "Just Eat",
     host: "just-eat.co.uk",
-    covers: ["food-and-drink"],
+    covers: ["cafe", "restaurant", "takeaway", "kebab", "pizza", "bakery"],
     carries: ["names", "ratings", "reviewCount", "prices"],
     source: CHATGPT,
     reachable: { state: "blocked", checked: CHECKED, how: "403 on robots.txt" },
@@ -584,7 +594,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "Uber Eats",
     host: "ubereats.com",
-    covers: ["food-and-drink"],
+    covers: ["cafe", "restaurant", "takeaway", "kebab", "pizza", "bakery"],
     carries: ["names", "ratings", "prices"],
     source: CHATGPT,
     reachable: { state: "blocked", checked: CHECKED, how: "403 on robots.txt" },
@@ -592,7 +602,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "Rover",
     host: "rover.com",
-    covers: ["pets"],
+    covers: [],
     carries: ["names", "ratings", "reviewCount", "prices"],
     source: CHATGPT,
     reachable: { state: "blocked", checked: CHECKED, how: "403 on robots.txt" },
@@ -600,7 +610,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "Superprof",
     host: "superprof.co.uk",
-    covers: ["education"],
+    covers: ["tuition", "tutor"],
     carries: ["names", "ratings", "prices"],
     source: CHATGPT,
     reachable: { state: "blocked", checked: CHECKED, how: "403 on robots.txt" },
@@ -608,7 +618,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "Fever",
     host: "fever.com",
-    covers: ["retail-and-events"],
+    covers: ["events"],
     carries: ["names", "prices"],
     source: CHATGPT,
     reachable: { state: "blocked", checked: CHECKED, how: "403 on robots.txt" },
@@ -770,7 +780,7 @@ export function sourcesFor(trade: string | null): Directory[] {
 /** Every trade this source claims, whether it named them or named their group. */
 export function tradesCovered(d: Directory): string[] {
   const all = Object.keys(TRADE_GROUP);
-  if (!d.covers.length) return all;
+  if (d.covers.includes(EVERY)) return all;
   return all.filter((t) => d.covers.includes(t) || d.covers.includes(TRADE_GROUP[t]));
 }
 
@@ -784,7 +794,7 @@ export function asRows() {
   const noPrices = new Set(NO_PUBLIC_PRICES.map((n) => n.group));
 
   return Object.keys(TRADE_GROUP).sort().map((trade) => {
-    const open = sourcesFor(trade).filter((d) => d.covers.length > 0);
+    const open = sourcesFor(trade).filter((d) => !d.covers.includes(EVERY));
     const priced = open.filter((d) => d.carries.includes("prices"));
     const group = TRADE_GROUP[trade];
 
