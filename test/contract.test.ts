@@ -48,9 +48,16 @@ test("a tool that can run is reachable by its slug alone", () => {
 });
 
 test("a tool nobody has written yet fails politely rather than crashing", () => {
-  // Five of the six are like this, and a customer opening one must not see a
+  // Most of the six are like this, and a customer opening one must not see a
   // stack trace.
-  assert.equal(runnerFor("content-social-planner"), null);
+  //
+  // The unwritten tool is found rather than named. This said
+  // "content-social-planner", which was true until somebody wrote it, and then
+  // the test failed for the one reason that is not a fault: the thing it used
+  // as an example of nothing stopped being nothing.
+  const unwritten = TOOLS.find((t) => !t.built);
+  assert.ok(unwritten, "every tool is built, so this can no longer be tested");
+  assert.equal(runnerFor(unwritten.slug), null);
   assert.match(engine, /This tool cannot run yet/);
 });
 

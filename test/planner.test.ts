@@ -3,8 +3,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Business, ToolContext } from "../tools/types.ts";
-import { advance, channelsFor, firstLine, linked, type RunState, type Stage } from "../tools/content-social-planner/stages.ts";
+import { advance, channelsFor, firstLine, knownFacts, linked, type RunState, type Stage } from "../tools/content-social-planner/stages.ts";
 import { buildBody, hollow } from "../tools/content-social-planner/document.ts";
+import { unsafe } from "../tools/content-social-planner/scrub.ts";
 import { contentSocialPlanner } from "../tools/content-social-planner/index.ts";
 import { expand, numberPages, cite, citeRules } from "../tools/content-social-planner/sources.ts";
 import { shapeMonth, expectedPosts } from "../tools/content-social-planner/shape.ts";
@@ -227,6 +228,32 @@ test("a post citing a page we never read is taken off", async () => {
   const { state, stage } = await runToEnd(ctx, { ...BUSINESS, foundVia: ["instagram"] });
   assert.equal(stage, "failed", "a post with no source survived");
   assert.match(state.reason ?? "", /backed by your own pages/);
+});
+
+test("a post with no source and a post citing a page we never read give different reasons", () => {
+  /**
+   * Both were caught, by two checks, and only one of them was ever exercised:
+   * taking the first one out left the second catching a post with no source at
+   * all and telling the owner it "cites a page we did not read", which is a
+   * different and untrue thing. The mutation came back green and that looked
+   * like a redundant check. It was a missing assertion.
+   */
+  const known = knownFacts({ ...BUSINESS, services: [] });
+  const pages = numberPages([{ url: "https://x.test/a", fetchedOn: "2026-09-16", what: "home" }]);
+  const post = {
+    date: "2026-09-17", week: 1, channel: "instagram" as const, angle: "the-ask" as const,
+    purpose: "offer" as const,
+    words: "A plain post about the prices we publish on our own page, nothing invented here at all.",
+    shot: "A photo of the price list where you keep it.",
+    why: "Because they ask.",
+  };
+
+  assert.match(unsafe({ ...post, source: null }, pages, known) ?? "", /nothing on your own site/);
+  assert.match(
+    unsafe({ ...post, source: { url: "https://other.test", fetchedOn: "2026-09-16" } }, pages, known) ?? "",
+    /a page we did not read/,
+  );
+  assert.equal(unsafe({ ...post, source: pages[0] }, pages, known), null, "a good post was refused");
 });
 
 test("what the reader is told about a drop is in their words, not ours", async () => {

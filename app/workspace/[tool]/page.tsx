@@ -4,7 +4,8 @@ import { labelFor } from "@/tools/categories";
 import { toolBySlug } from "@/tools/registry";
 import Nav from "../nav";
 import Chrome from "../chrome";
-import CompetitorTracker from "./competitor-tracker";
+import { screenFor } from "./screens";
+import { readyFor } from "./ready";
 
 export default async function ToolPage({
   params,
@@ -32,6 +33,16 @@ export default async function ToolPage({
   if (!workspaces?.length) redirect("/welcome");
   const wanted = (await searchParams).w;
   const current = workspaces.find((w) => w.id === wanted) ?? workspaces[0];
+
+  /**
+   * The tool's own screen, found by the slug already in the url.
+   *
+   * This page named one tool and rendered it for every tool marked built. It
+   * is the same coupling the engine had, fixed the same way: look it up and
+   * render whatever comes back. A tool marked built with no screen falls
+   * through to the not-built panel, which is honest rather than broken.
+   */
+  const View = tool.built ? screenFor(tool.slug) : null;
 
   return (
     <div className="app">
@@ -65,11 +76,8 @@ export default async function ToolPage({
         <div className="band band--a band--first band--last">
           <div className="band__in">
 
-            {tool.built ? (
-              <CompetitorTracker
-                workspaceId={current.id}
-                ready={Boolean(current.trade && current.town)}
-              />
+            {View ? (
+              <View workspaceId={current.id} ready={readyFor(tool.slug, current)} />
             ) : (
               <>
                 {/* Not built is said plainly. A screen that shows nothing and

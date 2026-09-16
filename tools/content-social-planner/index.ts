@@ -32,4 +32,15 @@ export const contentSocialPlanner: ToolRun<RunState> = {
   title: (now) => `Your posts, ${now.toLocaleDateString("en-GB")}`,
 };
 
+/**
+ * Where a run of this tool starts.
+ *
+ * Named here rather than left to the `runs.stage` column default, which is
+ * 'searching' — the Competitor Tracker's first stage, written into the schema
+ * before there was a second tool. Changing that default would change the
+ * Tracker's behaviour, so this tool says what it wants and the default is left
+ * alone.
+ */
+export const FIRST_STAGE = "reading";
+
 export type { RunState, DocumentBody };

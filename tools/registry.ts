@@ -1,6 +1,7 @@
 import type { Tool } from "./types.ts";
 import type { AnyState, ToolRun } from "./contract.ts";
 import { competitorTracker } from "./competitor-tracker/index.ts";
+import { contentSocialPlanner } from "./content-social-planner/index.ts";
 
 /**
  * The six. Names match the folders in Agents/, so there is one name to search
@@ -21,7 +22,7 @@ export const TOOLS: Tool[] = [
     slug: "content-social-planner",
     name: "Content & Social Planner",
     does: "A month of finished posts, in the words already on your own site.",
-    built: false,
+    built: true,
   },
   {
     slug: "proposal-quote-builder",
@@ -62,6 +63,7 @@ export const toolBySlug = (slug: string) => TOOLS.find((t) => t.slug === slug);
  */
 export const RUNNABLE: Record<string, ToolRun<AnyState>> = {
   [competitorTracker.slug]: competitorTracker as unknown as ToolRun<AnyState>,
+  [contentSocialPlanner.slug]: contentSocialPlanner as unknown as ToolRun<AnyState>,
 };
 
 export const runnerFor = (slug: string): ToolRun<AnyState> | null =>

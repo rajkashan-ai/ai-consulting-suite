@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import { TOOLS, toolBySlug } from "../tools/registry.ts";
+import { RUNNABLE, TOOLS, toolBySlug } from "../tools/registry.ts";
 
 test("every tool has a slug that works as a web address", () => {
   for (const t of TOOLS) assert.match(t.slug, /^[a-z][a-z0-9-]*$/, t.slug);
@@ -10,10 +10,16 @@ test("every tool has a slug that works as a web address", () => {
 });
 
 test("a tool marked built has something to run", () => {
-  // built:true with no run() is a page that opens and then does nothing, which
-  // reads to a customer as broken.
-  for (const t of TOOLS) {
-    if (t.built) assert.ok(t.run || t.slug === "competitor-tracker", `${t.slug} says built`);
+  // built:true with nothing to run is a page that opens and then does nothing,
+  // which reads to a customer as broken.
+  //
+  // This looked for `t.run`, which stopped existing when runners moved into
+  // RUNNABLE, and passed only because of a hardcoded exception for the one
+  // tool that was built. So it proved nothing about the tool it named and
+  // nothing about any other. Both halves are the defect CLAUDE.md 1.4b
+  // describes: a rule that names a tool.
+  for (const t of TOOLS.filter((x) => x.built)) {
+    assert.ok(RUNNABLE[t.slug], `${t.slug} says built but has nothing to run`);
   }
 });
 
