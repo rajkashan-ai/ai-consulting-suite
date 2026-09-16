@@ -350,6 +350,31 @@ function Area({
     );
   }
 
+  /**
+   * Where each column's facts came from, worked out once.
+   *
+   * Every cell used to print "booksy.com &middot; 15 Sept" under its value:
+   * thirty repetitions of the same eight words in one table, and the reader
+   * has to look past all of them to compare two numbers. Nielsen's eighth
+   * heuristic, almost word for word: interfaces should not contain information
+   * that is irrelevant or rarely needed.
+   *
+   * It is not irrelevant, though, which is why it moves rather than goes. A
+   * claim nobody can check is a claim nobody believes. So it is said once,
+   * under the business it belongs to, and a cell only speaks up when its source
+   * is not the one named above it.
+   */
+  const usual = grid.columns.map((_, i) => {
+    const hosts = grid.rows
+      .map((r) => r.cells[i]?.source?.url)
+      .filter(Boolean)
+      .map((u) => host(u as string));
+    if (!hosts.length) return null;
+    const counted = new Map<string, number>();
+    for (const h of hosts) counted.set(h, (counted.get(h) ?? 0) + 1);
+    return [...counted.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  });
+
   return (
     <>
       <div className="tablewrap">
@@ -360,7 +385,7 @@ function Area({
               {grid.columns.map((name, i) => (
                 <th key={name} className={i === 0 ? "grid__you" : undefined}>
                   {i === 0 ? "You" : name}
-                  {i === 0 && <span className="cell-note">{name}</span>}
+                  {usual[i] && <span className="grid__from">from {usual[i]}</span>}
                 </th>
               ))}
             </tr>
@@ -372,28 +397,32 @@ function Area({
                   {row.attribute}
                   {mark(`grid:${area}:${row.attribute}`, row.attribute)}
                 </th>
-                {row.cells.map((cell, i) => (
-                  <td key={i} className={i === 0 ? "grid__you" : undefined}>
-                    {cell.value ? (
-                      <>
-                        <strong>{cell.value}</strong>
-                        {cell.source && (
-                          <span className="cell-note">
-                            {host(cell.source.url)} &middot; {day(cell.source.fetchedOn)}
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      <span className="cell-none">Not published</span>
-                    )}
-                  </td>
-                ))}
+                {row.cells.map((cell, i) => {
+                  const from = cell.source ? host(cell.source.url) : null;
+                  const odd = from && from !== usual[i] ? from : null;
+                  return (
+                    <td key={i} className={i === 0 ? "grid__you" : undefined}>
+                      {cell.value ? (
+                        <>
+                          <strong className="grid__value">{cell.value}</strong>
+                          {cell.note && <span className="grid__qual">{cell.note}</span>}
+                          {odd && <span className="grid__qual">{odd}</span>}
+                        </>
+                      ) : (
+                        <span className="cell-none">Not published</span>
+                      )}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       {grid.note && <p className="t-meta">{grid.note}</p>}
+      <p className="t-meta">
+        Every figure here was read on the dates listed at the foot of this page.
+      </p>
     </>
   );
 }

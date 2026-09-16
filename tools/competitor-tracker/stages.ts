@@ -160,7 +160,12 @@ export type Grid = {
     /** "Classic cut", "Reviews", "Opens". One comparable thing. */
     attribute: string;
     /** One per column, in the same order. Null where nothing was published. */
-    cells: { value: string | null; source: { url: string; fetchedOn: string } | null }[];
+    cells: {
+      value: string | null;
+      /** Only when the value misleads without it. "from", "under 12s". */
+      note?: string | null;
+      source: { url: string; fetchedOn: string } | null;
+    }[];
   }[];
   /** Said under the table. One line, the thing the table shows. */
   note?: string;
@@ -1562,7 +1567,9 @@ function shapeGrid(raw: unknown, own: string, five: string[]): Grid[] {
         const cells = Array.isArray(r.cells) ? (r.cells as Grid["rows"][0]["cells"]) : [];
         return {
           attribute: String(r.attribute ?? ""),
-          cells: where.map((i) => (i >= 0 && cells[i] ? cells[i] : { value: null, source: null })),
+          cells: where.map((i) =>
+            i >= 0 && cells[i] ? cells[i] : { value: null, note: null, source: null },
+          ),
         };
       }),
     };
@@ -1794,14 +1801,42 @@ const BATTLECARD_SHAPE = {
                     items: {
                       type: "object",
                       properties: {
-                        value: { type: ["string", "null"] },
+                        /**
+                         * The comparable fact and nothing else.
+                         *
+                         * This used to be a free string and came back as full
+                         * sentences: "Book buttons against each service on
+                         * their booking profile". Six of those across a row
+                         * cannot be compared, because reading them is the
+                         * work. A price row must read across as £15, £18, £20.
+                         *
+                         * Capped in the schema rather than asked for politely,
+                         * because a length asked for in prose is a length that
+                         * drifts.
+                         */
+                        value: {
+                          type: ["string", "null"],
+                          maxLength: 40,
+                          description:
+                            "The comparable fact alone, as short as it can be. " +
+                            "A price: '£15.00'. A count: '607 reviews'. A yes: " +
+                            "'Own site'. Never a sentence, never a reason, never " +
+                            "a word the other columns also say.",
+                        },
+                        note: {
+                          type: ["string", "null"],
+                          maxLength: 80,
+                          description:
+                            "Only when the value is misleading without it. " +
+                            "'from', 'under 12s only', 'evenings too'. Usually null.",
+                        },
                         from: {
                           type: ["integer", "null"],
                           description:
                             "The number of the page this came from. Null only when the cell is null.",
                         },
                       },
-                      required: ["value", "from"],
+                      required: ["value", "note", "from"],
                     },
                   },
                 },
@@ -1820,8 +1855,27 @@ const BATTLECARD_SHAPE = {
         items: {
           type: "object",
           properties: {
-            point: { type: "string" },
-            detail: { type: "string" },
+            /**
+             * The finding itself, with the number in it.
+             *
+             * These were coming back as a label, "You put five prices in plain
+             * sight on your own site", followed by four lines of working. An
+             * owner reads the heading and stops, so the heading has to be the
+             * answer.
+             */
+            point: {
+              type: "string",
+              maxLength: 90,
+              description:
+                "The finding, with its number in it. 'You publish 5 prices, they publish 2.'",
+            },
+            detail: {
+              type: "string",
+              maxLength: 160,
+              description:
+                "One sentence of evidence. Never mention pages or page numbers: " +
+                "the reader cannot see them and they mean nothing to them.",
+            },
             from: { type: "integer", description: "The number of the page this came from." },
           },
           required: ["point", "detail", "from"],
@@ -1833,8 +1887,17 @@ const BATTLECARD_SHAPE = {
         items: {
           type: "object",
           properties: {
-            point: { type: "string" },
-            detail: { type: "string" },
+            point: {
+              type: "string",
+              maxLength: 90,
+              description: "The finding, with its number in it.",
+            },
+            detail: {
+              type: "string",
+              maxLength: 160,
+              description:
+                "One sentence of evidence. Never mention pages or page numbers.",
+            },
             from: { type: "integer", description: "The number of the page this came from." },
           },
           required: ["point", "detail", "from"],

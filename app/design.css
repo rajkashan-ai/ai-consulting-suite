@@ -974,3 +974,47 @@ main{padding:0}
 }
 
 .checked .cell-list + .cell-list { margin-top: var(--s3); }
+
+/* The comparison table.
+   A row exists to be read across. The value has to be the first and loudest
+   thing in every cell, the same distance from the left in each, and prices have
+   to line up digit under digit. Everything else in the cell is support and is
+   quieter than the value, or it competes with the thing the row is for. */
+
+.grid__value {
+  display: block;
+  font-size: var(--t-row);
+  line-height: var(--t-row-lh);
+  font-weight: 600;
+  /* Digits the same width, so £15.00 sits under £8.00 and the column can be
+     scanned rather than read. */
+  font-variant-numeric: tabular-nums;
+}
+
+/* The qualifier, and the odd source. Both are support: same size, quieter, and
+   never able to outrun the value above them. */
+.grid__qual {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--t-micro);
+  line-height: var(--t-micro-lh);
+  color: var(--muted);
+}
+
+/* Where a column's facts came from, said once under the business name instead
+   of once per cell. It was thirty repetitions of the same eight words. */
+.grid__from {
+  display: block;
+  margin-top: var(--s1);
+  font-size: var(--t-micro);
+  line-height: var(--t-micro-lh);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+}
+
+/* Columns share the width evenly so no business looks more important than
+   another, and the row label gets a fixed, narrow track. */
+.grid { table-layout: fixed; }
+.grid .grid__what { width: 15%; }
