@@ -82,6 +82,56 @@ export default function BattlecardView({
   }
   const whose = (url: string) => owners.get(url) ?? null;
 
+  /**
+   * The three figures at the top, counted off what the card already holds.
+   *
+   * Nothing here is generated and nothing is new: the price comes out of the
+   * grid, the businesses found out of the funnel, the review count out of the
+   * reviews rows. The measured fault was sixteen numbers on this page all
+   * rendered at body size, so the page had no hierarchy and no amount of
+   * shadow or radius would have given it one.
+   *
+   * A figure that cannot be counted is not shown. Three is the most that can
+   * be read at a glance, and two is fine.
+   */
+  const pricing = card.grid?.find((g) => g.area === "pricing");
+  const yourPrice = pricing?.rows?.find((r) => r.cells?.[0]?.value)?.cells?.[0]?.value ?? null;
+
+  const reviewRow = card.grid
+    ?.find((g) => g.area === "reviews")
+    ?.rows?.find((r) => /review/i.test(r.attribute));
+  const theirReviews = (reviewRow?.cells ?? [])
+    .slice(1)
+    .map((c) => Number(String(c?.value ?? "").replace(/[^\d]/g, "")))
+    .filter((n) => Number.isFinite(n) && n > 0);
+
+  const figures: { n: string; what: string; sub?: string; tone?: "gap" | "win" }[] = [];
+
+  if (yourPrice) {
+    figures.push({
+      n: yourPrice,
+      what: "What you charge for the first thing on your price list",
+      sub: `Compared with ${card.competitors.length} others near you`,
+      tone: "gap",
+    });
+  }
+  if (card.funnel?.found) {
+    figures.push({
+      n: String(card.funnel.found),
+      what: `${card.business ? "Businesses" : "Businesses"} we found before narrowing`,
+      sub: `Compared the ${card.competitors.length} closest to you`,
+      tone: "win",
+    });
+  }
+  if (theirReviews.length) {
+    const total = theirReviews.reduce((a, b) => a + b, 0);
+    figures.push({
+      n: total.toLocaleString("en-GB"),
+      what: "Public reviews the others carry between them",
+      sub: `Across ${theirReviews.length} of the ${card.competitors.length} compared`,
+    });
+  }
+
   const areasRead = AREAS.filter((a) =>
     card.grid?.some((g) => g.area === a.key && g.rows.length > 0),
   ).map((a) => a.label.toLowerCase());
@@ -122,6 +172,21 @@ export default function BattlecardView({
           {areasRead.length > 0 && <> across {asList(areasRead)}</>}.
         </p>
       </div>
+
+      {figures.length > 0 && (
+        <div className="kpis">
+          {figures.map((f) => (
+            <div
+              key={f.what}
+              className={`kpi${f.tone ? ` kpi--${f.tone}` : ""}`}
+            >
+              <span className="kpi__n">{f.n}</span>
+              <p className="kpi__w">{f.what}</p>
+              {f.sub && <span className="kpi__s">{f.sub}</span>}
+            </div>
+          ))}
+        </div>
+      )}
 
       {(card.standing?.winning?.length || card.standing?.losing?.length) && (
         <div className="pair">

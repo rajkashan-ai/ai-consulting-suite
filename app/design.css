@@ -284,10 +284,14 @@ button:disabled{cursor:not-allowed}
 /* -----------------------------------------------------------------------------
    5. SHELL
    -------------------------------------------------------------------------- */
-.app{min-height:100vh; background:var(--paper)}
+.app{min-height:100vh; background:var(--sand)}
 
+/* The frame. One dark block carrying the identity and the six tools, so a tool
+   never has to introduce itself and the content below it is all content. Warm
+   navy rather than flat ink: it has to sit beside the sand ground without
+   looking like a different product. */
 header{height:var(--header-h); display:flex; align-items:center; gap:var(--s3);
-  padding:0 var(--s5); background:var(--ink); border-bottom:1px solid rgba(255,255,255,.08)}
+  padding:0 var(--s6); background:var(--chrome)}
 .logo{display:flex; align-items:center; gap:var(--s2); margin-right:auto; color:#fff;
   font-size:15px; line-height:20px; font-weight:500; letter-spacing:-.006em}
 /* The first of exactly three berry elements on any screen. Named so that
@@ -302,26 +306,23 @@ header{height:var(--header-h); display:flex; align-items:center; gap:var(--s3);
    The bar is translucent with a blur, which is Linear's --header-bg #fffc and
    --header-blur 20px. The blur changes the texture under the bar and not only
    its value, so it separates from either ground without a heavy border. */
-nav{display:flex; gap:var(--s1); align-items:center; height:var(--nav-h);
-  padding:0 var(--s4); overflow-x:auto; scrollbar-width:none;
-  position:sticky; top:0; z-index:4;
-  background:color-mix(in srgb, var(--paper) 88%, transparent);
-  backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
-  border-bottom:1px solid var(--line)}
+/* Inside the frame, not a second bar under it. Two bars, one dark and one
+   light, read as two separate headers and cost 120px before any content. */
+nav{display:flex; gap:2px; align-items:center; height:var(--nav-h);
+  padding:0 var(--s6) var(--s3); overflow-x:auto; scrollbar-width:none;
+  background:var(--chrome)}
 nav::-webkit-scrollbar{display:none}
-@supports not ((backdrop-filter:blur(20px)) or (-webkit-backdrop-filter:blur(20px))){
-  nav{background:var(--paper)}
-}
 .navitem{display:inline-flex; align-items:center; gap:var(--s2); flex:none;
   height:40px; padding:0 var(--s4); border:0; background:transparent;
   border-radius:var(--r-pill); cursor:pointer; white-space:nowrap;
-  font-size:13px; line-height:18px; font-weight:500; letter-spacing:0; color:var(--muted)}
+  font-size:13.5px; line-height:18px; font-weight:500; letter-spacing:0;
+  color:var(--chrome-soft)}
 .navitem__ic{width:16px; height:16px; flex:none; color:var(--muted)}
 /* Driven from aria-current, not a class, so the accessible name and the drawn
    state cannot diverge. Three signals: fill, weight, and the attribute.
    The active icon is white, not berry: that frees an accent slot, and Linear's
    own active nav items are monochrome. */
-.navitem[aria-current="page"]{background:var(--ink); color:#fff; font-weight:600}
+.navitem[aria-current="page"]{background:var(--chrome-line); color:#fff; font-weight:600}
 .navitem[aria-current="page"] .navitem__ic{color:#fff}
 
 /* -----------------------------------------------------------------------------
@@ -1136,3 +1137,18 @@ main{padding:0}
 /* --- The second accent. Never a status, and never more than one figure. --- */
 .t-win{color:var(--teal)}
 .tag--ahead{background:var(--teal-wash); color:var(--teal)}
+
+/* --- The tool's own header, continuing the frame ------------------------
+   The page used to start a white band immediately under the dark bar, so the
+   frame stopped at 120px and the tool name sat on the content ground looking
+   like the first thing it found. Carrying the frame down past the name means
+   the sand ground below it holds nothing but the answer. */
+.toolhead{background:var(--chrome); color:#f3f0eb; padding:var(--s7) 0 var(--s10)}
+.toolhead__kind{margin:0 0 var(--s3); font-family:var(--mono); font-size:11px;
+  line-height:14px; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--brand-wash)}
+.toolhead__h{margin:0; color:#f3f0eb; max-width:var(--measure)}
+
+/* The band under the frame carries no top gap of its own: the frame's padding
+   is the gap, and two of them is the doubled-section-gap mistake again. */
+.toolhead + .band{padding-top:0}

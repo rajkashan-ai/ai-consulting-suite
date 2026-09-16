@@ -43,10 +43,18 @@ export default async function ToolPage({
       <Nav workspaceId={current.id} />
 
       <main>
+        {/* The tool's own header continues the frame rather than starting a
+            white page under it. The name and the one line saying what the tool
+            is belong to the frame; everything below is the answer. */}
+        <div className="toolhead">
+          <div className="band__in">
+            <p className="toolhead__kind">{tool.name}</p>
+            <h1 className="t-page toolhead__h">{tool.does}</h1>
+          </div>
+        </div>
+
         <div className="band band--a band--first band--last">
           <div className="band__in">
-            <h1 className="t-page">{tool.name}</h1>
-            <p className="t-doc">{tool.does}</p>
 
             {tool.built ? (
               <CompetitorTracker
