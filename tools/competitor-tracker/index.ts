@@ -83,9 +83,26 @@ export const competitorTracker: ToolRun<RunState> = {
     const key = playbookKey(business);
     if (!key) return;
 
-    // A run that found nothing is worth writing down, and so is a known host
-    // that we searched for on purpose and got nothing from. Both used to be
-    // dropped, so a trade could come back empty forever and a platform that
+    /**
+     * Did this run actually look?
+     *
+     * "We found nothing" is a claim about the trade, and only a run that
+     * searched has earned the right to make it. On 2026-09-16 the API credit
+     * ran out, six runs died in under two seconds having fetched no page and
+     * spent no token, and one of them filed "nothing in Shrewsbury" against a
+     * barber playbook holding two platforms that name 185 barbers. Three of
+     * those would have stopped the trade permanently.
+     *
+     * Search results coming back is the evidence. Everything downstream of it
+     * is a real result, empty or not; everything before it is a run that fell
+     * over, which is a fact about us and not about the trade.
+     */
+    const looked = !!state.seen?.length;
+    if (!looked) return;
+
+    // A run that looked and found nothing is worth writing down, and so is a
+    // known host we searched for on purpose and got nothing from. Both used to
+    // be dropped, so a trade could come back empty forever and a platform that
     // had stopped listing it was searched on every run.
     const foundNothing = !state.learned?.length && !state.listed?.length;
     const blank = state.blankHosts ?? [];

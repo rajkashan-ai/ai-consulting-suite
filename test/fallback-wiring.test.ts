@@ -259,7 +259,8 @@ test("an unmatched business never reads or writes the bare other row", async () 
   assert.equal(asked.key, "other:scaffolding-hire");
 
   await competitorTracker.learn!(
-    { learned: [{ host: "freeindex.co.uk", example: "x", named: 9 }] } as RunState,
+    { learned: [{ host: "freeindex.co.uk", example: "x", named: 9 }],
+      seen: [{ term: "scaffolding hire Shrewsbury", results: [] }] } as unknown as RunState,
     scaffolder,
     db,
   );
@@ -274,7 +275,8 @@ test("a business we cannot name is not filed at all", async () => {
   assert.equal(asked.key, null, "it looked one up anyway");
 
   await competitorTracker.learn!(
-    { learned: [{ host: "freeindex.co.uk", example: "x", named: 9 }] } as RunState,
+    { learned: [{ host: "freeindex.co.uk", example: "x", named: 9 }],
+      seen: [{ term: "x", results: [] }] } as unknown as RunState,
     nameless,
     db,
   );
@@ -285,7 +287,8 @@ test("the town and the empty result reach the database, not just the platforms",
   const { db, asked } = fakeDb();
   await competitorTracker.prepare!({}, aBusiness(), db);
   await competitorTracker.learn!(
-    { learned: [], listed: [], blankHosts: [] } as RunState,
+    { learned: [], listed: [], blankHosts: [],
+      seen: [{ term: "barber Shrewsbury", results: [] }] } as unknown as RunState,
     aBusiness(),
     db,
   );
@@ -303,6 +306,7 @@ test("a blank host reaches the database so it can be counted towards being dropp
       learned: [],
       listed: [{ name: "x" }],
       blankHosts: ["fresha.com"],
+      seen: [{ term: "barber Shrewsbury", results: [] }],
     } as unknown as RunState,
     aBusiness(),
     db,
@@ -310,4 +314,42 @@ test("a blank host reaches the database so it can be counted towards being dropp
 
   const platforms = asked.upserted?.platforms as { host: string; blanks?: number }[];
   assert.equal(platforms[0].blanks, 1, "the blank was dropped on the floor");
+});
+
+
+/**
+ * "We found nothing" is a claim about the trade, and only a run that searched
+ * has earned the right to make it.
+ *
+ * On 2026-09-16 the API credit ran out. Six runs died in under two seconds
+ * having fetched no page and spent no token, and one filed "nothing in
+ * Shrewsbury" against a barber playbook holding two platforms that name 185
+ * barbers between them. Three of those and the trade would have been stopped
+ * permanently by a problem that had nothing to do with barbers.
+ */
+test("a run that fell over before searching teaches the playbook nothing", async () => {
+  for (const dead of [
+    {},
+    { seen: [] },
+    { learned: [], listed: [] },
+  ]) {
+    const { db, asked } = fakeDb();
+    await competitorTracker.learn!(dead as RunState, aBusiness(), db);
+    assert.equal(
+      asked.upserted,
+      null,
+      `a run with ${JSON.stringify(dead)} wrote to the playbook`,
+    );
+  }
+});
+
+test("a run that searched and found nothing does teach the playbook", async () => {
+  // The other side of it. An honest empty result is exactly what we want kept.
+  const { db, asked } = fakeDb();
+  await competitorTracker.learn!(
+    { seen: [{ term: "bakery Ware", results: [] }], learned: [], listed: [] } as unknown as RunState,
+    aBusiness({ trade: "bakery", town: "Ware" }),
+    db,
+  );
+  assert.deepEqual(asked.upserted?.nothing_in, ["Ware"]);
 });
