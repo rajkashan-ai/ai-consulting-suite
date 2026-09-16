@@ -133,8 +133,19 @@ test("breakit: the message a stopped run shows does not promise something untrue
   // The run row is created fresh with no state, so "start it again" starts from
   // nothing. Telling an owner it carries on is a claim about our own machinery
   // and it is not true.
-  const v = check({}, { stage: "reading", startedAt: new Date(Date.now() - 99 * 60_000) });
-  assert.ok(v, "a run 99 minutes old was not stopped at all");
+  /**
+   * Setup changed on 2026-09-16, by the builder, and said plainly because this
+   * is a tester's test. The assertion is untouched. It built a stopped run by
+   * putting the clock 99 minutes back, and the fix for the sibling finding
+   * ("a run picked up after a closed laptop") means the clock no longer stops
+   * anything: it is working time now. So the stop is built the new way, from
+   * time actually spent, and the message is checked exactly as before.
+   */
+  const v = check(
+    { cost: { reading: { seconds: 99 * 60, input: 0, output: 0, pages: 0 } } },
+    { stage: "reading", startedAt: new Date(Date.now() - 99 * 60_000) },
+  );
+  assert.ok(v, "a run that worked 99 minutes was not stopped at all");
   assert.doesNotMatch(
     v!.say,
     /carry on from what it already found|pick up where/i,

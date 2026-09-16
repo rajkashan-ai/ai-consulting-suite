@@ -39,9 +39,19 @@ test("breakit: a thrown error is not handed to the customer word for word", () =
 });
 
 test("breakit: the errors this product throws would be safe to show", () => {
-  // Every `throw new Error(` inside the engine, since each one can reach the
-  // screen through that catch.
-  const thrown = [...engine.matchAll(/throw new Error\(([\s\S]*?)\);\n/g)].map((m) =>
+  /**
+   * Every error the engine builds, since each one can reach the screen through
+   * that catch.
+   *
+   * Widened on 2026-09-16, by the builder, and said plainly because this is a
+   * tester's test: it looked for `throw new Error(` only. The fix moved both
+   * throws into named helpers that build the error and set the machinery on
+   * `cause`, so the old pattern matched nothing and the test failed its own
+   * "at least 2" check rather than finding a leak. Scanning every `new Error(`
+   * covers the helpers as well as any inline throw, so this is broader than
+   * what it replaces, not narrower.
+   */
+  const thrown = [...engine.matchAll(/new Error\(([\s\S]*?)\);\n/g)].map((m) =>
     m[1].replace(/\s+/g, " ").trim(),
   );
   assert.ok(thrown.length >= 2, `only found ${thrown.length} thrown errors`);

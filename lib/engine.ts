@@ -7,6 +7,7 @@ import { advance, type RunState, type Stage } from "@/tools/competitor-tracker/s
 import { EMPTY, learn, type Playbook } from "@/tools/competitor-tracker/playbook";
 import type { Business, ToolContext } from "@/tools/types";
 import { check, note, type Watch } from "@/lib/watchdog";
+import { plainly } from "@/lib/plainly";
 import { buildBody, hollow } from "@/tools/competitor-tracker/document";
 
 /**
@@ -21,6 +22,29 @@ import { buildBody, hollow } from "@/tools/competitor-tracker/document";
  * to check. Every row it touches is reached through the run's own id, which the
  * caller already had to know.
  */
+
+/**
+ * The two ways a model call can fail, as errors whose message is already fit to
+ * be read by an owner.
+ *
+ * The size, the part being built and whatever prose came back instead are all
+ * machinery. They go on `cause`, which plainly() folds into the text we keep
+ * and never into the text we show. Built here rather than written inline
+ * because a `throw new Error(...)` whose argument interpolates a variable puts
+ * that variable's name in the source, and the check that reads these messages
+ * reads the source.
+ */
+function cutOff(part: string | undefined, ceiling: number): Error {
+  const e = new Error("CutOff: the write up came out longer than we can handle in one go");
+  e.cause = `${part ?? "no shape"} at ${ceiling}`;
+  return e;
+}
+
+function wrongForm(part: string, said: string): Error {
+  const e = new Error("WrongForm: the write up came back in a form we could not use");
+  e.cause = `${part}: ${said}`;
+  return e;
+}
 
 const SMALL = "claude-sonnet-5";
 const BIG = "claude-opus-5";
@@ -239,11 +263,7 @@ export async function step(runId: string): Promise<Progress | null> {
        * field.
        */
       if (response.stop_reason === "max_tokens") {
-        throw new Error(
-          `The answer was cut off at ${maxTokens ?? 4000} tokens` +
-            (shape ? ` while building "${shape.name}"` : "") +
-            `. Nothing is stored from a half answer.`,
-        );
+        throw cutOff(shape?.name, maxTokens ?? 4000);
       }
 
       if (!shape) {
@@ -259,10 +279,7 @@ export async function step(runId: string): Promise<Progress | null> {
       // it indistinguishable from a model that had nothing to say.
       if (!used || !("input" in used)) {
         const said = response.content.find((c) => c.type === "text");
-        throw new Error(
-          `Asked for "${shape.name}" and got ` +
-            (said && "text" in said ? `words instead: ${said.text.slice(0, 160)}` : "nothing"),
-        );
+        throw wrongForm(shape.name, said && "text" in said ? said.text.slice(0, 160) : "nothing");
       }
 
       return used.input;
@@ -280,7 +297,7 @@ export async function step(runId: string): Promise<Progress | null> {
   try {
     result = await advance(run.stage as Stage, state, business, ctx);
   } catch (e) {
-    return fail(db, runId, e instanceof Error ? e.message : String(e), spent, pages);
+    return faulted(db, runId, run.state, watch, e, spent, pages);
   }
 
   /**
@@ -415,6 +432,32 @@ export async function step(runId: string): Promise<Progress | null> {
     documentId,
     reason: result.state.reason ?? null,
   };
+}
+
+/**
+ * A step threw. Tell the owner something they can act on, keep the real text.
+ *
+ * Both halves matter. Theirs used to be the exception's own words, so a barber
+ * could be shown a token budget and a shape name. Ours has to survive, because
+ * the real text is the only thing that makes the fault findable tomorrow.
+ */
+async function faulted(
+  db: ReturnType<typeof createAdminClient>,
+  runId: string,
+  had: unknown,
+  watch: Watch,
+  e: unknown,
+  spent: { input: number; output: number },
+  pages: number,
+): Promise<Progress> {
+  const plain = plainly(e);
+  await db
+    .from("runs")
+    .update({
+      state: { ...((had ?? {}) as object), watch: { ...watch, stopped: plain.why } } as never,
+    })
+    .eq("id", runId);
+  return fail(db, runId, plain.say, spent, pages);
 }
 
 async function fail(

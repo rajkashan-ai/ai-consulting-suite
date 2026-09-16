@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   CAPS,
   STILL_LIMIT,
-  WHOLE_RUN_MINUTES,
+  WORKING_MINUTES,
   check,
   note,
   type Watch,
@@ -25,6 +25,19 @@ import {
 
 /** A run that started this many minutes ago. */
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+
+/**
+ * A run that has spent this many minutes actually working.
+ *
+ * The deadline used to be wall clock since the run was created, which is the
+ * one measurement this product is built to ignore: the pipeline exists so a
+ * closed laptop does not lose a run. A run two steps in, left overnight, was
+ * killed the moment anybody looked at it. It is working time now, summed from
+ * what each stage spent, so the tests below build that instead of a clock.
+ */
+const worked = (minutes: number, stage = "reading"): Watch => ({
+  cost: { [stage]: { seconds: minutes * 60, input: 0, output: 0, pages: 0 } },
+});
 
 /** Play a list of steps through, the way the engine does. */
 const play = (steps: [stage: string, progress: string][]): Watch =>
@@ -71,21 +84,48 @@ test("every mend pass the tracker is allowed to take is allowed", () => {
 // ---------------------------------------------------------------------------
 
 test("a run past the deadline is stopped", () => {
-  const v = check({}, { stage: "reading", startedAt: ago(WHOLE_RUN_MINUTES + 1) });
+  const v = check(worked(WORKING_MINUTES + 1), { stage: "reading", startedAt: ago(20) });
   assert.match(v?.say ?? "", /took longer/);
   assert.match(v?.why ?? "", /reading/);
 });
 
 test("a run a minute inside the deadline is left alone", () => {
-  assert.equal(check({}, { stage: "reading", startedAt: ago(WHOLE_RUN_MINUTES - 1) }), null);
+  assert.equal(check(worked(WORKING_MINUTES - 1), { stage: "reading", startedAt: ago(20) }), null);
 });
 
-test("it records how long it actually ran, so the limit can be tuned", () => {
-  const v = check({}, { stage: "writing", startedAt: ago(30) });
-  assert.match(v?.why ?? "", /ran 30\.\d minutes/);
+test("a run left overnight between steps is not touched", () => {
+  // The case the old wall clock got wrong. Two steps of real work, then
+  // fourteen hours of nothing because the laptop was shut.
+  const watch: Watch = {
+    ...worked(2, "searching"),
+    spent: { searching: 1, listings: 1 },
+  };
+  assert.equal(check(watch, { stage: "choosing", startedAt: ago(14 * 60) }), null);
+});
+
+test("a run with nothing recorded is not judged on time at all", () => {
+  // "We do not know" must not become "too long".
+  assert.equal(check({}, { stage: "reading", startedAt: ago(99) }), null);
+});
+
+test("it records how long it actually worked, so the limit can be tuned", () => {
+  const v = check(worked(30, "writing"), { stage: "writing", startedAt: ago(40) });
+  assert.match(v?.why ?? "", /spent 30\.\d minutes working/);
+});
+
+test("the stopped message promises nothing about what happens next", () => {
+  // It used to say it would carry on from what it already found. Reopening
+  // starts a brand new run from nothing, so the one sentence an owner was
+  // given about their own work was untrue.
+  const v = check(worked(99), { stage: "reading", startedAt: ago(99) });
+  assert.ok(v, "a run that worked 99 minutes was not stopped");
+  assert.doesNotMatch(v!.say, /carry on from what it already found|pick up where|resume/i, v!.say);
 });
 
 test("an unusable start date does not fail every run on sight", () => {
+  // Kept from when the deadline read the clock. It reads working time now, so
+  // the date cannot fail a run at all, which is a stronger version of the same
+  // guarantee rather than a reason to delete the case.
   // A null or malformed started_at becomes new Date(NaN). Every comparison with
   // NaN is false, so the check has to be written to fall through rather than to
   // trip. Written the other way round, this fails every run on its first step,
@@ -181,8 +221,11 @@ test("note keeps a reason already recorded", () => {
 test("nothing said to the customer mentions a stage, a step or a limit", () => {
   // UI/CLAUDE.md section 7, rule 7: nothing about how the product is built. A
   // stage name in a failure message is our machinery on their screen.
+  // The first one builds a run that has worked too long, rather than one that
+  // is merely old: the deadline reads working time now, so an old run with
+  // nothing recorded is correctly left alone and produced no message to screen.
   const said = [
-    check({}, { stage: "reading", startedAt: ago(99) }),
+    check(worked(99), { stage: "reading", startedAt: ago(99) }),
     check({ spent: { reading: 99 } }, { stage: "reading", startedAt: ago(1) }),
     check({ saidSame: 9 }, { stage: "checking", startedAt: ago(1) }),
   ].map((v) => v?.say ?? "");

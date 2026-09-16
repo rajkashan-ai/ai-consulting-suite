@@ -195,8 +195,17 @@ test("an answer that was cut off is not quietly accepted", async () => {
    */
   const engine = readFileSync(join(import.meta.dirname, "..", "lib", "engine.ts"), "utf8");
   assert.match(engine, /stop_reason === "max_tokens"/, "truncation is swallowed again");
-  assert.match(engine, /cut off at/, "and it does not say so");
-  assert.match(engine, /Asked for/, "a wrong-shaped answer is swallowed again");
+
+  /**
+   * Asserted by behaviour, not by wording. This used to match the literal
+   * phrases "cut off at" and "Asked for", which were the words shown to the
+   * customer. On 2026-09-16 those messages had to change, because they carried
+   * a token budget and an internal shape name onto an owner's screen, and this
+   * test went red for a fix rather than for a fault. A test that pins the
+   * customer's wording stops the wording being corrected.
+   */
+  assert.match(engine, /throw cutOff\(/, "truncation no longer throws");
+  assert.match(engine, /throw wrongForm\(/, "a wrong-shaped answer is swallowed again");
 });
 
 test("the narrative is written from the grid, not from every page again", async () => {

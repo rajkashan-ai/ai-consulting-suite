@@ -23,6 +23,7 @@ import { confidence, isDeadEnd, startWith, type Playbook } from "./playbook.ts";
 import { rank, type Found, type Scored } from "./rank.ts";
 import { sift } from "./sift.ts";
 import { scrubGrid, scrubStanding } from "./scrub.ts";
+import { plainly } from "../../lib/plainly.ts";
 import {
   cite,
   citeRules,
@@ -184,6 +185,31 @@ export async function advance(
   business: Business,
   ctx: ToolContext,
 ): Promise<Step> {
+  /**
+   * A stage that throws fails the run. It does not throw at whoever called us.
+   *
+   * The engine had a catch around this and that was the only thing standing
+   * between an exception and the customer's screen. Anything else that drives
+   * the pipeline, a test, a scheduled tick, a second caller written next month,
+   * got a raw exception and had to remember to translate it. Catching here
+   * means the pipeline has one answer for a failure whoever is asking.
+   *
+   * The run's reason is written in the owner's words; the real text is on the
+   * error and the engine keeps it.
+   */
+  try {
+    return await run(stage, state, business, ctx);
+  } catch (e) {
+    return stop(state, plainly(e).say);
+  }
+}
+
+async function run(
+  stage: Stage,
+  state: RunState,
+  business: Business,
+  ctx: ToolContext,
+): Promise<Step> {
   switch (stage) {
     case "searching":
       return search(state, business, ctx);
@@ -272,8 +298,9 @@ async function search(state: RunState, business: Business, ctx: ToolContext): Pr
   if (!withResults.length) {
     return stop(
       state,
-      `Nothing came back for "${terms[0]?.term}". That usually means the trade or ` +
-        `the town is wrong for this business.`,
+      `We could not find any other ${profile.trade ?? "business"}s in ` +
+        `${profile.town ?? "your area"}. That usually means the trade or the town ` +
+        `we have for you is wrong. Check them and try again.`,
     );
   }
 

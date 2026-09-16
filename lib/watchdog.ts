@@ -49,8 +49,22 @@ export type Watch = {
  */
 export type Verdict = { say: string; why: string } | null;
 
-/** The whole run, end to end. A good run is around six minutes. */
-export const WHOLE_RUN_MINUTES = 12;
+/**
+ * Time actually spent working, not time since the run was created.
+ *
+ * This was wall clock from `started_at`, which is the one measurement the
+ * product is built to ignore. The whole pipeline exists so a closed laptop does
+ * not lose a run: each step saves and something picks it up later. Measured on
+ * the clock, a run two steps in and left overnight was killed the moment
+ * anybody looked at it, having done nothing wrong at all.
+ *
+ * The seconds spent in each stage are already recorded, so the sum of those is
+ * the honest measure. A laptop shut for fourteen hours adds nothing to it.
+ */
+export const WORKING_MINUTES = 12;
+
+/** Kept for anything still reading the old name. */
+export const WHOLE_RUN_MINUTES = WORKING_MINUTES;
 
 /** Identical steps in a row before we call it still. */
 export const STILL_LIMIT = 3;
@@ -131,19 +145,25 @@ export function check(
   watch: Watch,
   at: { stage: string; startedAt: string | Date; now?: Date },
 ): Verdict {
-  const now = at.now ?? new Date();
-  const started = new Date(at.startedAt);
+  /**
+   * Working time, summed from what each stage actually spent.
+   *
+   * A run with nothing recorded is not judged on time at all. That is the
+   * deliberate choice: a run part way through, or one started before this was
+   * recorded, has no working time to measure, and "we do not know" must not
+   * become "too long". The step caps and the still detector still apply.
+   */
+  const worked = Object.values(watch.cost ?? {}).reduce((sum, c) => sum + (c?.seconds ?? 0), 0);
+  const minutes = worked / 60;
 
-  // An unreadable start date must not be taken as "started in 1970" and fail
-  // every run on sight.
-  if (!Number.isNaN(started.getTime())) {
-    const minutes = (now.getTime() - started.getTime()) / 60_000;
-    if (minutes > WHOLE_RUN_MINUTES) {
-      return {
-        say: "This took longer than it should, so we stopped it. Start it again and it will carry on from what it already found.",
-        why: `ran ${minutes.toFixed(1)} minutes, past the ${WHOLE_RUN_MINUTES} minute limit, at ${at.stage}`,
-      };
-    }
+  if (minutes > WORKING_MINUTES) {
+    return {
+      // No promise about what happens next. It used to say it would carry on
+      // from what it already found, and reopening started a brand new run from
+      // nothing, so the one sentence an owner was given was untrue.
+      say: "This took longer than it should, so we stopped it. Start it again.",
+      why: `spent ${minutes.toFixed(1)} minutes working, past the ${WORKING_MINUTES} minute limit, at ${at.stage}`,
+    };
   }
 
   const cap = CAPS[at.stage];
