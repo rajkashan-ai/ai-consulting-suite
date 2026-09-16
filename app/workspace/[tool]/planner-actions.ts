@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { CHANNEL, CRITIQUES } from "../../../../Agents/Content & Social Planner/src/types";
+import { CADENCES, CHANNEL, CRITIQUES } from "../../../../Agents/Content & Social Planner/src/types";
 import { FIRST_STAGE, lastPlan } from "@/tools/content-social-planner/index";
 
 /**
@@ -94,8 +94,11 @@ export async function toggleCritique(form: FormData) {
  */
 export async function changeCadence(form: FormData) {
   const workspaceId = String(form.get("workspaceId") ?? "");
-  const hoursAWeek = Number(form.get("hoursAWeek") ?? 0);
-  if (!workspaceId || !Number.isFinite(hoursAWeek)) return;
+  /* The cadence itself, not an approximate number of hours turned back into
+     one: the conversion reads how many channels they have, so with one channel
+     the "a couple of times a week" button rebuilt the month as once a week. */
+  const cadence = String(form.get("cadence") ?? "");
+  if (!workspaceId || !CADENCES.includes(cadence as never)) return;
 
   const supabase = await createClient();
 
@@ -125,7 +128,7 @@ export async function changeCadence(form: FormData) {
     workspace_id: workspaceId,
     tool: "content-social-planner",
     stage: FIRST_STAGE,
-    state: { hoursAWeek, before: lastPlan(before?.body) },
+    state: { chose: cadence, before: lastPlan(before?.body) },
   });
 
   revalidatePath("/workspace/content-social-planner");

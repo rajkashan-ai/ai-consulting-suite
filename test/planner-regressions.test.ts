@@ -6,7 +6,8 @@ import { decidePlan, sayNext } from "../tools/content-social-planner/freshness.t
 import { contentSocialPlanner, FIRST_STAGE } from "../tools/content-social-planner/index.ts";
 import { progressFor, type RunState, type Stage } from "../tools/content-social-planner/stages.ts";
 import { PLAN_DAYS } from "../../Agents/Content & Social Planner/src/plan-shape.ts";
-import { CADENCE_LABEL, CRITIQUES } from "../../Agents/Content & Social Planner/src/types.ts";
+import { ANGLES, CADENCES, CADENCE_LABEL, CRITIQUES } from "../../Agents/Content & Social Planner/src/types.ts";
+import { recommendCadence } from "../../Agents/Content & Social Planner/src/recommend.ts";
 
 /**
  * One test per thing that broke, so it cannot break again quietly.
@@ -113,7 +114,10 @@ test("the wait is not the tracker's week", () => {
   const made = "2026-09-16T09:00:00.000Z";
   const aWeekLater = new Date("2026-09-23T09:00:00.000Z");
   assert.equal(decidePlan(made, aWeekLater).allowed, false, "it is running weekly, which is the other tool's rule");
-  assert.equal(PLAN_DAYS, 30);
+  /* Derived, not typed: the wait is whatever the plan covers, and asserting
+     that PLAN_DAYS is 30 would police the constant rather than follow it. */
+  const next = decidePlan(made, new Date(made)).nextRunAt!;
+  assert.equal(Math.round((+new Date(next) - +new Date(made)) / 86400000), PLAN_DAYS);
 });
 
 test("a clock that went backwards does not strand them for a month", () => {
@@ -929,4 +933,85 @@ test("the fixture on disk is still what the reader would have produced", () => {
     if (p.url.endsWith(".xml")) continue;
     assert.doesNotMatch(p.text, /<[a-z][a-z0-9]*(\s|>|\/)/i, `${p.url} holds markup the reader strips`);
   }
+});
+
+/* ── facts that live in two places, checked against each other ───────────── */
+
+test("a cadence button gives the cadence it is labelled with", () => {
+  /**
+   * The button used to send a number of hours, which `recommend.ts` turned back
+   * into a cadence using a rule that also reads how many channels they have. So
+   * with one channel, "A couple of times a week" rebuilt the month as once a
+   * week. The test that found it asserted the round trip rather than repeating
+   * the numbers, which is why it found it at all.
+   *
+   * The button sends the cadence now, so the assertion is that nothing converts
+   * it on the way and that every cadence has a button.
+   */
+  const controls = screen("plan-controls.tsx");
+  assert.doesNotMatch(controls, /HOURS/, "the button is guessing hours again");
+  assert.match(controls, /name="cadence" value=\{c\}/, "the button does not send what it says");
+
+  const actions = readFileSync(join(here, "..", "app", "workspace", "[tool]", "planner-actions.ts"), "utf8");
+  assert.match(actions, /chose: cadence/, "what they pressed is not carried to the run");
+
+  /* And it wins, whatever the channels would have suggested. One channel is the
+     case that broke: the starting point is weekly there. */
+  const known = {
+    services: ["a cut"], prices: {}, accreditations: [], awards: [], namedClients: [],
+    counts: {}, reviewThemes: [], servesAnArea: true,
+  };
+  for (const cadence of CADENCES) {
+    for (const channels of [["instagram"], ["instagram", "facebook"]]) {
+      const got = recommendCadence(known as never, { chose: cadence }, channels as never);
+      assert.equal(got.cadence, cadence, `chose ${cadence} with ${channels.length} channel(s), got ${got.cadence}`);
+      assert.ok(
+        got.because.some((r) => /you asked for/i.test(r.text)),
+        "it does not say the number came from them",
+      );
+      assert.ok(
+        !got.because.some((r) => /hours a week/i.test(r.text)),
+        "it still claims they told us how much time they have",
+      );
+    }
+  }
+});
+
+test("the angle each purpose may use is the same list in both places", () => {
+  /**
+   * `shape.ts` holds the map because the agent's copy lives in a command line
+   * runner that imports node:fs and cannot be pulled into a server bundle. That
+   * is a reason for two copies, not for two answers, and nothing compared them.
+   */
+  const mine = readFileSync(join(here, "..", "tools", "content-social-planner", "shape.ts"), "utf8");
+  const theirs = readFileSync(
+    join(here, "..", "..", "Agents", "Content & Social Planner", "bin", "plan.mjs"),
+    "utf8",
+  );
+
+  const listsIn = (src: string, from: string) => {
+    const at = src.indexOf(from);
+    assert.ok(at > -1, `${from} is gone`);
+    const block = src.slice(at, src.indexOf("};", at));
+    return Object.fromEntries(
+      [...block.matchAll(/(\w+):\s*\[([^\]]*)\]/g)].map((m) => [
+        m[1],
+        [...m[2].matchAll(/['"]([a-z-]+)['"]/g)].map((x) => x[1]),
+      ]),
+    );
+  };
+
+  assert.deepEqual(listsIn(mine, "const BY_PURPOSE"), listsIn(theirs, "const byPurpose = {"));
+});
+
+test("every angle the shape can pick is one the agent folder defines", () => {
+  /* And the map cannot name an angle that does not exist, which a hand-written
+     list can and a typo would make silently unreachable. */
+  const mine = readFileSync(join(here, "..", "tools", "content-social-planner", "shape.ts"), "utf8");
+  const block = mine.slice(mine.indexOf("const BY_PURPOSE"), mine.indexOf("};", mine.indexOf("const BY_PURPOSE")));
+  const named = [...block.matchAll(/"([a-z-]+)"/g)].map((m) => m[1]);
+
+  assert.ok(named.length >= 10, `only ${named.length} angles mapped`);
+  for (const a of named) assert.ok((ANGLES as readonly string[]).includes(a), `"${a}" is not an angle`);
+  for (const a of ANGLES) assert.ok(named.includes(a), `"${a}" exists and no purpose can pick it`);
 });

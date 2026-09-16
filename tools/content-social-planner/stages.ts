@@ -80,6 +80,8 @@ export type RunState = {
   before?: Before | null;
   /** Where they told us they post. Undefined means nobody has asked. */
   told?: string[];
+  /** A cadence they pressed. Beats the recommendation outright. */
+  chose?: Cadence;
   /** Pages actually read, numbered, in the order the model is shown them. */
   pages?: Page[];
   read?: ReadPage[];
@@ -482,7 +484,13 @@ async function shaping(state: RunState, business: Business, ctx: ToolContext): P
     );
   }
 
-  const rec = recommendCadence(knownFacts(business) as never, { hoursAWeek: 2 }, channels);
+  const rec = recommendCadence(
+    knownFacts(business) as never,
+    /* Their choice if they made one, and our default if not. Never both: a
+       chosen cadence that we then second-guess is not a choice. */
+    state.chose ? { chose: state.chose } : { hoursAWeek: 2 },
+    channels,
+  );
   const problems = validateRecommendation(rec);
   if (problems.promised.length) {
     // A recommendation that promises a result is the one thing 6.8 forbids

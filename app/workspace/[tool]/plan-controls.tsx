@@ -10,16 +10,13 @@ import type { Cadence } from "../../../../Agents/Content & Social Planner/src/ty
  * Both were on the mockup and neither survived the rebuild.
  */
 
-/** Roughly what each cadence costs them a week, which is what recommendCadence reads. */
-const HOURS: Record<Cadence, number> = { weekly: 0.5, "twice-weekly": 2, "most-days": 5 };
-
 export function CadenceChoice({ workspaceId, current }: { workspaceId: string; current: Cadence }) {
   return (
     <div className="controls">
       {(CADENCES as readonly Cadence[]).map((c) => (
         <form action={changeCadence} key={c}>
           <input type="hidden" name="workspaceId" value={workspaceId} />
-          <input type="hidden" name="hoursAWeek" value={HOURS[c]} />
+          <input type="hidden" name="cadence" value={c} />
           {/* Their choice always wins, so this writes the month again rather
               than relabelling it: the mix, the angles and the dates all come
               off the cadence, and a plan with the old shape under a new name
