@@ -23,6 +23,7 @@ import { confidence, exhausted, isDeadEnd, type Playbook } from "./playbook.ts";
 import { whereToLook } from "./where.ts";
 import { ageOf, enoughToUse, type Kept } from "./remember.ts";
 import { dropBad, sayDropped, stillWrong, worthShowing } from "./dropActions.ts";
+import { sayMoved, sayStill, whatMoved, type Move } from "./changed.ts";
 import {
   NAMES_SHAPE,
   askFor,
@@ -105,6 +106,12 @@ export type RunState = {
   setAge?: string | null;
   /** Said on the document when an action was left out for want of evidence. */
   actionsDropped?: string;
+  /** Last run's comparison, and when it was built, so this one can say what moved. */
+  lastGrid?: Grid[];
+  lastOn?: string | null;
+  /** What moved since, worked out once the new grid exists. */
+  moved?: Move[];
+  movedSay?: string;
   /** Asking has had its turn. Stops the two discovery routes looping. */
   triedNaming?: boolean;
   /** Every host the four tiers offered, best evidence first. */
@@ -1487,11 +1494,28 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
     losing: (built.where_they_win ?? []).slice(0, 4),
   });
 
+  /**
+   * What moved since last week, worked out from the two grids.
+   *
+   * This is the question the product exists to answer, and until the competitor
+   * set was stored it was unaffordable: every run found different businesses,
+   * so there was nothing stable to compare week to week. Five known names make
+   * it arithmetic on two documents we already hold.
+   */
+  const since = state.lastOn ? new Date(state.lastOn).toLocaleDateString("en-GB") : null;
+  const moved = whatMoved(state.lastGrid, cleanGrid.grids);
+
   return {
     stage: "checking",
     state: {
       ...state,
       card,
+      moved,
+      // Nothing moved is a real answer, not an empty space. An owner who reads
+      // it has learned they are not behind.
+      movedSay: state.lastGrid?.length
+        ? (sayMoved(moved, since) ?? sayStill(since))
+        : undefined,
       grid: cleanGrid.grids,
       standing: cleanStanding.standing,
       areasSay: missingAreas ?? undefined,

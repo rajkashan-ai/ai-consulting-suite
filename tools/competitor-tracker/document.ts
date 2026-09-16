@@ -1,5 +1,6 @@
 import type { Battlecard } from "../../../Agents/Competitor Tracker/src/types.ts";
 import type { Grid, RunState, Side } from "./stages.ts";
+import type { Move } from "./changed.ts";
 import type { Funnel } from "./shortfall.ts";
 
 /**
@@ -44,6 +45,9 @@ export type DocumentBody = Battlecard & {
   actionsLeftOut?: string;
   /** How old the competitor set is, where it was reused rather than found. */
   setAge?: string;
+  /** What moved since the last run, and the one line that sums it up. */
+  moved?: Move[];
+  movedSay?: string;
 };
 
 /** Assemble the document from a finished run. */
@@ -59,6 +63,8 @@ export function buildBody(state: RunState): DocumentBody | null {
     funnel: state.funnel,
     actionsLeftOut: state.actionsDropped,
     setAge: state.setAge ?? undefined,
+    moved: state.moved?.length ? state.moved : undefined,
+    movedSay: state.movedSay,
   };
 }
 

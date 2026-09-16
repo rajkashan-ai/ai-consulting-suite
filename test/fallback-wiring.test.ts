@@ -49,8 +49,8 @@ const playbook = (over: Partial<Playbook> = {}): Playbook => ({
 /**
  * Records what the contract hooks actually asked the database for.
  *
- * Two tables now: `playbooks`, keyed on the trade, and `competitors`, keyed on
- * the workspace. Kept apart here so a test can say which one it means, because
+ * Three tables now: `playbooks`, keyed on the trade, and `competitors` and
+ * `documents`, keyed on the workspace. Kept apart here so a test can say which one it means, because
  * a double that lumps them together would have let a competitor row be filed
  * as a playbook and nothing would have noticed.
  */
@@ -66,7 +66,10 @@ function fakeDb(competitors: Record<string, unknown>[] = []) {
       select: () => ({
         eq: (_col: string, val: unknown) => ({
           maybeSingle: async () => {
-            asked.key = val as string;
+            // Only the playbook is keyed on the trade. Competitors and the last
+            // document are keyed on the workspace, and recording those here
+            // made a workspace id look like a playbook key.
+            if (table === "playbooks") asked.key = val as string;
             return { data: null };
           },
           // "where rejected_at is null", which is how a soft delete is read.

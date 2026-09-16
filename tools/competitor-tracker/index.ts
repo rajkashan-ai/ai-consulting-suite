@@ -63,7 +63,27 @@ export const competitorTracker: ToolRun<RunState> = {
       foundAt: (r.found_at ?? new Date().toISOString()) as string,
     }));
 
-    state = { ...state, kept };
+    /**
+     * Last week's comparison, so this week's can say what moved.
+     *
+     * Loaded here rather than at the end, because the grid this run builds
+     * overwrites nothing: the two have to exist side by side for a moment to
+     * be compared at all.
+     */
+    const { data: last } = (await db
+      .from("documents")
+      .select("body, created_at")
+      .eq("workspace_id", business.id)
+      .maybeSingle()) as { data: Record<string, unknown> | null };
+
+    const body = (last?.body ?? null) as { grid?: unknown } | null;
+
+    state = {
+      ...state,
+      kept,
+      lastGrid: (body?.grid ?? undefined) as never,
+      lastOn: (last?.created_at ?? null) as string | null,
+    };
 
     // An unmatched business is filed under its own words, never under the bare
     // `other`, which every unmatched business in the country would share. No
