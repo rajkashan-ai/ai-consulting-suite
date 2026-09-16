@@ -448,3 +448,51 @@ test("a cell in one column cited to another column's page is blanked", async () 
   assert.equal(row!.cells[0].source, null);
   assert.equal(row!.cells[1].value, "£18", "NO.1's own price was blanked");
 });
+
+test("the customer's own price, from their own website, survives", async () => {
+  /**
+   * The rule blanks a cell sourced to somebody else's page. The customer's own
+   * page is queued under "you", because that is what the reading step calls it,
+   * while their grid column is their real trading name. If those are not
+   * reconciled, their own website belongs to a business called "you", matches
+   * nothing, and every one of their own prices is silently blanked.
+   *
+   * That is data loss caused by a safety check, which is the worst kind: the
+   * page still looks finished and their column is simply empty. The recorded
+   * fixture sources its cells to the town listing, which is market wide and
+   * covers everyone, so it could never catch this. Breaking the mapping on
+   * purpose on 2026-09-16 changed no test result until this was written.
+   *
+   * Page [3] is the customer's own site.
+   */
+  const { state, stage } = await write({
+    comparison: {
+      comparison: [
+        {
+          area: "pricing",
+          columns: ["The Barber Shop Shrewsbury", ...FIVE],
+          rows: [
+            {
+              attribute: "Classic cut",
+              cells: [
+                { value: "£15", from: 3 },
+                ...FIVE.map((_, i) => ({ value: `£${18 + i}`, from: 4 + i })),
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    battlecard: recorded.battlecard,
+  });
+
+  assert.notEqual(stage, "failed", state.reason ?? "");
+  const row = state.grid?.[0]?.rows[0];
+
+  assert.equal(
+    row!.cells[0].value,
+    "£15",
+    "the customer's own price was blanked, sourced to their own website",
+  );
+  assert.match(row!.cells[0].source?.url ?? "", /shrewsburybarber/);
+});
