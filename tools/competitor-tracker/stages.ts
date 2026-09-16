@@ -22,6 +22,7 @@ import { isProfile, profileFor } from "./profile.ts";
 import { confidence, exhausted, isDeadEnd, type Playbook } from "./playbook.ts";
 import { whereToLook } from "./where.ts";
 import { ageOf, enoughToUse, type Kept } from "./remember.ts";
+import { dropBad, sayDropped, stillWrong, worthShowing } from "./dropActions.ts";
 import {
   NAMES_SHAPE,
   askFor,
@@ -102,6 +103,8 @@ export type RunState = {
   kept?: Kept[];
   /** How old that set is, said out loud rather than implied. */
   setAge?: string | null;
+  /** Said on the document when an action was left out for want of evidence. */
+  actionsDropped?: string;
   /** Asking has had its turn. Stops the two discovery routes looping. */
   triedNaming?: boolean;
   /** Every host the four tiers offered, best evidence first. */
@@ -1501,14 +1504,47 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
 // ---------------------------------------------------------------------------
 
 function check(state: RunState, business: Business): Step {
-  const card = state.card;
+  let card = state.card;
   if (!card) return stop(state, "Nothing was built. Run it again.");
 
-  const found = validateBattlecard(
+  let found = validateBattlecard(
     card,
     asText(card, { grid: state.grid, standing: state.standing }),
     new Date(),
   );
+
+  /**
+   * An unsupported action is dropped, not a reason to bin the card.
+   *
+   * The guards were a gate: one action resting on a number nobody could source
+   * and the comparison, the two columns and the other two actions went in the
+   * bin with it, all built and paid for. That happened to the bakery twice on
+   * 2026-09-16, on a different rule each time, and the owner saw nothing both
+   * times.
+   *
+   * The bad action still never reaches anybody. What changes is that the rest
+   * of the page survives it.
+   */
+  const actionProblems = Array.isArray(found.actions) ? found.actions : [];
+  const cut = dropBad(card.actions ?? [], actionProblems);
+
+  if (cut.dropped.length && worthShowing(cut)) {
+    const leaner = { ...card, actions: cut.kept };
+    const after = validateBattlecard(
+      leaner,
+      asText(leaner, { grid: state.grid, standing: state.standing }),
+      new Date(),
+    );
+
+    // Only carry on down this path if dropping actually fixed the actions.
+    // Something still wrong with them after a drop is a real problem and goes
+    // to the mender like anything else.
+    if (!stillWrong(Array.isArray(after.actions) ? after.actions : [], true).length) {
+      found = { ...after, actions: [] } as typeof found;
+      state = { ...state, card: leaner, actionsDropped: sayDropped(cut) ?? undefined };
+      card = leaner;
+    }
+  }
 
   const problems = Object.entries(found)
     .map(([rule, v]) => ({

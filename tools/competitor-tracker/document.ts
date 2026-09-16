@@ -39,6 +39,11 @@ export type DocumentBody = Battlecard & {
   headline?: string;
   /** Searches run, links seen, names found, and how they narrowed. */
   funnel?: Funnel;
+  /** Said when we had another suggestion and could not stand it up. A card
+   *  quietly showing two where it promises three looks like a bug. */
+  actionsLeftOut?: string;
+  /** How old the competitor set is, where it was reused rather than found. */
+  setAge?: string;
 };
 
 /** Assemble the document from a finished run. */
@@ -52,6 +57,8 @@ export function buildBody(state: RunState): DocumentBody | null {
     areas: state.areasSay,
     headline: state.headline,
     funnel: state.funnel,
+    actionsLeftOut: state.actionsDropped,
+    setAge: state.setAge ?? undefined,
   };
 }
 

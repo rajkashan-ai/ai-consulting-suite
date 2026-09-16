@@ -1,5 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import {
+  dropBad,
+  sayDropped,
+  stillWrong,
+  worthShowing,
+} from "../tools/competitor-tracker/dropActions.ts";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { advance, type RunState, type Stage } from "../tools/competitor-tracker/stages.ts";
@@ -220,4 +226,71 @@ test("two refused sentences at once are mended one at a time", async () => {
 
   assert.equal(stage, "done", "two sentences did not settle");
   assert.equal(passes, 2, "one pass per sentence");
+});
+
+// ---------------------------------------------------------------------------
+// One bad action does not take the card with it
+// ---------------------------------------------------------------------------
+
+/**
+ * The guards were a gate. One action resting on a number nobody could source
+ * and the comparison, the two columns and the other two actions went in the bin
+ * with it, all built and paid for. That happened to the bakery twice on
+ * 2026-09-16, on a different rule each time, and the owner saw nothing both
+ * times.
+ */
+test("an action with no evidence is dropped, and the rest of the card lives", () => {
+  const actions = [
+    { rank: 1, area: "pricing", headline: "Publish your prices", evidence: [{ value: 1 }] },
+    { rank: 2, area: "reviews", headline: "Made this one up", evidence: [] },
+    { rank: 3, area: "pricing", headline: "Name a package", evidence: [{ value: 2 }] },
+  ] as never[];
+
+  const cut = dropBad(actions, [{ kind: "no-evidence", headline: "Made this one up" }]);
+
+  assert.deepEqual(cut.dropped, ["Made this one up"]);
+  assert.equal(cut.kept.length, 2, "the good actions went with the bad one");
+  assert.ok(worthShowing(cut));
+});
+
+test("what is left is renumbered, not left with a hole where the second was", () => {
+  const actions = [
+    { rank: 1, area: "pricing", headline: "A", evidence: [{ value: 1 }] },
+    { rank: 2, area: "reviews", headline: "B", evidence: [] },
+    { rank: 3, area: "pricing", headline: "C", evidence: [{ value: 2 }] },
+  ] as never[];
+
+  const cut = dropBad(actions, [{ kind: "no-evidence", headline: "B" }]);
+  assert.deepEqual(cut.kept.map((a) => a.rank), [1, 2], "1 and 3 reads as a missing action");
+  assert.deepEqual(cut.kept.map((a) => a.headline), ["A", "C"]);
+});
+
+test("dropping every action is not a card worth showing", () => {
+  // One action is thin and still useful. None means nothing answers "what
+  // should I change", which is the question the whole page builds up to.
+  const actions = [{ rank: 1, area: "pricing", headline: "A", evidence: [] }] as never[];
+  const cut = dropBad(actions, [{ kind: "no-evidence", headline: "A" }]);
+  assert.equal(worthShowing(cut), false);
+});
+
+test("the owner is told one was left out, in their words not ours", () => {
+  const cut = { kept: [], dropped: ["A"] } as never;
+  const said = sayDropped(cut)!;
+  assert.match(said, /could not back it up/);
+  assert.doesNotMatch(said, /guard|rule|evidence check|validate|action problem/i);
+});
+
+/**
+ * "There should be exactly three, numbered one to three" is the right thing to
+ * ask a model for and the wrong thing to hold against a card we shortened
+ * ourselves.
+ */
+test("having dropped one ourselves, we do not then complain there are two", () => {
+  const problems = [
+    { kind: "wrong-count", count: 2 },
+    { kind: "ranks-not-1-2-3", ranks: [1, 2] },
+  ] as never[];
+
+  assert.equal(stillWrong(problems, true).length, 0, "it would loop on its own decision");
+  assert.equal(stillWrong(problems, false).length, 2, "a model returning two is still wrong");
 });
