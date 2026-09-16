@@ -1,4 +1,5 @@
 import type { SearchProfile } from "../../../Agents/Competitor Tracker/src/search-visibility.ts";
+import { displayName } from "../../../Agents/Competitor Tracker/src/normalise.ts";
 import type { Business } from "../types.ts";
 
 /**
@@ -19,7 +20,15 @@ export function profileFor(business: Business): SearchProfile | { missing: strin
   if (missing.length) return { missing };
 
   return {
-    name: business.name ?? business.website,
+    /**
+     * Stripped of the characters that reorder a line rather than appear in it.
+     *
+     * The profile's name becomes the card's title and the first column of every
+     * grid, so this is the point where the customer's own name enters
+     * everything they read. normaliseName dropped these already, but only for
+     * comparing names: the one we print kept them.
+     */
+    name: displayName(business.name ?? business.website),
     trade: business.trade!,
     town: business.town!,
     // GB is not a guess about this business: the whole product is sold to UK

@@ -22,6 +22,7 @@ import { isProfile, profileFor } from "./profile.ts";
 import { confidence, isDeadEnd, startWith, type Playbook } from "./playbook.ts";
 import { rank, type Found, type Scored } from "./rank.ts";
 import { sift } from "./sift.ts";
+import { displayName } from "../../../Agents/Competitor Tracker/src/normalise.ts";
 import { scrubGrid, scrubStanding } from "./scrub.ts";
 import { plainly } from "../../lib/plainly.ts";
 import {
@@ -1401,7 +1402,7 @@ export function asText(
  */
 function shapeGrid(raw: unknown, own: string, five: string[]): Grid[] {
   if (!Array.isArray(raw)) return [];
-  const columns = [own, ...five];
+  const columns = [own, ...five].map(displayName);
 
   return raw.slice(0, 4).map((g: Record<string, unknown>) => {
     const given = Array.isArray(g.columns) ? (g.columns as string[]) : [];
@@ -1429,6 +1430,8 @@ function shapeGrid(raw: unknown, own: string, five: string[]): Grid[] {
 }
 
 function shapeCompetitors(raw: unknown, known: Competitor[], own: string): Competitor[] {
+  // Names come off other people's listing pages, so they are somebody else's
+  // text. Stripped of the reordering controls before they become headings.
   if (!Array.isArray(raw)) return known;
   const byName = new Map(known.map((c) => [c.name.toLowerCase(), c]));
   const isOwn = (n: string) =>

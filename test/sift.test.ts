@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { notYou, oneEach, rightTrade, sift } from "../tools/competitor-tracker/sift.ts";
+import { displayName } from "../../Agents/Competitor Tracker/src/normalise.ts";
 
 const n = (name: string) => ({ name });
 
@@ -192,4 +193,23 @@ test("a competitor called The Company survives somebody else's list", () => {
 test("a competitor whose name is in another alphabet survives too", () => {
   const kept = notYou([n("محل الحلاقة"), n("NO.1 BARBERS")], "Kemp Barbers").map((r) => r.name);
   assert.deepEqual(kept, ["محل الحلاقة", "NO.1 BARBERS"]);
+});
+
+test("a name cannot carry a character that reorders the page", () => {
+  // U+202E flips everything printed after it, and it is invisible in a
+  // database. normaliseName dropped these already, but only for comparing
+  // names: the one we store and print kept them.
+  const flipped = "‮محل الحلاقة";
+  const clean = displayName(flipped);
+
+  assert.doesNotMatch(clean, /[‪-‮⁦-⁩‎‏؜]/);
+  assert.equal(clean, "محل الحلاقة", "the name itself was damaged");
+});
+
+test("a right to left name keeps its own letters", () => {
+  // Arabic and Hebrew display right to left by their letters and need none of
+  // those controls, so nothing legitimate is lost.
+  for (const name of ["محل الحلاقة", "מספרה", "Перукарня", "理髮店"]) {
+    assert.equal(displayName(name), name, name);
+  }
 });
