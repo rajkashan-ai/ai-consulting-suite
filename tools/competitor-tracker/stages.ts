@@ -1157,7 +1157,31 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
    * mending fixes a sentence that says a true thing badly, and there is no
    * rewrite that makes an invented number sourced.
    */
-  const cleanGrid = scrubGrid(checked.grids);
+  /**
+   * The text of every page we read, so a price can be checked against the page
+   * it cites rather than only against the fact that the page exists.
+   */
+  const textOf = new Map<string, string>();
+  for (const p of readable(state.listingPages ?? [])) textOf.set(p.url, p.text);
+  for (const p of readable(Object.values(pages).flat())) textOf.set(p.url, p.text);
+
+  /**
+   * The customer's own prices were read from their own site at sign up, not by
+   * this run, so they are not in the page this run fetched. Without this, the
+   * money check would blank their entire column: a safety check destroying good
+   * data, with the page still looking finished and only their side empty.
+   *
+   * Added to the text of their own page because that is honestly where the
+   * prices came from. The real Shrewsbury page is appointment only, opening
+   * hours and a phone number, with no prices on it at all.
+   */
+  if (business.website && business.services.length) {
+    const own = [...textOf.keys()].find((u) => u.includes(new URL(business.website).hostname));
+    const list = business.services.map((x) => `${x.name} ${x.price ?? ""}`).join("\n");
+    if (own) textOf.set(own, `${textOf.get(own) ?? ""}\n${list}`);
+  }
+
+  const cleanGrid = scrubGrid(checked.grids, (url) => textOf.get(url) ?? null);
   const cleanStanding = scrubStanding({
     winning: (built.where_you_win ?? []).slice(0, 4),
     losing: (built.where_they_win ?? []).slice(0, 4),

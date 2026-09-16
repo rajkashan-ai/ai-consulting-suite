@@ -428,6 +428,13 @@ test("a claim about one business cited to another's page is dropped", async () =
 test("a cell in one column cited to another column's page is blanked", async () => {
   // The same rule for the table, which is the part an owner actually reads
   // across. Column 0 is the customer; page 4 is NO.1 BARBERS.
+  /**
+   * The prices here are ones actually printed on the fixture pages: 16 on the
+   * customer's own site, 19 and 21 on a competitor's. They used to be £15 and
+   * £18, which are on neither, and from 2026-09-16 a money figure that is not
+   * printed on the page it cites is blanked. The test data was wrong rather
+   * than the rule: a price nothing prints is exactly what the check is for.
+   */
   const { state, stage } = await write({
     comparison: {
       comparison: [
@@ -438,8 +445,8 @@ test("a cell in one column cited to another column's page is blanked", async () 
             {
               attribute: "Classic cut",
               cells: [
-                { value: "£15", from: 4 },
-                ...FIVE.map((_, i) => ({ value: `£${18 + i}`, from: 4 + i })),
+                { value: "£19", from: 4 },
+                ...FIVE.map((_, i) => ({ value: "£19", from: 4 + i })),
               ],
             },
           ],
@@ -455,7 +462,7 @@ test("a cell in one column cited to another column's page is blanked", async () 
 
   assert.equal(row!.cells[0].value, null, "the customer's price kept a competitor's url");
   assert.equal(row!.cells[0].source, null);
-  assert.equal(row!.cells[1].value, "£18", "NO.1's own price was blanked");
+  assert.equal(row!.cells[1].value, "£19", "NO.1's own price was blanked");
 });
 
 test("the customer's own price, from their own website, survives", async () => {
@@ -483,9 +490,19 @@ test("the customer's own price, from their own website, survives", async () => {
           rows: [
             {
               attribute: "Classic cut",
+              /**
+               * £15 is the customer's own stored price, and 19 is on a
+               * competitor's page.
+               *
+               * This said £16 until 2026-09-16 and passed for the wrong reason:
+               * "16" matched inside "8:45 - 16:00" on their opening hours. The
+               * customer's own page carries no prices at all, so their column
+               * is verified against what they told us at sign up, which is
+               * honestly where those prices came from.
+               */
               cells: [
                 { value: "£15", from: 3 },
-                ...FIVE.map((_, i) => ({ value: `£${18 + i}`, from: 4 + i })),
+                ...FIVE.map((_, i) => ({ value: "£19", from: 4 + i })),
               ],
             },
           ],

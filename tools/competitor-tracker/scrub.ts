@@ -5,6 +5,7 @@ import {
   findUnboundedCounts,
 } from "../../../Agents/Competitor Tracker/src/guards.ts";
 import type { Grid, Side } from "./stages.ts";
+import { check as checkFigures } from "./verify.ts";
 
 /**
  * Take off the page anything we cannot stand behind.
@@ -84,7 +85,14 @@ export type Dropped = { where: string; what: string; why: string };
  * five. An empty cell already reads correctly: not everybody publishes
  * everything.
  */
-export function scrubGrid(grids: Grid[]): { grids: Grid[]; dropped: Dropped[] } {
+export function scrubGrid(
+  grids: Grid[],
+  /**
+   * The text of each page we read, by url. Optional: without it the money
+   * check simply does not run, rather than failing every price.
+   */
+  textFor?: (url: string) => string | null | undefined,
+): { grids: Grid[]; dropped: Dropped[] } {
   const dropped: Dropped[] = [];
 
   const out = grids.map((g) => ({
@@ -97,10 +105,25 @@ export function scrubGrid(grids: Grid[]): { grids: Grid[]; dropped: Dropped[] } 
         const who = g.columns?.[i] ?? "someone";
         const text = `${row.attribute}: ${cell.value}`;
 
+        /**
+         * Is the price actually printed on the page it cites?
+         *
+         * Everything above checks the source: that it exists, that we read it,
+         * that it belongs to this business. None of that says the number is on
+         * it. Money only, because a count like "3 of 9 mention waiting" is
+         * derived and correctly appears nowhere.
+         */
+        const figure = textFor
+          ? checkFigures(cell.value == null ? null : String(cell.value), textFor(cell.source?.url ?? ""))
+          : ({ kind: "ok" } as const);
+
         const why =
           unsafe(text) ??
           (g.area === "reviews" ? unsafeReview(text) : null) ??
-          (cell.source ? null : "nothing to point at for it");
+          (cell.source ? null : "nothing to point at for it") ??
+          (figure.kind === "not there"
+            ? `£${figure.amount} is not printed on the page it cites`
+            : null);
         if (!why) return cell;
 
         dropped.push({ where: `${g.area}, ${row.attribute}, ${who}`, what: String(cell.value), why });
