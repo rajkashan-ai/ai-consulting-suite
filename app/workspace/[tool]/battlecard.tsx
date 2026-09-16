@@ -1,5 +1,6 @@
 import type { Battlecard, Claim, Competitor } from "../../../../Agents/Competitor Tracker/src/types";
 import { groupNotChecked } from "@/tools/competitor-tracker/coverage";
+import { gapReads } from "@/tools/competitor-tracker/rankActions";
 import type { DocumentBody } from "@/tools/competitor-tracker/document";
 import type { Grid, Side } from "@/tools/competitor-tracker/stages";
 import Tabs from "./tabs";
@@ -57,6 +58,28 @@ export default function BattlecardView({
     />
   );
   const ran = new Date(card.ranAt);
+
+  /**
+   * Whose page each address was.
+   *
+   * Taken from the grid rather than stored alongside the source, so it works on
+   * every battlecard already saved and needs no new run to be useful. A cell
+   * sits in a column, the column is a business, and the cell carries the
+   * address its fact came from.
+   *
+   * A page nobody's column cites is a town listing, which belongs to everybody
+   * and is named as such rather than guessed at.
+   */
+  const owners = new Map<string, string>();
+  for (const g of card.grid ?? []) {
+    for (const row of g.rows ?? []) {
+      for (const [i, cell] of (row.cells ?? []).entries()) {
+        const url = cell?.source?.url;
+        if (url && g.columns?.[i] && !owners.has(url)) owners.set(url, g.columns[i]);
+      }
+    }
+  }
+  const whose = (url: string) => owners.get(url) ?? null;
 
   const areasRead = AREAS.filter((a) =>
     card.grid?.some((g) => g.area === a.key && g.rows.length > 0),
@@ -147,7 +170,16 @@ export default function BattlecardView({
                 {AREAS.find((a) => a.key === action.area)?.label ?? action.area}
               </span>
               <h3 className="t-sub">{action.headline}</h3>
+              {/* Why this one is first, in a number rather than an adjective.
+                  The order is the size of these gaps, largest first, so the
+                  reason for the ranking is on the page beside the ranking. */}
+              {gapReads(action.gap) && (
+                <p className="action__gap t-meta">{gapReads(action.gap)}</p>
+              )}
               <p className="action__why t-doc u-wide">{action.why}</p>
+              {action.effect && (
+                <p className="action__effect t-doc-sm u-wide">{action.effect}</p>
+              )}
               {mark(`action:${action.rank}`, `${action.headline} — ${action.why}`)}
 
               {action.deferred && (
@@ -199,24 +231,28 @@ export default function BattlecardView({
       <div className="checked">
         <section>
           <h2 className="t-section">What we checked</h2>
-          <div className="tablewrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Page</th>
-                  <th>Read</th>
-                </tr>
-              </thead>
-              <tbody>
-                {card.sources.map((s) => (
-                  <tr key={s.url}>
-                    <td>{s.url}</td>
-                    <td>{day(s.fetchedOn)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {/* The same shape as the list beside it, because they are a pair and
+              two different formats side by side read as two different things.
+
+              It was a table of raw urls, eighty characters each and wrapped
+              over two lines, which is unreadable and answers the wrong
+              question: the reader wants to know whose page it was, not what
+              its address is. The name leads, the address is underneath and is
+              a link, so it can still be checked. */}
+          <ul className="cell-list">
+            {card.sources.map((s) => (
+              <li key={s.url}>
+                <span className="tag tag--did">Read</span>
+                {whose(s.url) ?? host(s.url)}
+                <span className="cell-note">
+                  <a href={s.url} target="_blank" rel="noopener noreferrer nofollow">
+                    {host(s.url)}
+                  </a>{" "}
+                  &middot; {day(s.fetchedOn)}
+                </span>
+              </li>
+            ))}
+          </ul>
         </section>
 
         <section>

@@ -78,7 +78,9 @@ test("the two standing columns lead with the finding, not a label", () => {
 test("nothing is asked to mention a page number", () => {
   // "(page 3)" is our machinery. The reader cannot see page 3 and it means
   // nothing to them. UI/CLAUDE.md section 7 rule 7.
-  const win = between(stages, "where_you_win:", "rank: { type: \"integer\" }");
+  // Anchored on the actions block, since "rank" left the schema when the
+  // ranking moved into our own code.
+  const win = between(stages, "where_you_win:", "Exactly three. Order does not matter");
   assert.match(win, /Never mention pages or page numbers/i);
 });
 
@@ -232,4 +234,31 @@ test("the headline is asked for as a finding, not a summary of the page", () => 
   const shape = between(flat, "The single most useful thing on this page", "competitors: BATTLECARD_SHAPE");
   assert.match(shape, /maxLength:\s*120/);
   assert.match(shape, /Never a greeting, never a summary of what the page contains/i);
+});
+
+test("the two lists at the foot are the same shape", () => {
+  /**
+   * Raj, 2026-09-16: "2 tables next to each other look odd. They should have
+   * the same format." They are a pair, and two different formats side by side
+   * read as two different things.
+   *
+   * The left one was a table of raw urls, eighty characters each and wrapped
+   * over two lines. It also answered the wrong question: the reader wants to
+   * know whose page it was, not what its address is.
+   */
+  const pair = between(screen, '<div className="checked">', "A blank on this page");
+  assert.doesNotMatch(pair, /<table>/, "one side is still a table");
+  assert.equal((pair.match(/className="cell-list"/g) ?? []).length, 3, "the two sides differ in shape");
+});
+
+test("a source is named by whose page it was, with the address underneath", () => {
+  assert.match(screen, /\{whose\(s\.url\) \?\? host\(s\.url\)\}/);
+  assert.match(screen, /<a href=\{s\.url\}/, "the address cannot be opened and checked");
+});
+
+test("whose page it was comes from the grid, so old battlecards work too", () => {
+  // Stored alongside the source it would have needed a fresh run to be useful.
+  // The grid already pairs a column with the address its fact came from.
+  assert.match(screen, /if \(url && g\.columns\?\.\[i\] && !owners\.has\(url\)\)/);
+  assert.match(screen, /owners\.get\(url\) \?\? null/);
 });

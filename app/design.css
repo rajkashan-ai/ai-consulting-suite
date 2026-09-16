@@ -504,6 +504,10 @@ main{padding:0}
   border-radius:var(--r-chip); margin-right:var(--s2); white-space:nowrap;
   vertical-align:1px}
 .tag--cant{background:var(--warn-wash); color:var(--warn)}
+
+/* Read, in the list of what we checked. Green because it is a thing that
+   happened, against the amber of a thing that did not. */
+.tag--did{background:var(--good-wash); color:var(--good)}
 .tag--na{background:var(--card-2); color:var(--muted)}
 /* A chip is a shape, so its fill has to differ from whatever it sits on.
    .tag--na is --card-2 and on a quiet panel that is the panel's own colour, so
@@ -1031,3 +1035,16 @@ main{padding:0}
   font-weight: 600;
   text-wrap: balance;
 }
+
+/* An action's gap and its effect.
+   The gap is the reason this action is first, so it sits directly under the
+   heading where the eye already is. The effect is the mechanism and reads after
+   the instruction, not before it. */
+.action__gap { margin: var(--s1) 0 var(--s2); font-variant-numeric: tabular-nums; }
+.action__effect { margin-top: var(--s2); color: var(--ink-soft); }
+
+/* The pair of lists at the foot. A long address must wrap inside its own line
+   rather than push the column wide, and the link stays quiet: the name is what
+   is being read, the address is there to be checked. */
+.checked .cell-note a { color: inherit; overflow-wrap: anywhere; }
+.checked .cell-note a:hover { color: var(--brand-ink); }

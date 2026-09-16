@@ -26,6 +26,7 @@ import { areasMissing, shortfall, type Funnel } from "./shortfall.ts";
 import { enough, nextToTry, refusals, type Attempt } from "./retry.ts";
 import { displayName } from "../../../Agents/Competitor Tracker/src/normalise.ts";
 import { scrubGrid, scrubHeadline, scrubStanding } from "./scrub.ts";
+import { rankActions } from "./rankActions.ts";
 import { plainly } from "../../lib/plainly.ts";
 import {
   cite,
@@ -1142,7 +1143,7 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
     business: profile.name,
     ranAt: new Date().toISOString(),
     competitors: shapeCompetitors(built.competitors, competitors, profile.name),
-    actions: shapeActions(built.actions),
+    actions: shapeActions(built.actions, competitors.length),
     sources,
     unreadable,
   };
@@ -1660,16 +1661,28 @@ function shapeCompetitors(raw: unknown, known: Competitor[], own: string): Compe
   });
 }
 
-function shapeActions(raw: unknown) {
+/**
+ * The three actions, ranked by us rather than by the model.
+ *
+ * `rank` used to be whatever came back, ordered by an unprompted judgement of
+ * "strongest" that nothing defined and nothing checked. It is the size of the
+ * gap each action closes now, counted off the grid and verified against it.
+ * See rankActions.ts for why that proxy and not another.
+ */
+function shapeActions(raw: unknown, competitors: number) {
   if (!Array.isArray(raw)) return [];
-  return raw.slice(0, 3).map((r: Record<string, unknown>, i) => ({
-    rank: Number(r.rank ?? i + 1),
+
+  const given = raw.slice(0, 3).map((r: Record<string, unknown>) => ({
     area: r.area as never,
     headline: String(r.headline ?? ""),
     why: String(r.why ?? ""),
+    effect: r.effect ? String(r.effect) : undefined,
+    gap: (r.gap ?? null) as { theyDo: number; outOf: number } | null,
     evidence: (Array.isArray(r.evidence) ? r.evidence : []) as never,
     ...(r.deferred ? { deferred: String(r.deferred) } : {}),
   }));
+
+  return rankActions(given, competitors).actions;
 }
 
 const BATTLECARD_RULES = `You are writing a competitor battlecard for a small business owner from pages
@@ -1922,18 +1935,44 @@ const BATTLECARD_SHAPE = {
       },
       actions: {
         type: "array",
-        description: "Exactly three, strongest first.",
+        description: "Exactly three. Order does not matter: we rank them ourselves, by the size of the gap each one closes.",
         items: {
           type: "object",
           properties: {
-            rank: { type: "integer" },
             area: { type: "string", enum: ["pricing", "channels", "reviews", "blindspots"] },
-            headline: { type: "string" },
-            why: { type: "string" },
+            headline: { type: "string", maxLength: 90 },
+            why: { type: "string", maxLength: 200 },
+            /**
+             * The size of the hole, counted off the grid.
+             *
+             * Four of five doing something is a different proposition from one
+             * of five, and the page said neither. It is also what the order is
+             * built from, so the ranking stops being an opinion.
+             */
+            gap: {
+              type: "object",
+              description:
+                "Counted from the comparison above: how many of the businesses " +
+                "compared already do this, out of how many were compared. " +
+                "Never estimated.",
+              properties: {
+                theyDo: { type: "integer" },
+                outOf: { type: "integer" },
+              },
+              required: ["theyDo", "outOf"],
+            },
+            effect: {
+              type: "string",
+              maxLength: 140,
+              description:
+                "One line on how doing this brings in more enquiries, in the " +
+                "owner's terms. 'Someone comparing two barbers on price can " +
+                "only pick the one who shows it.' Never a promise of a number.",
+            },
             evidence: { type: "array", items: { $ref: "#/$defs/claim" } },
             deferred: { type: ["string", "null"] },
           },
-          required: ["rank", "area", "headline", "why", "evidence"],
+          required: ["area", "headline", "why", "gap", "effect", "evidence"],
         },
       },
     },
