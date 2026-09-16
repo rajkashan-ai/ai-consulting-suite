@@ -18,6 +18,7 @@ import {
 import { cite, citeRules, numberPages, type Cited, type Page } from "./sources.ts";
 import { pagesFrom } from "../../lib/research/sitemap.ts";
 import { shapeMonth } from "./shape.ts";
+import { belowTheBar, sayBar } from "./bar.ts";
 import { houseStyle, keep, unDash, unsafe } from "./scrub.ts";
 
 /**
@@ -656,7 +657,10 @@ async function checking(state: RunState, business: Business, ctx: ToolContext): 
 
   const posts = (state.posts ?? []).map((p) => {
     if (!isWrittenPost(p)) return p;
-    const why = unsafe(p, state.pages ?? [], known);
+    /* Two different questions, in order. `unsafe` asks whether we can stand
+       behind it at all; the bar asks whether it is worth their while. A post
+       nobody can source is refused before anyone judges whether it is good. */
+    const why = unsafe(p, state.pages ?? [], known) ?? sayBelow(p, known);
     if (!why) return p;
     dropped.push({ what: p.date, why });
     const { words: _w, shot: _s, why: _y, title: _t, source: _src, ...slot } = p;
@@ -684,6 +688,18 @@ async function checking(state: RunState, business: Business, ctx: ToolContext): 
 
   ctx.progress(keep(left.length, dropped.length));
   return { stage: "done", state: checked, progress: keep(left.length, dropped.length) };
+}
+
+/**
+ * Why this post is below the bar, in the owner's words, or null.
+ *
+ * The rule's owner is named in the code and never on the screen: "Jay Baer says
+ * so" is our machinery, and the reader cannot see Jay Baer. They see what is
+ * wrong with the post.
+ */
+function sayBelow(post: WrittenPost, known: KnownFacts): string | null {
+  const [first] = belowTheBar(post, known);
+  return first ? sayBar(first) : null;
 }
 
 /** What the run shows while it is going, in the owner's units. */
