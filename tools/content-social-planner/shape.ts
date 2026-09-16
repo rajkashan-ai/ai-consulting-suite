@@ -49,8 +49,13 @@ export function shapeMonth(cadence: Cadence, ranAt: string, channels: Channel[])
    * it has said anything worth reading.
    */
   const purposes: Purpose[] = new Array(dates.length);
-  for (const i of spread(mix.question, dates.length, 0.35)) purposes[i] = "question";
-  for (const i of spread(mix.offer, dates.length, 0.95)) purposes[i] = "offer";
+  /* One set across both, or the offers land on top of the questions and the
+     month is a question short. The two were spread independently and then
+     written into the same array, so at `most days` five questions became four
+     and the mix stopped matching its own table. */
+  const taken = new Set<number>();
+  for (const i of spread(mix.offer, dates.length, 0.95, taken)) purposes[i] = "offer";
+  for (const i of spread(mix.question, dates.length, 0.35, taken)) purposes[i] = "question";
   for (let i = 0; i < dates.length; i++) if (!purposes[i]) purposes[i] = "useful";
 
   const used: Partial<Record<Angle, number>> = {};
@@ -72,13 +77,24 @@ export function shapeMonth(cadence: Cadence, ranAt: string, channels: Channel[])
   });
 }
 
-/** Positions for `n` things across `total`, pushed toward `bias` of the month. */
-function spread(n: number, total: number, bias: number): number[] {
-  const out: number[] = [];
-  for (let k = 0; k < n; k++) {
-    out.push(Math.min(total - 1, Math.round((k + bias) * (total / Math.max(1, n)))));
+/**
+ * Positions for `n` things across `total`, pushed toward `bias` of the month.
+ *
+ * Two of the computed positions can land on the same day, and deduplicating
+ * them silently drops one. At `most days` that turned five question posts into
+ * four and the mix no longer matched the table it is supposed to enforce, which
+ * `validateShape` caught the first time it was run over a whole month. So a
+ * collision moves to the next free day rather than disappearing.
+ */
+function spread(n: number, total: number, bias: number, taken: Set<number>): number[] {
+  const mine: number[] = [];
+  for (let k = 0; k < n && taken.size < total; k++) {
+    let at = Math.min(total - 1, Math.round((k + bias) * (total / Math.max(1, n))));
+    while (taken.has(at)) at = (at + 1) % total;
+    taken.add(at);
+    mine.push(at);
   }
-  return [...new Set(out)];
+  return mine;
 }
 
 /** How many posts a month of this cadence holds. Exported for the tests. */

@@ -219,7 +219,21 @@ const asRead = (r: Awaited<ReturnType<ToolContext["read"]>>): ReadPage => ({
 /** Same-origin links worth reading, best first. Exported so a test can reach it. */
 export function linked(page: { text: string; url: string }, origin: string): string[] {
   const out: string[] = [];
-  for (const m of page.text.matchAll(/<a[^>]+href="([^"]+)"[^>]*>([\s\S]{0,120}?)<\/a>/gi)) {
+  /**
+   * The href, then whatever follows it. Not `<a ...>text</a>`.
+   *
+   * Requiring the closing tag within 120 characters found three links on a real
+   * Wix site and missed the price list, because the anchor wraps four nested
+   * divs and the `</a>` is hundreds of characters away. The link text is a
+   * hint; the href is the fact. Read the fact, and treat the next couple of
+   * hundred characters as the hint.
+   */
+  for (const m of page.text.matchAll(/<a\b[^>]*\shref="([^"]+)"[^>]*>/gi)) {
+    /* The window is read, never consumed. Capturing 200 characters after the
+       tag put the next three links inside this match, and matchAll resumes
+       after a match, so they were skipped entirely. On the test page that lost
+       /book; on a real page it loses whatever follows the first link. */
+    const after = page.text.slice(m.index + m[0].length, m.index + m[0].length + 200);
     let u: URL;
     try {
       u = new URL(m[1], origin);
@@ -232,7 +246,7 @@ export function linked(page: { text: string; url: string }, origin: string): str
     const host = (h: string) => h.replace(/^www\./, "");
     if (host(u.host) !== host(new URL(origin).host)) continue;
     if (SKIP.test(u.pathname) || u.pathname === "/") continue;
-    const text = m[2].replace(/<[^>]+>/g, " ");
+    const text = after.replace(/<[^>]+>/g, " ");
     if (WORTH.test(u.pathname) || WORTH.test(text)) out.push(u.origin + u.pathname);
   }
   return [...new Set(out)].sort(
@@ -327,7 +341,10 @@ async function shaping(state: RunState, business: Business, ctx: ToolContext): P
   }
 
   const slots = shapeMonth(rec.cadence, new Date().toISOString(), channels);
-  const shapeProblems = validateShape({ posts: slots, cadence: rec.cadence } as never);
+  /* The whole plan, not just the posts: validateShape also checks that every
+     channel they confirmed actually gets written for, and it cannot check that
+     against a plan with no channels on it. */
+  const shapeProblems = validateShape({ posts: slots, cadence: rec.cadence, channels } as never);
   if (shapeProblems.length) {
     return fail(state, "We could not lay the month out correctly.");
   }
@@ -543,17 +560,27 @@ async function checking(state: RunState, business: Business, ctx: ToolContext): 
     return slot as Slot;
   });
 
+  /**
+   * The work done here goes into the state whether it ends well or not.
+   *
+   * This failed with the original state, so a run that dropped every post
+   * stored the posts it had dropped, invented client and all, and stored none
+   * of the reasons. The one thing checking is for was thrown away at the
+   * moment it mattered most. The engine's own notes record the same shape:
+   * a failure reason written and then overwritten one line later.
+   */
+  const checked: RunState = { ...state, posts, dropped };
+
   const left = posts.filter(isWrittenPost);
   if (!left.length) {
-    return fail(state, "Nothing we wrote this week was backed by your own pages, so we have not kept any of it.");
+    return fail(
+      checked,
+      "Nothing we wrote this week was backed by your own pages, so we have not kept any of it.",
+    );
   }
 
   ctx.progress(keep(left.length, dropped.length));
-  return {
-    stage: "done",
-    state: { ...state, posts, dropped },
-    progress: keep(left.length, dropped.length),
-  };
+  return { stage: "done", state: checked, progress: keep(left.length, dropped.length) };
 }
 
 /** What the run shows while it is going, in the owner's units. */
