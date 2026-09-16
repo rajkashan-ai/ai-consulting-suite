@@ -72,6 +72,9 @@ export type Directory = {
 };
 
 const CHECKED = "2026-09-16";
+const GEMINI =
+  "Gemini research pass, 2026-09-16, each name then tested by us before it was added";
+const CHATGPT = "ChatGPT research pass, 2026-09-16, each name then tested by us";
 const BIRDEYE =
   "birdeye.com/blog/local-business-directories-uk/ — UK directories by industry, read 2026-09-16";
 const OURS = "Our own runs";
@@ -278,6 +281,379 @@ export const SPECIALIST: Directory[] = [
     source: BIRDEYE,
     reachable: { state: "untested" },
   },
+  // ---------------------------------------------------------------------
+  // Added 2026-09-16 from two research passes. Every host below was fetched
+  // before it was written down; the ones that refused us are recorded as
+  // blocked rather than quietly dropped, so nobody suggests them again.
+  // ---------------------------------------------------------------------
+  {
+    name: "WhoCanFixMyCar",
+    host: "whocanfixmycar.com",
+    covers: ["automotive"],
+    carries: ["names", "ratings", "reviewCount", "prices", "services"],
+    source: GEMINI,
+    reachable: { state: "yes", checked: CHECKED },
+    note:
+      "Servicing and MOT prices, which is what a garage actually sells. " +
+      "AutoTrader's prices are of cars and were always the wrong number.",
+  },
+  {
+    name: "Servicing Stop",
+    host: "servicingstop.co.uk",
+    covers: ["automotive"],
+    carries: ["names", "prices", "services"],
+    source: GEMINI,
+    reachable: { state: "yes", checked: CHECKED },
+  },
+  {
+    name: "BookMyGarage",
+    host: "bookmygarage.com",
+    covers: ["automotive"],
+    carries: ["names", "ratings", "prices"],
+    source: GEMINI,
+    reachable: { state: "blocked", checked: CHECKED, how: "429 on robots.txt" },
+  },
+  {
+    name: "Compare My Move",
+    host: "comparemymove.com",
+    covers: ["legal", "home-services"],
+    carries: ["names", "ratings", "reviewCount", "prices"],
+    source: GEMINI,
+    reachable: { state: "yes", checked: CHECKED },
+    note: "Conveyancing quotes, and removals. The only price source legal has.",
+  },
+  {
+    name: "reallymoving",
+    host: "reallymoving.com",
+    covers: ["legal", "home-services"],
+    carries: ["names", "ratings", "prices"],
+    source: GEMINI,
+    reachable: { state: "yes", checked: CHECKED },
+  },
+  {
+    name: "The Law Superstore",
+    host: "thelawsuperstore.co.uk",
+    covers: ["legal"],
+    carries: ["names", "ratings", "prices"],
+    source: GEMINI,
+    reachable: { state: "yes", checked: CHECKED },
+  },
+  {
+    name: "Direct2Florist",
+    host: "direct2florist.co.uk",
+    covers: ["retail-and-events"],
+    carries: ["names", "ratings", "reviewCount", "prices"],
+    source: GEMINI,
+    reachable: { state: "yes", checked: CHECKED },
+    note: "Local independent florists by town, with product prices.",
+  },
+  {
+    name: "Poptop",
+    host: "poptop.uk.com",
+    covers: ["retail-and-events"],
+    carries: ["names", "ratings", "reviewCount", "prices"],
+    source: GEMINI,
+    reachable: { state: "yes", checked: CHECKED },
+    note: "Photographers and event suppliers, with package prices.",
+  },
+  {
+    name: "Add to Event",
+    host: "addtoevent.co.uk",
+    covers: ["retail-and-events"],
+    carries: ["names", "ratings", "reviewCount", "prices"],
+    source: GEMINI,
+    reachable: { state: "yes", checked: CHECKED },
+  },
+  {
+    name: "Daynurseries",
+    host: "daynurseries.co.uk",
+    covers: ["education"],
+    carries: ["names", "ratings", "reviewCount"],
+    source: GEMINI,
+    reachable: { state: "yes", checked: CHECKED },
+    note: "Nurseries by town. Fees are rarely public: most ask you to ring.",
+  },
+  {
+    name: "Childcare.co.uk",
+    host: "childcare.co.uk",
+    covers: ["education"],
+    carries: ["names", "ratings", "reviewCount"],
+    source: GEMINI,
+    reachable: { state: "yes", checked: CHECKED },
+  },
+  {
+    name: "Unbiased",
+    host: "unbiased.co.uk",
+    covers: ["professional"],
+    carries: ["names", "ratings", "reviewCount"],
+    source: GEMINI,
+    reachable: { state: "yes", checked: CHECKED },
+    note: "Accountants, mortgage brokers, financial advisers. No fees: they are bespoke.",
+  },
+  {
+    name: "VouchedFor",
+    host: "vouchedfor.co.uk",
+    covers: ["professional"],
+    carries: ["names", "ratings", "reviewCount"],
+    source: GEMINI,
+    reachable: { state: "yes", checked: CHECKED },
+  },
+  {
+    name: "Creativepool",
+    host: "creativepool.com",
+    covers: ["professional"],
+    carries: ["names"],
+    source: GEMINI,
+    reachable: { state: "yes", checked: CHECKED },
+    note: "Marketing and design agencies. Thin: names, little else.",
+  },
+  {
+    name: "Clutch",
+    host: "clutch.co",
+    covers: ["professional"],
+    carries: ["names", "ratings", "reviewCount"],
+    source: GEMINI,
+    reachable: { state: "blocked", checked: CHECKED, how: "403 on robots.txt" },
+  },
+  {
+    name: "MyBuilder",
+    host: "mybuilder.com",
+    covers: ["home-services"],
+    carries: ["names", "ratings", "reviewCount"],
+    source: GEMINI,
+    reachable: { state: "yes", checked: CHECKED },
+  },
+  {
+    name: "Deliveroo",
+    host: "deliveroo.co.uk",
+    covers: ["food-and-drink"],
+    carries: ["names", "ratings", "reviewCount", "prices", "services"],
+    source: CHATGPT,
+    reachable: { state: "yes", checked: CHECKED },
+    note: "Menu prices. The only wide price source food has.",
+  },
+  {
+    name: "DesignMyNight",
+    host: "designmynight.com",
+    covers: ["food-and-drink", "retail-and-events"],
+    carries: ["names", "ratings", "reviewCount", "prices"],
+    source: CHATGPT,
+    reachable: { state: "yes", checked: CHECKED },
+  },
+  {
+    name: "TheFork",
+    host: "thefork.co.uk",
+    covers: ["food-and-drink"],
+    carries: ["names", "ratings", "reviewCount", "prices"],
+    source: CHATGPT,
+    reachable: { state: "yes", checked: CHECKED },
+  },
+  {
+    name: "ResDiary",
+    host: "resdiary.com",
+    covers: ["food-and-drink"],
+    carries: ["names", "prices"],
+    source: CHATGPT,
+    reachable: { state: "yes", checked: CHECKED },
+  },
+  {
+    name: "Food Standards Agency",
+    host: "api.ratings.food.gov.uk",
+    covers: ["food-and-drink"],
+    carries: ["names"],
+    source: OURS,
+    reachable: { state: "yes", checked: CHECKED },
+    note:
+      "Official, open, no key, and it found Proto Artisan Bakery by name and " +
+      "postcode in one call. Every food business in the UK. Identity only: no " +
+      "prices, no reviews, so it pairs with Deliveroo rather than replacing it.",
+  },
+  {
+    name: "Tutorful",
+    host: "tutorful.co.uk",
+    covers: ["education"],
+    carries: ["names", "ratings", "reviewCount", "prices"],
+    source: CHATGPT,
+    reachable: { state: "yes", checked: CHECKED },
+    note: "Hourly rates, openly listed.",
+  },
+  {
+    name: "ClassForKids",
+    host: "classforkids.co.uk",
+    covers: ["education"],
+    carries: ["names", "prices"],
+    source: CHATGPT,
+    reachable: { state: "yes", checked: CHECKED },
+  },
+  {
+    name: "ClassPass",
+    host: "classpass.com",
+    covers: ["fitness"],
+    carries: ["names", "ratings", "reviewCount", "prices", "services"],
+    source: CHATGPT,
+    reachable: { state: "yes", checked: CHECKED },
+  },
+  {
+    name: "Mindbody",
+    host: "mindbody.io",
+    covers: ["fitness"],
+    carries: ["names", "ratings", "prices", "services"],
+    source: CHATGPT,
+    reachable: { state: "yes", checked: CHECKED },
+  },
+  {
+    name: "Hussle",
+    host: "hussle.com",
+    covers: ["fitness"],
+    carries: ["names", "ratings", "reviewCount", "prices"],
+    source: CHATGPT,
+    reachable: { state: "yes", checked: CHECKED },
+  },
+  {
+    name: "BorrowMyDoggy",
+    host: "borrowmydoggy.com",
+    covers: ["pets"],
+    carries: ["names", "prices"],
+    source: CHATGPT,
+    reachable: { state: "yes", checked: CHECKED },
+    note: "Walking and sitting only. Nothing here for a vet or a kennel.",
+  },
+  {
+    name: "Gudog",
+    host: "gudog.co.uk",
+    covers: ["pets"],
+    carries: ["names", "ratings", "reviewCount", "prices"],
+    source: CHATGPT,
+    reachable: { state: "yes", checked: CHECKED },
+  },
+  {
+    name: "Pets4Homes",
+    host: "pets4homes.co.uk",
+    covers: ["pets"],
+    carries: ["names"],
+    source: GEMINI,
+    reachable: { state: "yes", checked: CHECKED },
+  },
+  {
+    name: "Psychology Today",
+    host: "psychologytoday.com",
+    covers: ["professional"],
+    carries: ["names", "prices"],
+    source: CHATGPT,
+    reachable: { state: "yes", checked: CHECKED },
+    note: "Therapists and counsellors, often with a session fee.",
+  },
+  {
+    name: "Eventbrite",
+    host: "eventbrite.co.uk",
+    covers: ["retail-and-events"],
+    carries: ["names", "prices"],
+    source: CHATGPT,
+    reachable: { state: "yes", checked: CHECKED },
+  },
+  {
+    name: "Tagvenue",
+    host: "tagvenue.com",
+    covers: ["retail-and-events"],
+    carries: ["names", "ratings", "reviewCount", "prices"],
+    source: CHATGPT,
+    reachable: { state: "yes", checked: CHECKED },
+  },
+  {
+    name: "Just Eat",
+    host: "just-eat.co.uk",
+    covers: ["food-and-drink"],
+    carries: ["names", "ratings", "reviewCount", "prices"],
+    source: CHATGPT,
+    reachable: { state: "blocked", checked: CHECKED, how: "403 on robots.txt" },
+  },
+  {
+    name: "Uber Eats",
+    host: "ubereats.com",
+    covers: ["food-and-drink"],
+    carries: ["names", "ratings", "prices"],
+    source: CHATGPT,
+    reachable: { state: "blocked", checked: CHECKED, how: "403 on robots.txt" },
+  },
+  {
+    name: "Rover",
+    host: "rover.com",
+    covers: ["pets"],
+    carries: ["names", "ratings", "reviewCount", "prices"],
+    source: CHATGPT,
+    reachable: { state: "blocked", checked: CHECKED, how: "403 on robots.txt" },
+  },
+  {
+    name: "Superprof",
+    host: "superprof.co.uk",
+    covers: ["education"],
+    carries: ["names", "ratings", "prices"],
+    source: CHATGPT,
+    reachable: { state: "blocked", checked: CHECKED, how: "403 on robots.txt" },
+  },
+  {
+    name: "Fever",
+    host: "fever.com",
+    covers: ["retail-and-events"],
+    carries: ["names", "prices"],
+    source: CHATGPT,
+    reachable: { state: "blocked", checked: CHECKED, how: "403 on robots.txt" },
+  },
+  {
+    name: "Zoopla",
+    host: "zoopla.co.uk",
+    covers: ["property"],
+    carries: ["names"],
+    source: BIRDEYE,
+    reachable: { state: "blocked", checked: CHECKED, how: "403 on robots.txt" },
+  },
+];
+
+/**
+ * Where no price comparison is possible, and why. Confirmed by two independent
+ * research passes on 2026-09-16, not assumed.
+ *
+ * This is the most useful list in the file, because it stops the next person
+ * spending an afternoon looking for something that does not exist. In each case
+ * the reason is how the trade prices its work, not a hole in our searching.
+ *
+ * A run for one of these groups still compares reviews, coverage and what each
+ * business publishes. It must say plainly that price is not comparable here,
+ * rather than leaving an empty column that reads as a failure.
+ */
+export const NO_PUBLIC_PRICES: { group: Group; why: string }[] = [
+  {
+    group: "home-services",
+    why:
+      "Every UK trade directory works on quote for the job. Checkatrade, " +
+      "MyBuilder, Rated People, TrustATrader and Bark all publish names, " +
+      "ratings and review counts, and none publishes a rate or a call-out fee. " +
+      "26 trades, the largest group we have.",
+  },
+  {
+    group: "pets",
+    why:
+      "Walking and sitting have marketplace prices. Veterinary treatment and " +
+      "kennel boarding do not: no UK directory indexes them, and vets price " +
+      "after a consultation.",
+  },
+  {
+    group: "healthcare",
+    why:
+      "No UK marketplace aggregates independent physios, chiropractors or " +
+      "opticians with treatment prices. Chains publish their own fee cards; " +
+      "independents do not.",
+  },
+  {
+    group: "dental",
+    why: "Same as healthcare. CQC and NHS carry names and inspections, never fees.",
+  },
+  {
+    group: "property",
+    why:
+      "Rightmove and OnTheMarket list properties, not agents' fees. Agency " +
+      "commission is negotiated and unpublished.",
+  },
 ];
 
 /**
@@ -370,16 +746,32 @@ export function sourcesFor(trade: string | null): Directory[] {
   ];
 }
 
-/** Which trades we have a specialist for, and which fall back to search. */
+/**
+ * Which trades we can compare on price, and which we cannot.
+ *
+ * This used to count trades with any specialist at all, and by 2026-09-16 the
+ * answer was all of them, which made the number useless. Every trade has
+ * somewhere to look now. What separates them is whether anywhere publishes what
+ * they charge, and for about forty trades nothing does: see NO_PUBLIC_PRICES.
+ */
 export function coverage() {
   const trades = Object.keys(TRADE_GROUP);
-  const withSpecialist = trades.filter((t) => {
+  const noPrices = new Set(NO_PUBLIC_PRICES.map((n) => n.group));
+
+  const canPrice = trades.filter((t) => {
     const g = TRADE_GROUP[t];
-    return SPECIALIST.some((d) => d.covers.includes(g) && d.reachable.state !== "blocked");
+    if (noPrices.has(g)) return false;
+    return SPECIALIST.some(
+      (d) => d.covers.includes(g) && d.carries.includes("prices") && d.reachable.state !== "blocked",
+    );
   });
+
   return {
     trades: trades.length,
-    withSpecialist: withSpecialist.length,
-    fallingBackToSearch: trades.filter((t) => !withSpecialist.includes(t)),
+    withSpecialist: trades.filter((t) =>
+      SPECIALIST.some((d) => d.covers.includes(TRADE_GROUP[t]) && d.reachable.state !== "blocked"),
+    ).length,
+    canComparePrices: canPrice.length,
+    noPriceAnywhere: trades.filter((t) => !canPrice.includes(t)),
   };
 }

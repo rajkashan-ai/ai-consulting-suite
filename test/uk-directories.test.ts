@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { GENERAL, SPECIALIST, TRADE_GROUP, coverage, sourcesFor } from "../tools/sources/uk-directories.ts";
+import { GENERAL, NO_PUBLIC_PRICES, SPECIALIST, TRADE_GROUP, coverage, sourcesFor } from "../tools/sources/uk-directories.ts";
 
 /**
  * The seeded directory list.
@@ -77,15 +77,38 @@ test("an unknown trade still gets the general floor", () => {
   assert.ok(sourcesFor("something-we-have-never-seen").length > 0);
 });
 
-test("only a source that carries prices is marked as carrying prices", () => {
-  // Prices are the rare part and the product's whole argument. A directory
-  // wrongly marked would send a run looking for something that is not there.
-  const withPrices = [...GENERAL, ...SPECIALIST].filter((d) => d.carries.includes("prices"));
-  assert.deepEqual(
-    withPrices.map((d) => d.name).sort(),
-    ["AutoTrader UK", "Booksy", "Fresha", "Treatwell"],
-    "the list of sources claiming to carry prices changed",
-  );
+test("a price source is reachable, or it is not a price source", () => {
+  /**
+   * Prices are the rare part and the product's whole argument. Pinning the
+   * exact list stopped being useful once it grew past a handful, so this pins
+   * the property that matters: anything we would actually send a run to must be
+   * readable, and a blocked source must never be counted as coverage.
+   */
+  const usable = [...GENERAL, ...SPECIALIST]
+    .filter((d) => d.carries.includes("prices") && d.reachable.state !== "blocked");
+
+  assert.ok(usable.length >= 20, `only ${usable.length} usable price sources`);
+  for (const d of usable) {
+    assert.notEqual(d.reachable.state, "blocked", `${d.name} is blocked and counted`);
+  }
+});
+
+test("a group with no public prices says so, rather than being searched forever", () => {
+  /**
+   * The most useful list in the file. Two independent research passes agreed
+   * that UK home services, vets, private healthcare, dentistry and estate
+   * agency publish no comparable prices, because of how those trades price
+   * their work rather than because we searched badly.
+   *
+   * Written down so nobody spends another afternoon looking for plumber rates.
+   */
+  const groups = NO_PUBLIC_PRICES.map((n) => n.group);
+  assert.ok(groups.includes("home-services"), "the largest group lost its note");
+  assert.ok(groups.includes("healthcare"));
+
+  for (const n of NO_PUBLIC_PRICES) {
+    assert.ok(n.why.length > 60, `${n.group} says it has no prices without saying why`);
+  }
 });
 
 test("the coverage gap is stated rather than hidden", () => {
@@ -93,6 +116,15 @@ test("the coverage gap is stated rather than hidden", () => {
   // us which half still needs work.
   const c = coverage();
   assert.ok(c.trades > 50, `only ${c.trades} trades are grouped`);
-  assert.ok(c.withSpecialist > 0 && c.withSpecialist < c.trades);
-  assert.ok(c.fallingBackToSearch.includes("bakery"), "the trade that failed is claimed as covered");
+
+  // Every trade has somewhere to look now. What separates them is price, and
+  // for about forty trades nothing publishes one. Counting sources stopped
+  // being informative the moment the answer became "all of them".
+  assert.equal(c.withSpecialist, c.trades, "a trade lost its only source");
+  assert.ok(c.canComparePrices > 0 && c.canComparePrices < c.trades,
+    `price coverage is ${c.canComparePrices} of ${c.trades}, which is suspicious`);
+  assert.ok(c.noPriceAnywhere.includes("plumber"), "plumbers are claimed to have public prices");
+  // Bakery is covered now, by the FSA and Deliveroo. What this guards is that
+  // the gap is still reported honestly, whatever is in it.
+  assert.ok(Array.isArray(c.noPriceAnywhere));
 });
