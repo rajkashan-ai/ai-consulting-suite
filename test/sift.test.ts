@@ -171,3 +171,25 @@ test("the customer's words inside the middle of another name is not a match", ()
   const kept = notYou([n("Shrewsbury Barber Shop")], "Barber Shop").map((r) => r.name);
   assert.deepEqual(kept, ["Shrewsbury Barber Shop"]);
 });
+
+test("a competitor called The Company survives somebody else's list", () => {
+  /**
+   * The case that actually catches the suffix fallback.
+   *
+   * "a name made only of suffix words still recognises itself" looked like it
+   * covered this and did not: when the fallback is broken, both names normalise
+   * to nothing, and the competitor is then dropped for being unreadable rather
+   * than for being the customer. Same visible outcome, different reason, test
+   * still green.
+   *
+   * Put the same name in a stranger's list and the two come apart. "The
+   * Company" is a real business and must survive Kemp Barbers' comparison.
+   */
+  const kept = notYou([n("The Company"), n("NO.1 BARBERS")], "Kemp Barbers").map((r) => r.name);
+  assert.deepEqual(kept, ["The Company", "NO.1 BARBERS"]);
+});
+
+test("a competitor whose name is in another alphabet survives too", () => {
+  const kept = notYou([n("محل الحلاقة"), n("NO.1 BARBERS")], "Kemp Barbers").map((r) => r.name);
+  assert.deepEqual(kept, ["محل الحلاقة", "NO.1 BARBERS"]);
+});
