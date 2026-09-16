@@ -54,7 +54,7 @@ export default function SendWeek() {
   return (
     <div className="card">
       <div className="card__foot">
-        <p className="t-doc-sm u-push">
+        <p className="t-doc-sm">
           Take them with you. The words, what to bring and the days, in one file you can open on
           your phone.
         </p>

@@ -4,7 +4,7 @@ import { labelFor } from "@/tools/categories";
 import { toolBySlug } from "@/tools/registry";
 import Nav from "../nav";
 import Chrome from "../chrome";
-import { screenFor } from "./screens";
+import { LAYS_OUT_ITS_OWN_BANDS, screenFor } from "./screens";
 import { readyFor } from "./ready";
 
 export default async function ToolPage({
@@ -43,6 +43,7 @@ export default async function ToolPage({
    * through to the not-built panel, which is honest rather than broken.
    */
   const View = tool.built ? screenFor(tool.slug) : null;
+  const ownsBands = Boolean(View) && LAYS_OUT_ITS_OWN_BANDS.includes(tool.slug);
 
   return (
     <div className="app">
@@ -73,6 +74,15 @@ export default async function ToolPage({
           </div>
         </div>
 
+        {/* The band wrapper belongs to the tool, not to this page.
+            One band around everything made a seven section screen read as one
+            undifferentiated column: no ground change, no landmark, nothing for
+            a reader to recognise where they are by. A tool that lays out its
+            own bands says so with `ownsBands`; one that does not gets this
+            wrapper, which is what the Tracker's tabbed page wants. */}
+        {ownsBands ? (
+          View ? <View workspaceId={current.id} ready={readyFor(tool.slug, current)} /> : null
+        ) : (
         <div className="band band--a band--first band--last">
           <div className="band__in">
 
@@ -118,6 +128,7 @@ export default async function ToolPage({
 
           </div>
         </div>
+        )}
       </main>
     </div>
   );

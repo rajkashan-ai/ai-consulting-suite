@@ -314,6 +314,61 @@ test("no two components share a class name across the stylesheets", () => {
   assert.deepEqual(shared, [], `defined in two stylesheets, so one silently wins: ${shared.join(", ")}`);
 });
 
+test("every class this tool uses is defined in a stylesheet", () => {
+  /**
+   * `.rows` and `.u-push` were used nine times between them and defined
+   * nowhere. Two whole sections rendered as raw text at inherited size with no
+   * padding and no separator, and it read as "the page is flat" rather than as
+   * "this class does nothing", because a class that matches nothing looks
+   * exactly like a design decision.
+   *
+   * `.rows` was in the brief I was given as an existing class. I used it on
+   * that word rather than checking, which is the whole reason this test reads
+   * the stylesheets instead of a list.
+   */
+  const css = [styles(["app", "design.css"]), styles(["app", "auth.css"])].join("\n");
+  const defined = new Set(
+    [...css.matchAll(/(^|[\s,>+~])\.([a-zA-Z][a-zA-Z0-9_-]*)/g)].map((m) => m[2]),
+  );
+
+  const views = ["plan.tsx", "resizer.tsx", "post-controls.tsx", "plan-controls.tsx", "send-week.tsx", "content-social-planner.tsx"];
+  const used = new Set<string>();
+  for (const v of views) {
+    /* Interpolations are code, not classes. `className={`band ${mod}`}` was
+       reporting `mod` as an unstyled class, which is the test reading the
+       variable name rather than what it holds. The value it holds is a literal
+       elsewhere in the same file, so nothing is lost by dropping the hole. */
+    const src = screen(v).replace(/\$\{[^}]*\}/g, " ");
+    for (const m of src.matchAll(/className=[{"`]+([^"`}]+)[}"`]+/g)) {
+      for (const c of m[1].split(/\s+/)) if (/^[a-z][a-z0-9_-]*$/i.test(c)) used.add(c);
+    }
+  }
+
+  const orphans = [...used].filter((c) => !defined.has(c)).sort();
+  assert.deepEqual(orphans, [], `used on screen and styled by nothing: ${orphans.join(", ")}`);
+});
+
+test("the page is laid out in bands, which is the only landmark the system has", () => {
+  /* Seven sections on one ground with one heading size is the flatness
+     CLAUDE.md 1.4a already paid for once. A band is a change of ground and the
+     only thing that says "you are somewhere else now". */
+  const view = screen("plan.tsx");
+  const bands = [...view.matchAll(/<Band mod="([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(bands.length >= 4, `only ${bands.length} bands for seven sections`);
+  assert.ok(bands[0].includes("band--first"), "the first band does not sit under the nav");
+  assert.ok(bands[bands.length - 1].includes("band--last"), "the last band has no closing space");
+  assert.equal(
+    bands.filter((b) => b.includes("band--dark")).length,
+    1,
+    "a screen gets at most one dark band, and it goes to whatever the reader came for",
+  );
+
+  /* Section headings are t-section. They were all t-sub, which is the level
+     below, so every section on the page announced itself at sub-heading size. */
+  assert.equal((view.match(/className="t-sub"/g) ?? []).length, 0, "a section heading is still t-sub");
+  assert.ok((view.match(/className="t-section"/g) ?? []).length >= 6, "the sections are not t-section");
+});
+
 test("the preview canvas is not stretched by the stylesheet", () => {
   /**
    * A canvas has its own pixel size, and `width:100%` scales the drawing to the

@@ -24,4 +24,15 @@ export const SCREENS: Record<string, ComponentType<{ workspaceId: string; ready:
   "content-social-planner": ContentSocialPlanner,
 };
 
+/**
+ * Tools that emit their own bands.
+ *
+ * A band is a change of ground, and it is the only landmark this system gives a
+ * reader for "you are in a different part of the page". The Planner has seven
+ * sections and needs four of them; the Tracker is a tabbed page with no natural
+ * joins and wants one band around the lot, which is what the page provides by
+ * default.
+ */
+export const LAYS_OUT_ITS_OWN_BANDS = ["content-social-planner"];
+
 export const screenFor = (slug: string) => SCREENS[slug] ?? null;

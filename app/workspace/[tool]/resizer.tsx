@@ -307,7 +307,7 @@ export default function Resizer() {
             </p>
 
             <div className="card__foot">
-              <p className="t-meta u-push">
+              <p className="t-meta">
                 {chosen.length
                   ? `${chosen.length} file${chosen.length === 1 ? "" : "s"}. You pick the folder.`
                   : "Tick at least one size."}

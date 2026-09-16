@@ -49,7 +49,7 @@ export default function PostControls({
       {editing ? (
         /* Their words go in a form of their own, so pressing Posted while
            halfway through an edit cannot submit the edit by accident. */
-        <form action={saveEdit} className="fb__grid">
+        <form action={saveEdit} className="card__foot">
           <input type="hidden" name="workspaceId" value={workspaceId} />
           <input type="hidden" name="postDate" value={postDate} />
           <input type="hidden" name="channel" value={channel} />
@@ -72,7 +72,7 @@ export default function PostControls({
             Size a photo
           </a>
 
-          <form action={markPosted} className="fb__send">
+          <form action={markPosted} className="card__foot">
             <input type="hidden" name="workspaceId" value={workspaceId} />
             <input type="hidden" name="postDate" value={postDate} />
             <input type="hidden" name="channel" value={channel} />
@@ -83,7 +83,7 @@ export default function PostControls({
               placeholder="https://..."
               aria-label="The link to this post once it is up"
             />
-            <button className="btn btn--sm" type="submit">
+            <button className="btn--ghost btn--sm" type="submit">
               Posted
             </button>
           </form>
