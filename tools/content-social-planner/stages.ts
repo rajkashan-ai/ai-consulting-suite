@@ -16,6 +16,7 @@ import {
   validateRecommendation,
 } from "../../../Agents/Content & Social Planner/src/recommend.ts";
 import { cite, citeRules, numberPages, type Cited, type Page } from "./sources.ts";
+import { pagesFrom } from "../../lib/research/sitemap.ts";
 import { shapeMonth } from "./shape.ts";
 import { keep, unsafe } from "./scrub.ts";
 
@@ -74,6 +75,8 @@ export type RunState = {
   /** Pages actually read, numbered, in the order the model is shown them. */
   pages?: Page[];
   read?: ReadPage[];
+  /** Pages still to read. Worked out once, then drained one a tick. */
+  queue?: string[];
   /** Their voice, read off their own copy. Sourced like anything else. */
   voice?: { words: string; source: Cited | null };
   channels?: Channel[];
@@ -159,12 +162,22 @@ const fail = (state: RunState, say: string): Step => ({
 // ---------------------------------------------------------------------------
 
 /**
- * Read their home page, then the pages it links that carry prices and services.
+ * Read their home page, then the pages the site itself says it has.
  *
- * Their own navigation rather than a guessed list of paths. A guessed path is a
- * claim about a site nobody has read: the barber's prices are at /price-menu
- * and the dog groomer's are at /dog-grooming/, and guessing found one and
- * missed the other entirely.
+ * Not the links in the page text. `lib/research/fetch.ts` hands back visible
+ * text, and `visibleText` strips `<nav>`, `<header>` and `<footer>` before
+ * anything else, because a nav repeated on twenty-four pages crowds out the
+ * page's own words. A small business keeps its whole navigation in exactly
+ * those three elements. Read live through the real reader, this barber's home
+ * page is 1,419 characters with no link to its own price list in it, so
+ * following links would have read one page and written a month of posts with
+ * no prices in them. The fixture said otherwise because the fixture was
+ * captured with a plain fetch rather than through the reader the tool uses.
+ *
+ * `lib/research/sitemap.ts` is the sanctioned answer and says so in its own
+ * first line: a sitemap is a site telling us its own pages, and guessing is
+ * what you do when there is not one. So: sitemap, then guesses, then whatever
+ * addresses survived in the text.
  */
 async function reading(state: RunState, business: Business, ctx: ToolContext): Promise<Step> {
   const already = state.read ?? [];
@@ -183,12 +196,27 @@ async function reading(state: RunState, business: Business, ctx: ToolContext): P
   }
 
   const origin = new URL(already[0].url).origin;
-  const done = new Set(already.map((p) => p.url));
-  const next = linked(already[0].text ? already[0] : already[0], origin).find((u) => !done.has(u));
+  const seen = (u: string) => u.replace(/\/+$/, "");
+  const done = new Set(already.map((p) => seen(p.url)));
+
+  /* Worked out once and then drained one a tick, so a step stays small and a
+     tick that dies loses one page rather than the plan. */
+  if (!state.queue) {
+    const queue = await worthReading(origin, already[0], ctx);
+    return {
+      stage: "reading",
+      state: { ...state, queue: queue.filter((u) => !done.has(seen(u))) },
+      progress: "1 page of your site read",
+    };
+  }
+
+  const next = state.queue.find((u) => !done.has(seen(u)));
 
   if (!next || already.length >= MAX_PAGES) {
     const pages = numberPages(
-      already.filter((p) => p.ok).map((p) => ({ url: p.url, fetchedOn: p.fetchedOn, what: p.title ?? "" })),
+      already
+        .filter((p) => p.ok && p.text.trim().length > 40)
+        .map((p) => ({ url: p.url, fetchedOn: p.fetchedOn, what: p.title ?? "" })),
     );
     if (!pages.length) return fail(state, "We could not read anything on your website.");
     return {
@@ -216,42 +244,51 @@ const asRead = (r: Awaited<ReturnType<ToolContext["read"]>>): ReadPage => ({
   note: r.note,
 });
 
-/** Same-origin links worth reading, best first. Exported so a test can reach it. */
-export function linked(page: { text: string; url: string }, origin: string): string[] {
+/** The pages of their own site worth reading, best first. */
+export async function worthReading(
+  origin: string,
+  home: ReadPage,
+  ctx: ToolContext,
+): Promise<string[]> {
   const out: string[] = [];
-  /**
-   * The href, then whatever follows it. Not `<a ...>text</a>`.
-   *
-   * Requiring the closing tag within 120 characters found three links on a real
-   * Wix site and missed the price list, because the anchor wraps four nested
-   * divs and the `</a>` is hundreds of characters away. The link text is a
-   * hint; the href is the fact. Read the fact, and treat the next couple of
-   * hundred characters as the hint.
-   */
-  for (const m of page.text.matchAll(/<a\b[^>]*\shref="([^"]+)"[^>]*>/gi)) {
-    /* The window is read, never consumed. Capturing 200 characters after the
-       tag put the next three links inside this match, and matchAll resumes
-       after a match, so they were skipped entirely. On the test page that lost
-       /book; on a real page it loses whatever follows the first link. */
-    const after = page.text.slice(m.index + m[0].length, m.index + m[0].length + 200);
-    let u: URL;
-    try {
-      u = new URL(m[1], origin);
-    } catch {
-      continue;
-    }
-    // www and the apex are one site. A site that redirects www to the apex and
-    // links the apex looked, to an earlier version of this, like a different
-    // site entirely, and one page of it was read.
-    const host = (h: string) => h.replace(/^www\./, "");
-    if (host(u.host) !== host(new URL(origin).host)) continue;
-    if (SKIP.test(u.pathname) || u.pathname === "/") continue;
-    const text = after.replace(/<[^>]+>/g, " ");
-    if (WORTH.test(u.pathname) || WORTH.test(text)) out.push(u.origin + u.pathname);
-  }
-  return [...new Set(out)].sort(
-    (a, b) => Number(/price|cost|rate/i.test(b)) - Number(/price|cost|rate/i.test(a)),
+
+  const fromSitemap = await pagesFrom(
+    origin,
+    async (u) => {
+      const got = await ctx.read(u);
+      return { ok: got.ok, text: got.text };
+    },
+    MAX_PAGES,
   );
+  out.push(...fromSitemap);
+
+  /* Guessing is a claim about a site nobody has read, so it comes second and
+     never instead. */
+  if (!out.length) {
+    for (const path of ["/prices", "/price-menu", "/price-list", "/services", "/menu", "/about"]) {
+      out.push(origin + path);
+    }
+  }
+
+  /* Addresses that survived in the text, which `visibleText` keeps beside the
+     words they belonged to. Same site only: this tool reads nobody else's. */
+  for (const m of home.text.matchAll(/\((https?:\/\/[^)\s]+)\)/g)) {
+    try {
+      const u = new URL(m[1]);
+      const host = (h: string) => h.replace(/^www\./, "");
+      if (host(u.host) === host(new URL(origin).host)) out.push(u.origin + u.pathname);
+    } catch {
+      /* Not an address we can use. */
+    }
+  }
+
+  return [...new Set(out)]
+    .filter((u) => {
+      const path = new URL(u).pathname;
+      return path !== "/" && !SKIP.test(path) && WORTH.test(path);
+    })
+    .sort((a, b) => Number(/price|cost|rate|menu/i.test(b)) - Number(/price|cost|rate|menu/i.test(a)))
+    .slice(0, MAX_PAGES);
 }
 
 // ---------------------------------------------------------------------------
@@ -396,25 +433,45 @@ export function knownFacts(business: Business): KnownFacts {
   };
 }
 
-/** The accounts to plan for: what they told us, else what their site links. */
-export function channelsFor(business: Business, state: RunState): Channel[] {
-  const told = (business.foundVia ?? []).filter((c): c is Channel => c in CHANNEL);
-  if (told.length) return told;
+/**
+ * The accounts to plan for.
+ *
+ * Their own words, not their links. The links are gone by the time we see the
+ * page: `visibleText` strips `<footer>`, and a footer is where a small business
+ * keeps its social icons. What survives on this barber's home page is the
+ * sentence "you can also contact us via social media through Facebook and
+ * Instagram", which is them telling us, in their own copy, where they are.
+ *
+ * `business.foundVia` is deliberately not used here. It looks like the right
+ * field and is not: its values are `social`, `booking`, `trades`,
+ * `marketplace` and `unknown` — how customers find them, not where they post.
+ * Reading it as a channel list would have quietly produced no channels at all
+ * for everybody, which is the kind of wrong that looks like working.
+ *
+ * WHAT THIS IS NOT
+ * It is not a confirmation. CLAUDE.md 2 wants these detected and then shown
+ * back for one press, and the screen to do that does not exist yet, so a
+ * business whose copy never names a platform gets an honest stop rather than a
+ * guess. Telling someone to start a channel is a claim about their market with
+ * nothing behind it.
+ */
+export function channelsFor(_business: Business, state: RunState): Channel[] {
+  const text = (state.read ?? [])
+    .filter((p) => p.ok)
+    .map((p) => p.text)
+    .join("\n");
 
-  const html = (state.read ?? []).map((p) => p.text).join("\n");
-  const found: Channel[] = [];
-  const shapes: [Channel, RegExp][] = [
-    ["instagram", /instagram\.com\/[A-Za-z0-9_.]{2,30}/i],
-    ["facebook", /facebook\.com\/[A-Za-z0-9_.\-]{2,60}/i],
-    ["linkedin", /linkedin\.com\/(?:company|in)\/[A-Za-z0-9_.\-]{2,60}/i],
-    ["tiktok", /tiktok\.com\/@[A-Za-z0-9_.]{2,30}/i],
-    ["youtube", /youtube\.com\/(?:@|c\/|channel\/|user\/)[A-Za-z0-9_.\-]{2,60}/i],
+  /* Word boundaries both sides. "Tik tok" is two words on a page about clocks,
+     and a bare "tok" is not a platform. */
+  const named: [Channel, RegExp][] = [
+    ["instagram", /\binstagram\b/i],
+    ["facebook", /\bfacebook\b/i],
+    ["linkedin", /\blinkedin\b/i],
+    ["tiktok", /\btiktok\b|\btik tok\b/i],
+    ["youtube", /\byoutube\b/i],
   ];
-  for (const [channel, shape] of shapes) {
-    const m = html.match(shape);
-    if (m && !/sharer|share\.php|intent|plugins/i.test(m[0])) found.push(channel);
-  }
-  return found;
+
+  return named.filter(([, shape]) => shape.test(text)).map(([channel]) => channel);
 }
 
 // ---------------------------------------------------------------------------

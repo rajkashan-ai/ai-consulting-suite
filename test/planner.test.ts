@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Business, ToolContext } from "../tools/types.ts";
-import { advance, channelsFor, firstLine, knownFacts, linked, type RunState, type Stage } from "../tools/content-social-planner/stages.ts";
+import { advance, channelsFor, firstLine, knownFacts, worthReading, type ReadPage, type RunState, type Stage } from "../tools/content-social-planner/stages.ts";
 import { buildBody, hollow } from "../tools/content-social-planner/document.ts";
 import { unsafe } from "../tools/content-social-planner/scrub.ts";
 import { contentSocialPlanner } from "../tools/content-social-planner/index.ts";
@@ -56,7 +56,13 @@ const GOOD_POST = {
   from: 1,
 };
 
-function fake(answers: Record<string, unknown> = {}) {
+/**
+ * `post` is a template, not a list. Fixing the list at one post meant the fake
+ * answered a two post week with one post, every test using an override failed
+ * on "we did not get a full week back", and the thing each was written to
+ * check was never reached.
+ */
+function fake(answers: Record<string, unknown> = {}, post?: Record<string, unknown>) {
   const calls: Calls = { read: [], think: [] };
   const ctx: ToolContext = {
     read: async (url) => {
@@ -69,6 +75,9 @@ function fake(answers: Record<string, unknown> = {}) {
       const key = (u: string) => u.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
       const hit = FIXTURE.pages.find((p) => key(p.url) === key(url));
       if (hit) return { ...hit };
+      /* A page the site does not have. The real reader answers with a refusal
+         rather than throwing, and a guessed path that is not there is the
+         normal case, not an error. */
       return { ok: false, url, text: "", title: null, fetchedAt: "2026-09-16T09:00:00.000Z", note: "not in the fixture" };
     },
     think: async (o) => {
@@ -78,7 +87,7 @@ function fake(answers: Record<string, unknown> = {}) {
       if (name === "voice") return { words: "Plain and quick. They say what things cost and expect you to ring.", from: 1 };
       if (name === "posts") {
         const n = (o.shape!.input_schema as { properties: { posts: { minItems: number } } }).properties.posts.minItems;
-        return { posts: Array.from({ length: n }, () => ({ ...GOOD_POST })) };
+        return { posts: Array.from({ length: n }, () => ({ ...GOOD_POST, ...(post ?? {}) })) };
       }
       return {};
     },
@@ -203,29 +212,22 @@ test("citing walks to wherever the shape put it", () => {
 /* ── nothing unsupported reaches the screen ───────────────────────────────── */
 
 test("a post with an invented client is taken off, not reworded", async () => {
-  const { ctx } = fake({
-    posts: {
-      posts: [
-        {
-          words:
-            "How we solved a complex commercial heating failure for Acme Corp last month, saving them " +
-            "forty per cent on their annual bill and cutting their downtime to nothing at all this year.",
-          shot: "A photo of the boiler before and after, taken on your phone.",
-          why: "It shows what we can do.",
-          from: 1,
-        },
-      ],
-    },
+  const { ctx } = fake({}, {
+    words:
+      "How we solved a complex commercial heating failure for Acme Corp last month, saving them " +
+      "forty per cent on their annual bill and cutting their downtime to nothing at all this year.",
+    shot: "A photo of the boiler before and after, taken on your phone.",
+    why: "It shows what we can do.",
   });
-  const { state } = await runToEnd(ctx, { ...BUSINESS, foundVia: ["instagram"] });
+  const { state } = await runToEnd(ctx);
   const kept = (state.posts ?? []).filter((p) => "words" in p);
   assert.equal(kept.length, 0, "an invented client reached the screen");
   assert.ok((state.dropped ?? []).length >= 1, "it was dropped without saying so");
 });
 
 test("a post citing a page we never read is taken off", async () => {
-  const { ctx } = fake({ posts: { posts: [{ ...GOOD_POST, from: 99 }] } });
-  const { state, stage } = await runToEnd(ctx, { ...BUSINESS, foundVia: ["instagram"] });
+  const { ctx } = fake({}, { from: 99 });
+  const { state, stage } = await runToEnd(ctx);
   assert.equal(stage, "failed", "a post with no source survived");
   assert.match(state.reason ?? "", /backed by your own pages/);
 });
@@ -257,10 +259,8 @@ test("a post with no source and a post citing a page we never read give differen
 });
 
 test("what the reader is told about a drop is in their words, not ours", async () => {
-  const { ctx } = fake({
-    posts: { posts: [{ ...GOOD_POST, words: GOOD_POST.words + " You are overdue a post." }] },
-  });
-  const { state } = await runToEnd(ctx, { ...BUSINESS, foundVia: ["instagram"] });
+  const { ctx } = fake({}, { words: GOOD_POST.words + " You are overdue a post." });
+  const { state } = await runToEnd(ctx);
   for (const d of state.dropped ?? []) {
     assert.doesNotMatch(d.why, /guard|stage|schema|token|page \d/i, `machinery reached the screen: ${d.why}`);
   }
@@ -318,26 +318,50 @@ test("a website that will not open fails politely", async () => {
 
 /* ── the small pieces ─────────────────────────────────────────────────────── */
 
-test("their own navigation is followed, and the policy pages are not", () => {
-  const page = {
-    url: "https://x.test/",
-    text:
-      '<a href="https://x.test/prices">Prices</a><a href="/book">Book now</a>' +
-      '<a href="/privacy">Our service promise</a><a href="https://other.test/services">Them</a>',
+test("the pages come from the site's own sitemap, best first", async () => {
+  const { ctx } = fake();
+  const raw = FIXTURE.pages.find((p) => new URL(p.url).pathname === "/")!;
+  const home: ReadPage = { ...raw, fetchedOn: raw.fetchedAt.slice(0, 10) };
+  const got = await worthReading("https://www.shrewsburybarber.co.uk", home, ctx);
+
+  assert.ok(got.length, "the sitemap told us nothing");
+  assert.ok(
+    got.some((u) => u.includes("price-menu")),
+    `the price list is not in ${JSON.stringify(got)}`,
+  );
+  assert.match(got[0], /price|menu|rate|cost/i, `${got[0]} was read before the prices`);
+  for (const u of got) assert.match(u, /shrewsburybarber\.co\.uk/, `${u} is not their site`);
+});
+
+test("a site with no sitemap is guessed at, and only then", async () => {
+  const { ctx, calls } = fake();
+  const bare: ReadPage = {
+    url: "https://nothing.test/", ok: true, title: null, text: "Words.",
+    fetchedOn: "2026-09-16", note: "",
   };
-  const got = linked(page, "https://x.test");
-  assert.deepEqual(got, ["https://x.test/prices", "https://x.test/book"]);
+  const got = await worthReading("https://nothing.test", bare, ctx);
+  assert.ok(calls.read.some((u) => u.endsWith("/sitemap.xml")), "it never asked for a sitemap");
+  assert.ok(got.some((u) => /price/.test(u)), "it did not fall back to guessing");
 });
 
-test("www and the apex are one site", () => {
-  const page = { url: "https://www.x.test/", text: '<a href="https://x.test/prices">Prices</a>' };
-  assert.deepEqual(linked(page, "https://www.x.test"), ["https://x.test/prices"]);
-});
+test("the channels come from their own words, because their links do not survive", () => {
+  /* The real reader strips the footer, so the instagram.com address on this
+     barber's home page is gone by the time we see it. The sentence is not. */
+  const said = (text: string) =>
+    channelsFor(BUSINESS, { read: [{ url: "u", ok: true, title: null, text, fetchedOn: "2026-09-16", note: "" }] } as RunState);
 
-test("what they told us about their channels beats what their site links", () => {
-  const state = { read: [{ url: "u", ok: true, title: null, text: '<a href="https://instagram.com/them">i</a>', fetchedOn: "2026-09-16", note: "" }] };
-  assert.deepEqual(channelsFor({ ...BUSINESS, foundVia: ["tiktok"] }, state as RunState), ["tiktok"]);
-  assert.deepEqual(channelsFor(BUSINESS, state as RunState), ["instagram"]);
+  assert.deepEqual(said("You can also contact us via social media through Facebook and Instagram."),
+    ["instagram", "facebook"]);
+  assert.deepEqual(said("We cut hair. Nothing here names a platform."), []);
+
+  /* foundVia looks like the field for this and is not: its values are social,
+     booking, trades, marketplace, unknown. Reading it as a channel list gives
+     everybody no channels, which looks like working. */
+  assert.deepEqual(
+    channelsFor({ ...BUSINESS, foundVia: ["social", "booking"] },
+      { read: [{ url: "u", ok: true, title: null, text: "We are on TikTok.", fetchedOn: "2026-09-16", note: "" }] } as RunState),
+    ["tiktok"],
+  );
 });
 
 test("a YouTube post gets a title, because an upload without one cannot be published", () => {
