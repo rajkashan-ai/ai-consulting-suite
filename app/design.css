@@ -951,10 +951,16 @@ main{padding:0}
    compared cell by cell, so stacking loses nothing. */
 .checked {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0, 1fr), not 1fr. A bare 1fr is minmax(auto, 1fr), so the table of
+     full urls in the left column refuses to go below its own content width and
+     takes two thirds of the row. Measured 682px against 342px before this. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--s7);
   align-items: start;
 }
+
+/* The urls are long and must not push the page sideways. */
+.checked td { overflow-wrap: anywhere; }
 
 @media (max-width: 900px) {
   .checked { grid-template-columns: 1fr; gap: var(--s6); }
