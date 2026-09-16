@@ -777,6 +777,22 @@ export function sourcesFor(trade: string | null): Directory[] {
   return [...named, ...byGroup, ...GENERAL.filter(open)];
 }
 
+/**
+ * Hosts we have fetched and been refused by.
+ *
+ * Exported because the trade tiers are not the only way a host reaches a run.
+ * The owner's own answer supplies hosts too, and "a marketplace or directory"
+ * maps to Yell, which returns a Cloudflare challenge. Searching it spends one
+ * of the searches we pay for to learn nothing.
+ *
+ * Never worked around, per CLAUDE.md 1.5. Left out, not retried.
+ */
+export function blockedHosts(): string[] {
+  return [...GENERAL, ...SPECIALIST]
+    .filter((d) => d.reachable.state === "blocked")
+    .map((d) => d.host.toLowerCase().replace(/^www\./, ""));
+}
+
 /** Every trade this source claims, whether it named them or named their group. */
 export function tradesCovered(d: Directory): string[] {
   const all = Object.keys(TRADE_GROUP);

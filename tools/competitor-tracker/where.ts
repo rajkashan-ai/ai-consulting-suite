@@ -1,4 +1,4 @@
-import { EVERY, sourcesFor } from "../sources/uk-directories.ts";
+import { EVERY, blockedHosts, sourcesFor } from "../sources/uk-directories.ts";
 import type { Business } from "../types.ts";
 import { startWith, type Playbook } from "./playbook.ts";
 
@@ -60,8 +60,20 @@ export function whereToLook(
 ): Where {
   const { specialists, floor } = seeded(trade);
 
+  /**
+   * The owner's answer is evidence, and it still cannot send us somewhere that
+   * refuses us.
+   *
+   * "A marketplace or directory" maps to Yell, which returns a Cloudflare
+   * challenge, and "Checkatrade, MyBuilder or similar" leads with Checkatrade,
+   * which 403s. The seeded tiers filter these out through sourcesFor; this tier
+   * did not, so the owner's honest answer bought a targeted search of a site we
+   * cannot read and pushed a readable one out of the two we make.
+   */
+  const blocked = new Set(blockedHosts());
+
   const tiers: [Tier, string[]][] = [
-    ["owner", ownWords.map(host)],
+    ["owner", ownWords.map(host).filter((h) => !blocked.has(h))],
     ["playbook", startWith(playbook).map(host)],
     ["seeded", specialists],
     ["floor", floor],
