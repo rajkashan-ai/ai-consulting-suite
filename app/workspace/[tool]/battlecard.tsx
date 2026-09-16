@@ -1,12 +1,17 @@
 import type { Battlecard, Claim, Competitor } from "../../../../Agents/Competitor Tracker/src/types";
+import { groupNotChecked } from "@/tools/competitor-tracker/coverage";
+import type { DocumentBody } from "@/tools/competitor-tracker/document";
 import type { Grid, Side } from "@/tools/competitor-tracker/stages";
 import Tabs from "./tabs";
 import Mark, { CopyEverything } from "./mark";
 
-type Stored = Battlecard & {
-  standing?: { winning: Side[]; losing: Side[] };
-  grid?: Grid[];
-};
+/**
+ * Two definitions of the same thing had drifted apart: this one and
+ * DocumentBody in tools/competitor-tracker/document.ts, which is what actually
+ * gets written. The two lines explaining a short comparison were added there
+ * and never here, so they were stored on every run and shown on none.
+ */
+type Stored = DocumentBody;
 
 const AREAS = [
   { key: "pricing", label: "Pricing & packaging" },
@@ -149,44 +154,73 @@ export default function BattlecardView({
         ))}
       </div>
 
-      <h2 className="t-section">What we looked at</h2>
-      <div className="tablewrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Page</th>
-              <th>Read</th>
-            </tr>
-          </thead>
-          <tbody>
-            {card.sources.map((s) => (
-              <tr key={s.url}>
-                <td>{s.url}</td>
-                <td>{day(s.fetchedOn)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {card.unreadable.length > 0 && (
-        <>
-          <h3 className="t-sub">What we could not read</h3>
-          <ul className="cell-list">
-            {card.unreadable.map((u, i) => (
-              <li key={i}>
-                <span className="tag tag--cant">We cannot</span>
-                {u.name}
-                <span className="cell-note">{WHY[u.reason] ?? u.reason}</span>
-              </li>
-            ))}
-          </ul>
-        </>
+      {(card.shortfall || card.areas) && (
+        <p className="t-meta">
+          {[card.shortfall, card.areas].filter(Boolean).join(" ")}
+        </p>
       )}
 
+      {/* Two lists, side by side. What we checked, and what we did not and why.
+          The right hand one used to be pages that refused us and nothing else,
+          so the things we never look at at all were invisible: an owner could
+          read the whole page and never learn that we do not do traffic, do not
+          do rankings, and will not copy a review. A gap nobody mentions reads
+          as a gap nobody noticed. */}
+      <div className="checked">
+        <section>
+          <h2 className="t-section">What we checked</h2>
+          <div className="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Page</th>
+                  <th>Read</th>
+                </tr>
+              </thead>
+              <tbody>
+                {card.sources.map((s) => (
+                  <tr key={s.url}>
+                    <td>{s.url}</td>
+                    <td>{day(s.fetchedOn)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="t-section">What we did not, and why</h2>
+
+          {card.unreadable.length > 0 && (
+            <ul className="cell-list">
+              {card.unreadable.map((u, i) => (
+                <li key={`p${i}`}>
+                  <span className="tag tag--cant">Refused us</span>
+                  {u.name}
+                  <span className="cell-note">{WHY[u.reason] ?? u.reason}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {groupNotChecked().map((group) => (
+            <ul className="cell-list" key={group.kind}>
+              {group.rows.map((r) => (
+                <li key={r.what}>
+                  <span className="tag tag--cant">{LABEL[group.kind]}</span>
+                  {r.what}
+                  <span className="cell-note">{r.why}</span>
+                </li>
+              ))}
+            </ul>
+          ))}
+        </section>
+      </div>
+
       <p className="t-meta">
-        A blank on this page always means one of those two things, never that
-        there was nothing to find.
+        A blank on this page always means one of the things on the right, never
+        that there was nothing to find.
       </p>
 
       {/* Outside the document, structurally, so it can never reach an export of
@@ -195,6 +229,13 @@ export default function BattlecardView({
     </>
   );
 }
+
+/** The short tag on each row, so the kind is readable at a glance. */
+const LABEL: Record<string, string> = {
+  "cannot be known": "Nobody can",
+  "not allowed": "We will not",
+  "not yet": "Not yet",
+};
 
 const WHY: Record<string, string> = {
   forbidden: "Their site refused us, and we do not work around a block",

@@ -944,3 +944,27 @@ main{padding:0}
     scroll-behavior:auto !important;
   }
 }
+
+/* What we checked, and what we did not.
+   Two lists side by side, because they are a pair and the second one is only
+   meaningful next to the first. One column under 900px: they are read, not
+   compared cell by cell, so stacking loses nothing. */
+.checked {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s7);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .checked { grid-template-columns: 1fr; gap: var(--s6); }
+}
+
+/* The reason under each row wraps rather than being clipped: these are
+   sentences, not labels, and a truncated reason is worse than none. */
+.checked .cell-note {
+  display: block;
+  white-space: normal;
+}
+
+.checked .cell-list + .cell-list { margin-top: var(--s3); }
