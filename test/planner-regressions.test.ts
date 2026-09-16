@@ -242,10 +242,20 @@ function designedControls(): string[] {
 }
 
 test("every control on the designed screen is on the built one", () => {
+  /**
+   * Comments stripped. Both removed controls are named in a comment saying they
+   * were removed, so this passed while the buttons were gone: a guard reading
+   * its own explanation, which has now happened four times in this codebase and
+   * this is the first time it made a test pass rather than fail.
+   */
+  /* Stripped per file, then joined. Stripping the joined text let a comment
+     opener in one file pair with a closer in the next and swallow everything
+     between, which hid two of the resizer's buttons and reported them missing. */
   const built = [
-    screen("plan.tsx"), screen("resizer.tsx"), screen("post-controls.tsx"),
-    screen("plan-controls.tsx"), screen("send-week.tsx"),
-  ].join("\n");
+    "plan.tsx", "resizer.tsx", "post-controls.tsx", "plan-controls.tsx", "send-week.tsx",
+  ]
+    .map((f) => code(screen(f)))
+    .join("\n");
 
   /**
    * A label can reach the screen two ways: written in the component, or read
@@ -270,8 +280,22 @@ test("every control on the designed screen is on the built one", () => {
     "Connect Facebook": "Connecting one is not built yet",
   };
 
+  /**
+   * On the mockup and deliberately not built, Raj 2026-09-16.
+   *
+   * Named rather than dropped from the comparison, so removing a third one is a
+   * decision somebody has to write down rather than something that happens.
+   */
+  const dropped: Record<string, string> = {
+    Edit: "editing in the app is not how anyone posts, they write in the app the network gives them",
+    "Size a photo": "the resizer is four inches below with its own heading, so a button to scroll to it was furniture",
+  };
+
   const missing = designedControls().filter(
-    (label) => !built.includes(saidDifferently[label] ?? label) && !rendered.includes(label),
+    (label) =>
+      !built.includes(saidDifferently[label] ?? label) &&
+      !rendered.includes(label) &&
+      !(label in dropped),
   );
   assert.deepEqual(missing, [], `controls on the design and not in the app:\n  ${missing.join("\n  ")}`);
 });
@@ -460,21 +484,30 @@ test("the drop zone the stylesheet draws is a drop zone that works", () => {
   assert.match(view, /dataTransfer\.files/, "a dropped photo is not read");
 });
 
-test("every post carries the three things the owner can do to it", () => {
-  const controls = screen("post-controls.tsx");
-  for (const label of ["Edit", "Size a photo", "Posted"]) {
-    assert.ok(controls.includes(label), `a post has no "${label}"`);
-  }
+test("a post carries the one control that feeds everything else", () => {
+  /**
+   * The link. It needs no connected account, it gives us the caption as
+   * published, and the difference between what we wrote and what they posted is
+   * the most useful thing this tool can learn.
+   *
+   * Edit and Size a photo were here and are gone. Asserted absent, not merely
+   * unmentioned, so neither comes back without somebody deciding it should.
+   */
+  const controls = code(screen("post-controls.tsx"));
   assert.match(controls, /type="url"/, "there is nowhere to paste the link");
-  /* Each one writes something. A control with nothing behind it is the
-     "Approve this week" button again. */
-  assert.match(controls, /action=\{saveEdit\}/);
-  assert.match(controls, /action=\{markPosted\}/);
+  assert.ok(controls.includes("Posted"), "there is no way to say it went out");
+  assert.match(controls, /action=\{markPosted\}/, "the link is collected and written nowhere");
+
+  for (const gone of ["Edit", "Size a photo"]) {
+    assert.ok(!controls.includes(gone), `"${gone}" is back on the post without a decision`);
+  }
 });
 
 test("no control is offered that writes nothing", () => {
   const actions = readFileSync(join(here, "..", "app", "workspace", "[tool]", "planner-actions.ts"), "utf8");
-  for (const name of ["saveEdit", "markPosted", "toggleCritique", "changeCadence"]) {
+  /* saveEdit went with the Edit button. An action nothing calls is the same
+     defect as a button that writes nothing, facing the other way. */
+  for (const name of ["markPosted", "toggleCritique", "changeCadence"]) {
     assert.match(actions, new RegExp(`export async function ${name}\\b`), `${name} is wired to nothing`);
     assert.match(
       actions.slice(actions.indexOf(`export async function ${name}`)).slice(0, 2000),

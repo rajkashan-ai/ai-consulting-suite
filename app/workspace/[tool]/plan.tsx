@@ -199,7 +199,7 @@ export default function PlanView({
                     <p className="t-row">{p.title}</p>
                   </div>
                 ) : null}
-                <Words words={postState[`${p.date}|${p.channel}`]?.editedWords ?? p.words} />
+                <Words words={p.words} />
                 <div className="inset">
                   <p className="t-kind">{CHANNEL[p.channel].medium === "video" ? "Film" : "Photograph"}</p>
                   <p className="t-row">{p.shot}</p>
@@ -210,7 +210,6 @@ export default function PlanView({
                 workspaceId={workspaceId}
                 postDate={p.date}
                 channel={p.channel}
-                words={p.words}
                 state={postState[`${p.date}|${p.channel}`] ?? {}}
               />
             </article>

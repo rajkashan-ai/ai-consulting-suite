@@ -18,28 +18,6 @@ import { FIRST_STAGE } from "@/tools/content-social-planner/index";
  */
 
 /**
- * Their words instead of ours, kept for ever.
- *
- * CLAUDE.md 5: a post the owner has edited is never overwritten. That is the
- * one rule in the tool with no exception, which is why their words go in their
- * own row rather than over the top of the document we produced.
- */
-export async function saveEdit(form: FormData) {
-  const workspaceId = String(form.get("workspaceId") ?? "");
-  const postDate = String(form.get("postDate") ?? "");
-  const channel = String(form.get("channel") ?? "");
-  const words = String(form.get("words") ?? "").trim();
-  if (!workspaceId || !postDate || !channel || !words) return;
-
-  const supabase = await createClient();
-  await supabase.from("content_post_state").upsert(
-    { workspace_id: workspaceId, post_date: postDate, channel, edited_words: words, updated_at: new Date().toISOString() },
-    { onConflict: "workspace_id,post_date,channel" },
-  );
-  revalidatePath("/workspace/content-social-planner");
-}
-
-/**
  * Gone out, with the link.
  *
  * No connected account needed, which is the whole point: the link gives us the

@@ -1,15 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { markPosted, saveEdit } from "./planner-actions";
+import { markPosted } from "./planner-actions";
 
 /**
- * What the owner can do to one post.
+ * What the owner does to one post: tell us it went out, and where.
  *
- * Three things, and each writes something. The mockup had all three and the
- * first build of this screen had none of them: the screen was rebuilt as a
- * document and every control was left behind, which is how nineteen buttons
- * became zero without anything failing.
+ * "Edit" and "Size a photo" were here and are gone, Raj 2026-09-16. Both were
+ * on the mockup and neither earned its place: the resizer sits four inches
+ * below with its own heading, so a button to scroll to it was furniture, and
+ * editing in the app is not how anyone posts. They write in the app the social
+ * network gives them. What we need back from them is the link.
+ *
+ * That leaves one control, which is the one that feeds everything else: the
+ * link gives us the caption as published, and the difference between what we
+ * wrote and what they posted is the most useful thing this tool can learn.
  */
 
 export type PostState = { editedWords?: string | null; postedAt?: string | null; postedUrl?: string | null };
@@ -18,77 +22,45 @@ export default function PostControls({
   workspaceId,
   postDate,
   channel,
-  words,
   state,
 }: {
   workspaceId: string;
   postDate: string;
   channel: string;
-  words: string;
   state: PostState;
 }) {
-  const [editing, setEditing] = useState(false);
-
   if (state.postedAt) {
     return (
-      <p className="t-meta">
-        <span className="tag tag--did">Posted</span>{" "}
-        {state.postedUrl ? (
-          <a className="linkish" href={state.postedUrl} target="_blank" rel="noopener noreferrer">
-            see it
-          </a>
-        ) : (
-          "You told us this one went out."
-        )}
-      </p>
+      <div className="card__foot">
+        <p className="t-meta">
+          <span className="tag tag--did">Posted</span>{" "}
+          {state.postedUrl ? (
+            <a className="linkish" href={state.postedUrl} target="_blank" rel="noopener noreferrer">
+              see it
+            </a>
+          ) : (
+            "You told us this one went out."
+          )}
+        </p>
+      </div>
     );
   }
 
   return (
-    <div className="card__foot">
-      {editing ? (
-        /* Their words go in a form of their own, so pressing Posted while
-           halfway through an edit cannot submit the edit by accident. */
-        <form action={saveEdit} className="card__foot">
-          <input type="hidden" name="workspaceId" value={workspaceId} />
-          <input type="hidden" name="postDate" value={postDate} />
-          <input type="hidden" name="channel" value={channel} />
-          <textarea className="field field--text" name="words" defaultValue={state.editedWords ?? words} rows={8} />
-          <button className="btn" type="submit">
-            Keep my words
-          </button>
-          <button className="btn--ghost" type="button" onClick={() => setEditing(false)}>
-            Leave it
-          </button>
-        </form>
-      ) : (
-        <>
-          <button className="btn--ghost btn--sm" type="button" onClick={() => setEditing(true)}>
-            Edit
-          </button>
-
-          {/* Jumps to the resizer rather than opening a second one. */}
-          <a className="btn--ghost btn--sm" href="#resize-a-photo">
-            Size a photo
-          </a>
-
-          <form action={markPosted} className="card__foot">
-            <input type="hidden" name="workspaceId" value={workspaceId} />
-            <input type="hidden" name="postDate" value={postDate} />
-            <input type="hidden" name="channel" value={channel} />
-            <input
-              className="field"
-              type="url"
-              name="url"
-              placeholder="https://..."
-              aria-label="The link to this post once it is up"
-            />
-            <button className="btn--ghost btn--sm" type="submit">
-              Posted
-            </button>
-          </form>
-        </>
-      )}
-    </div>
+    <form action={markPosted} className="card__foot">
+      <input type="hidden" name="workspaceId" value={workspaceId} />
+      <input type="hidden" name="postDate" value={postDate} />
+      <input type="hidden" name="channel" value={channel} />
+      <input
+        className="field"
+        type="url"
+        name="url"
+        placeholder="https://..."
+        aria-label="The link to this post once it is up"
+      />
+      <button className="btn--ghost btn--sm" type="submit">
+        Posted
+      </button>
+    </form>
   );
 }
