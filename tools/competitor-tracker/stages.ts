@@ -21,6 +21,7 @@ import type { Business, ToolContext } from "../types.ts";
 import { isProfile, profileFor } from "./profile.ts";
 import { confidence, exhausted, isDeadEnd, type Playbook } from "./playbook.ts";
 import { whereToLook } from "./where.ts";
+import { ageOf, enoughToUse, type Kept } from "./remember.ts";
 import {
   NAMES_SHAPE,
   askFor,
@@ -97,6 +98,10 @@ export type RunState = {
   playbook?: Playbook | null;
   /** Competitors a model named and a search then confirmed exist. */
   namedThenChecked?: Checked[];
+  /** The set we already had before this run started. Skips discovery. */
+  kept?: Kept[];
+  /** How old that set is, said out loud rather than implied. */
+  setAge?: string | null;
   /** Asking has had its turn. Stops the two discovery routes looping. */
   triedNaming?: boolean;
   /** Every host the four tiers offered, best evidence first. */
@@ -325,6 +330,36 @@ async function name(state: RunState, business: Business, ctx: ToolContext): Prom
       `We do not know ${profile.missing.join(" or ")} for this business, and ` +
         `everything here depends on it. Put it in on Your business and run it again.`,
     );
+  }
+
+  /**
+   * We already know who they are up against. Do not go and find out again.
+   *
+   * This is the saving the whole change is for. Discovery was 8 minutes 41
+   * seconds and 35,000 tokens on the St Albans run, answering a question whose
+   * answer is the same as last time. A salon's rivals do not change weekly.
+   * Their prices do, and reading five known pages takes about five seconds.
+   */
+  const kept = state.kept ?? [];
+  if (enoughToUse(kept)) {
+    return {
+      stage: "reading",
+      state: {
+        ...state,
+        profile,
+        setAge: ageOf(kept, new Date()),
+        competitors: kept.map((k) => ({
+          name: k.name,
+          addedByCustomer: k.source === "owner",
+          claims: {},
+        })),
+        // The same queue the normal route builds, so reading is one path and
+        // not two. A kept competitor with no url is still compared on what the
+        // last run learned; it just has no fresh page this week.
+        queue: kept.filter((k) => k.url).map((k) => ({ name: k.name, url: k.url! })),
+      },
+      progress: `Checking the ${kept.length} we compare you against`,
+    };
   }
 
   const answered = (await ctx.think({

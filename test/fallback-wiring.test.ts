@@ -46,23 +46,36 @@ const playbook = (over: Partial<Playbook> = {}): Playbook => ({
   timesUsed: 0, builtFrom: null, nothingIn: [], towns: [], ...over,
 });
 
-/** Records what the contract hooks actually asked the database for. */
-function fakeDb() {
-  const asked: { key: string | null; upserted: Record<string, unknown> | null } = {
-    key: null, upserted: null,
-  };
+/**
+ * Records what the contract hooks actually asked the database for.
+ *
+ * Two tables now: `playbooks`, keyed on the trade, and `competitors`, keyed on
+ * the workspace. Kept apart here so a test can say which one it means, because
+ * a double that lumps them together would have let a competitor row be filed
+ * as a playbook and nothing would have noticed.
+ */
+function fakeDb(competitors: Record<string, unknown>[] = []) {
+  const asked: {
+    key: string | null;
+    upserted: Record<string, unknown> | null;
+    saved: Record<string, unknown>[] | null;
+  } = { key: null, upserted: null, saved: null };
+
   const db = {
-    from: () => ({
+    from: (table: string) => ({
       select: () => ({
         eq: (_col: string, val: unknown) => ({
           maybeSingle: async () => {
             asked.key = val as string;
             return { data: null };
           },
+          // "where rejected_at is null", which is how a soft delete is read.
+          is: async () => ({ data: table === "competitors" ? competitors : [] }),
         }),
       }),
-      upsert: async (row: Record<string, unknown>) => {
-        asked.upserted = row;
+      upsert: async (row: Record<string, unknown> | Record<string, unknown>[]) => {
+        if (table === "competitors") asked.saved = row as Record<string, unknown>[];
+        else asked.upserted = row as Record<string, unknown>;
         return null;
       },
     }),
@@ -352,4 +365,105 @@ test("a run that searched and found nothing does teach the playbook", async () =
     db,
   );
   assert.deepEqual(asked.upserted?.nothing_in, ["Ware"]);
+});
+
+// ---------------------------------------------------------------------------
+// Remembering the five
+// ---------------------------------------------------------------------------
+
+/**
+ * Discovery is the most expensive and slowest part of a run, and its answer is
+ * the one that barely changes. Rediscovering it weekly is the mistake.
+ */
+test("who they compete with is saved, so the next run does not pay to find out", async () => {
+  const { db, asked } = fakeDb();
+  await competitorTracker.learn!(
+    {
+      seen: [{ term: "x", results: [] }],
+      namedThenChecked: [
+        { name: "ARMANDO Barbershop", why: "Same street", url: "https://booksy.com/a", title: "t" },
+        { name: "The Fade Inn", why: "Town centre", url: "https://booksy.com/b", title: "t" },
+      ],
+    } as unknown as RunState,
+    aBusiness(),
+    db,
+  );
+
+  assert.ok(asked.saved, "the set was found and then thrown away");
+  assert.equal(asked.saved!.length, 2);
+  assert.equal(asked.saved![0].workspace_id, "w1");
+  assert.equal(asked.saved![0].name, "ARMANDO Barbershop");
+  assert.equal(asked.saved![0].source, "asked");
+});
+
+test("a run that already has the set does no discovery at all", async () => {
+  const stored = [
+    { name: "ARMANDO Barbershop", url: "https://booksy.com/a", why: "x", source: "asked",
+      found_at: new Date().toISOString() },
+    { name: "The Fade Inn Barbershop", url: "https://booksy.com/b", why: "x", source: "asked",
+      found_at: new Date().toISOString() },
+    { name: "Medeiros", url: "https://treatwell.co.uk/c", why: "x", source: "asked",
+      found_at: new Date().toISOString() },
+  ];
+  const { db } = fakeDb(stored);
+
+  const prepared = await competitorTracker.prepare!({}, aBusiness(), db);
+  assert.equal((prepared as RunState).kept?.length, 3, "the stored set was not loaded");
+
+  const { ctx, calls } = fakeContext(recorded);
+  const step = await advance("searching", prepared as RunState, aBusiness(), ctx);
+
+  assert.equal(step.stage, "reading", "it went looking despite already knowing");
+  assert.equal(calls.think.length, 0, "it asked a model who competes, having been told");
+  assert.equal(calls.search.length, 0, "it searched, having been told");
+  assert.equal(step.state.queue?.length, 3, "the known pages are not queued to read");
+});
+
+test("too few stored is not a set, and discovery runs", async () => {
+  // A comparison against one business is not a comparison.
+  const { db } = fakeDb([
+    { name: "ARMANDO Barbershop", url: "https://booksy.com/a", why: "x", source: "asked",
+      found_at: new Date().toISOString() },
+  ]);
+
+  const prepared = await competitorTracker.prepare!({}, aBusiness(), db);
+  const { ctx, calls } = fakeContext(recorded);
+  const step = await advance("searching", prepared as RunState, aBusiness(), ctx);
+
+  assert.notEqual(step.stage, "reading");
+  assert.ok(calls.think.length > 0 || calls.search.length > 0, "it gave up instead of looking");
+});
+
+test("how old the set is gets said, not implied", async () => {
+  const old = new Date(Date.now() - 95 * 86_400_000).toISOString();
+  const { db } = fakeDb(
+    ["a", "b", "c"].map((n) => ({
+      name: `Salon ${n}`, url: `https://x.co.uk/${n}`, why: "x", source: "asked", found_at: old,
+    })),
+  );
+
+  const prepared = await competitorTracker.prepare!({}, aBusiness(), db);
+  const { ctx } = fakeContext(recorded);
+  const step = await advance("searching", prepared as RunState, aBusiness(), ctx);
+
+  assert.match(step.state.setAge ?? "", /months ago/);
+  assert.match(step.state.setAge ?? "", /look again/, "an old set must say it can be refreshed");
+});
+
+test("a competitor the owner added is marked as theirs", async () => {
+  const { db } = fakeDb([
+    { name: "Their Pick", url: "https://x.co.uk/1", why: null, source: "owner",
+      found_at: new Date().toISOString() },
+    { name: "Salon B", url: "https://x.co.uk/2", why: "x", source: "asked",
+      found_at: new Date().toISOString() },
+    { name: "Salon C", url: "https://x.co.uk/3", why: "x", source: "asked",
+      found_at: new Date().toISOString() },
+  ]);
+
+  const prepared = await competitorTracker.prepare!({}, aBusiness(), db);
+  const { ctx } = fakeContext(recorded);
+  const step = await advance("searching", prepared as RunState, aBusiness(), ctx);
+
+  const theirs = step.state.competitors?.find((c) => c.name === "Their Pick");
+  assert.equal(theirs?.addedByCustomer, true, "the owner's own pick lost its mark");
 });

@@ -4,6 +4,7 @@ import { advance as advanceStage, type RunState } from "./stages.ts";
 import { buildBody, hollow } from "./document.ts";
 import { EMPTY, learn as fold, type Playbook } from "./playbook.ts";
 import { playbookKey } from "./where.ts";
+import { enoughToUse, rowsFor, type Kept } from "./remember.ts";
 
 /**
  * The Competitor Tracker, as the engine sees it.
@@ -39,6 +40,30 @@ export const competitorTracker: ToolRun<RunState> = {
    */
   async prepare(state, business, db) {
     if (state.playbook !== undefined) return state;
+
+    /**
+     * Who we already know they are up against.
+     *
+     * Loaded before the first step, so a run that has a set never enters
+     * discovery at all. This is the whole saving: 8 minutes 41 seconds and
+     * 35,000 tokens on the St Albans run, to answer a question whose answer
+     * was the same as last time.
+     */
+    const { data: rows } = (await db
+      .from("competitors")
+      .select("name, url, why, source, found_at")
+      .eq("workspace_id", business.id)
+      .is("rejected_at", null)) as { data: Record<string, unknown>[] | null };
+
+    const kept: Kept[] = (rows ?? []).map((r) => ({
+      name: r.name as string,
+      url: (r.url ?? null) as string | null,
+      why: (r.why ?? null) as string | null,
+      source: (r.source ?? "asked") as string,
+      foundAt: (r.found_at ?? new Date().toISOString()) as string,
+    }));
+
+    state = { ...state, kept };
 
     // An unmatched business is filed under its own words, never under the bare
     // `other`, which every unmatched business in the country would share. No
@@ -80,6 +105,22 @@ export const competitorTracker: ToolRun<RunState> = {
    * trade pays to find it again.
    */
   async learn(state, business, db) {
+    /**
+     * Remember who they turned out to be, whichever route found them.
+     *
+     * Written on the way past like everything else here: a run that found the
+     * five and then failed to write a decent card still found the five, and
+     * throwing that away means the next run pays to find them again. That is
+     * the mistake this whole change exists to stop making.
+     */
+    const discovered = state.namedThenChecked ?? [];
+    if (discovered.length && business.id) {
+      await db.from("competitors").upsert(rowsFor(business.id, discovered, "asked"), {
+        onConflict: "workspace_id,name",
+        ignoreDuplicates: true,
+      });
+    }
+
     const key = playbookKey(business);
     if (!key) return;
 

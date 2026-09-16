@@ -78,8 +78,19 @@ export type ToolRun<S extends AnyState = AnyState> = {
 export type Db = {
   from(table: string): {
     select(cols: string): {
-      eq(col: string, val: unknown): { maybeSingle(): Promise<{ data: unknown }> };
+      eq(
+        col: string,
+        val: unknown,
+      ): {
+        maybeSingle(): Promise<{ data: unknown }>;
+        /** For "this column is null", which is how a soft delete is read. */
+        is(col: string, val: unknown): Promise<{ data: unknown }>;
+      };
     };
-    upsert(row: Record<string, unknown>): Promise<unknown>;
+    /** One row or many. Many needs onConflict, so the options come too. */
+    upsert(
+      rows: Record<string, unknown> | Record<string, unknown>[],
+      opts?: Record<string, unknown>,
+    ): Promise<unknown>;
   };
 };
