@@ -34,6 +34,8 @@ export type DocumentBody = Battlecard & {
    */
   shortfall?: string;
   areas?: string;
+  /** The one thing worth knowing, first. Absent when it did not survive. */
+  headline?: string;
 };
 
 /** Assemble the document from a finished run. */
@@ -45,6 +47,7 @@ export function buildBody(state: RunState): DocumentBody | null {
     grid: state.grid,
     shortfall: state.shortfallSay,
     areas: state.areasSay,
+    headline: state.headline,
   };
 }
 

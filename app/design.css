@@ -1018,3 +1018,16 @@ main{padding:0}
    another, and the row label gets a fixed, narrow track. */
 .grid { table-layout: fixed; }
 .grid .grid__what { width: 15%; }
+
+/* The summary, above the first finding.
+   The headline is the biggest thing on the page after the title, because it is
+   the one line most readers will take away. The line under it is orientation
+   and stays quiet: it exists so "5" means something, not to be read twice. */
+.summary { margin: var(--s6) 0 var(--s7); }
+
+.summary__said {
+  margin: 0 0 var(--s2);
+  max-width: var(--measure);
+  font-weight: 600;
+  text-wrap: balance;
+}

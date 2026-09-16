@@ -183,3 +183,53 @@ test("the running screen shows the real progress line, not a fixed word", () => 
   // "Found 32 barbers in Shrewsbury" is both proof of life and proof of work.
   assert.match(waiting, /<strong className="t-row">\{progress\}<\/strong>/);
 });
+
+// ---------------------------------------------------------------------------
+// The summary above the findings. Added 2026-09-16.
+// ---------------------------------------------------------------------------
+
+const scrubSrc = readFileSync(join(here, "..", "tools", "competitor-tracker", "scrub.ts"), "utf8");
+
+test("the page says what it compared before the first finding assumes you know", () => {
+  /**
+   * The first line an owner read was a finding beginning "You publish 5
+   * prices", and nothing had yet said what 5 was or who they were. Raj:
+   * "there is no short summary."
+   */
+  assert.match(screen, /We compared you with \{card\.competitors\.length\}/);
+  assert.match(screen, /areasRead/, "the areas compared are not named");
+});
+
+test("the orientation line is fixed text, so it cannot be wrong", () => {
+  // The headline is written and can be dropped. The line under it is the one
+  // that always survives, so it must not depend on anything generated.
+  const summary = between(screen, '<div className="summary">', "</div>");
+  assert.doesNotMatch(summary, /card\.shortfall|card\.areas|headline\?\./);
+  assert.match(summary, /card\.competitors\.length === 1 \? "business" : "businesses"/);
+});
+
+test("only the areas actually built are named", () => {
+  // Naming an area the run could not produce is the summary promising
+  // something the page does not have.
+  assert.match(screen, /g\.area === a\.key && g\.rows\.length > 0/);
+});
+
+test("the headline is dropped rather than shown when it cannot be stood behind", () => {
+  // It is the first line and the most quoted, so it is the worst place on the
+  // page for an unprovable claim.
+  assert.match(scrubSrc, /export function scrubHeadline/);
+  assert.match(scrubSrc, /unsafe\(said\) \?\? \(headline\?\.source \? null : "nothing to point at for it"\)/);
+  assert.match(screen, /\{card\.headline && </, "the headline renders even when it was dropped");
+});
+
+test("the headline is asked for as a finding, not a summary of the page", () => {
+  // Anchored on the description, because an action also has a "headline" key
+  // and it comes first in the file.
+  // Whitespace flattened, and adjacent string literals joined: a message
+  // written as "one half " + "and the other" does not match a regex written as
+  // the sentence a reader sees.
+  const flat = stages.replace(/\s+/g, " ").replace(/" \+ "/g, "");
+  const shape = between(flat, "The single most useful thing on this page", "competitors: BATTLECARD_SHAPE");
+  assert.match(shape, /maxLength:\s*120/);
+  assert.match(shape, /Never a greeting, never a summary of what the page contains/i);
+});

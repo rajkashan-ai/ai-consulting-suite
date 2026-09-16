@@ -13,6 +13,12 @@ import Mark, { CopyEverything } from "./mark";
  */
 type Stored = DocumentBody;
 
+/** "a, b and c". A trailing comma before "and" reads as a list, not a sentence. */
+function asList(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
 const AREAS = [
   { key: "pricing", label: "Pricing & packaging" },
   { key: "channels", label: "Marketing & channels" },
@@ -52,6 +58,10 @@ export default function BattlecardView({
   );
   const ran = new Date(card.ranAt);
 
+  const areasRead = AREAS.filter((a) =>
+    card.grid?.some((g) => g.area === a.key && g.rows.length > 0),
+  ).map((a) => a.label.toLowerCase());
+
   return (
     <>
       <div className="strip">
@@ -67,6 +77,26 @@ export default function BattlecardView({
           We look once a week, so this is the same answer you will see all week.
         </span>
         <span className="t-meta">{nextCheck}</span>
+      </div>
+
+      {/* Named the way the tabs name them, and only the ones that were built.
+          Naming an area the run could not produce would be the summary
+          promising something the page does not have. */}
+      {/* What this page is, before the first finding assumes you know.
+          The first line an owner read began "You publish 5 prices", and
+          nothing had yet said what 5 was or who they were.
+
+          Two lines doing two jobs. The headline is written and is dropped if
+          it cannot be stood behind, so it is absent rather than wrong. The line
+          under it is fixed text with the counts slotted in, so whatever happens
+          the reader is still told what was compared. */}
+      <div className="summary">
+        {card.headline && <p className="t-lead summary__said">{card.headline}</p>}
+        <p className="t-meta">
+          We compared you with {card.competitors.length}{" "}
+          {card.competitors.length === 1 ? "business" : "businesses"} near you
+          {areasRead.length > 0 && <> across {asList(areasRead)}</>}.
+        </p>
       </div>
 
       {(card.standing?.winning?.length || card.standing?.losing?.length) && (

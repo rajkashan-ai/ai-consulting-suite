@@ -164,3 +164,24 @@ export function scrubStanding(
     dropped,
   };
 }
+
+
+/**
+ * The headline, held to the same rules as everything else.
+ *
+ * It is the first line on the page and the most quoted, so it is the worst
+ * place for an unprovable claim. Dropped rather than reworded, like the rest:
+ * a headline that cannot point at a page is one the page is better without,
+ * and the fixed line underneath it still says what was compared.
+ */
+export function scrubHeadline(
+  headline: { said?: string; source?: { url?: string } | null } | undefined,
+): { headline: string | null; why: string | null } {
+  const said = headline?.said?.trim();
+  if (!said) return { headline: null, why: "nothing was written" };
+
+  const why = unsafe(said) ?? (headline?.source ? null : "nothing to point at for it");
+  if (why) return { headline: null, why };
+
+  return { headline: said, why: null };
+}

@@ -25,7 +25,7 @@ import { notYou, oneEach, rightTrade, sift } from "./sift.ts";
 import { areasMissing, shortfall, type Funnel } from "./shortfall.ts";
 import { enough, nextToTry, refusals, type Attempt } from "./retry.ts";
 import { displayName } from "../../../Agents/Competitor Tracker/src/normalise.ts";
-import { scrubGrid, scrubStanding } from "./scrub.ts";
+import { scrubGrid, scrubHeadline, scrubStanding } from "./scrub.ts";
 import { plainly } from "../../lib/plainly.ts";
 import {
   cite,
@@ -126,6 +126,8 @@ export type RunState = {
   shortfallWhy?: string;
   /** Said on the page when one of the four comparisons could not be built. */
   areasSay?: string;
+  /** The one thing worth knowing, above everything else. Dropped if unsafe. */
+  headline?: string;
   /** Places that turned us away while looking for competitors. Shown. */
   refusedSources?: { name: string; reason: string }[];
 };
@@ -1093,6 +1095,7 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
     shape: NARRATIVE_SHAPE,
     maxTokens: 20_000,
   })) as {
+    headline?: { said?: string; source?: Source | null };
     competitors?: unknown;
     actions?: unknown;
     where_you_win?: Side[];
@@ -1198,6 +1201,8 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
   }
 
   const cleanGrid = scrubGrid(checked.grids, (url) => textOf.get(url) ?? null);
+  const cleanHeadline = scrubHeadline(built.headline);
+
   const cleanStanding = scrubStanding({
     winning: (built.where_you_win ?? []).slice(0, 4),
     losing: (built.where_they_win ?? []).slice(0, 4),
@@ -1211,6 +1216,7 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
       grid: cleanGrid.grids,
       standing: cleanStanding.standing,
       areasSay: missingAreas ?? undefined,
+      headline: cleanHeadline.headline ?? undefined,
     },
     progress: "Checking it",
   };
@@ -2039,12 +2045,37 @@ const NARRATIVE_SHAPE = {
   input_schema: {
     type: "object",
     properties: {
+      /**
+       * The one thing worth knowing, first.
+       *
+       * The first line an owner read was a finding that began "You publish 5
+       * prices", and nothing on the page had yet said what 5 was or who they
+       * were. Raj: "there is no short summary."
+       *
+       * It sits above a fixed line naming the count and the town, so the
+       * orientation is never generated and cannot be wrong. This is the part
+       * that is written, and it is dropped rather than shown if it breaks any
+       * of the same rules the rest of the page obeys.
+       */
+      headline: {
+        type: "object",
+        description:
+          "The single most useful thing on this page, in one sentence, with " +
+          "its numbers in it. 'You are the cheapest of 6 for a standard cut, " +
+          "and the only one with no public reviews.' Never a greeting, never a " +
+          "summary of what the page contains.",
+        properties: {
+          said: { type: "string", maxLength: 120 },
+          from: { type: "integer", description: "The number of the page this came from." },
+        },
+        required: ["said", "from"],
+      },
       competitors: BATTLECARD_SHAPE.input_schema.properties.competitors,
       where_you_win: BATTLECARD_SHAPE.input_schema.properties.where_you_win,
       where_they_win: BATTLECARD_SHAPE.input_schema.properties.where_they_win,
       actions: BATTLECARD_SHAPE.input_schema.properties.actions,
     },
-    required: ["competitors", "where_you_win", "where_they_win", "actions"],
+    required: ["headline", "competitors", "where_you_win", "where_they_win", "actions"],
     $defs: BATTLECARD_SHAPE.input_schema.$defs,
   },
 };
