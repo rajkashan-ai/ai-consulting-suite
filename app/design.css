@@ -71,6 +71,50 @@
      kept as a hand copy of UI/app.css and the copy lost it. */
   --sys:var(--font-sys),-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif;
   --mono:var(--font-mono),ui-monospace,SFMono-Regular,Menlo,monospace;
+
+  /* The spacing scale, the radii and the two grounds. A strict 4px step with
+     nothing between the values.
+
+     These were deleted on 2026-09-16 by replacing this whole block instead of
+     editing the colours in it, and every padding, margin, gap and radius in the
+     stylesheet became invalid at once. The page rendered with no containers,
+     flush to the edge. Nothing failed: an undefined custom property is not an
+     error, the declaration is simply dropped. The test below now checks that
+     every var() used anywhere has a definition, which is the general version of
+     this and catches the next one. */
+  --s1:4px;  --s2:8px;  --s3:12px; --s4:16px;
+  --s5:20px; --s6:24px; --s7:32px; --s8:40px;
+  --s9:48px; --s10:64px; --s11:80px; --s12:96px;
+
+  --r-card:14px; --r-control:10px; --r-chip:8px; --r-pill:999px;
+
+  --ground-a:var(--paper);
+  --ground-b:var(--card);
+
+  /* Measure in characters, never pixels. A px cap wraps at a different
+     character count at every font size, which is a bug we shipped once. */
+  --measure:64ch;
+  --shell-max:1120px;
+  --shell-pad:32px;
+  --header-h:64px;
+  --nav-h:56px;
+
+  /* Motion. 160ms on this curve is, to the millisecond and the control point,
+     Linear's .16s ease-out-quad. */
+  --dur:160ms;
+  --ease:cubic-bezier(.25,.46,.45,.94);
+
+  /* The glancing sizes: tables, rows, chips, meta.
+     These were NEVER defined. Rules added on 2026-09-16 used them on the
+     assumption that a name this obvious must already exist, and every
+     declaration that referenced one was silently dropped: a grid cell's
+     qualifier and an action's gap line both rendered at the inherited size
+     rather than the small one they were written for. Nothing failed, which is
+     the whole problem with an undefined custom property. */
+  --t-row:15px;   --t-row-lh:21px;
+  --t-meta:13px;  --t-meta-lh:19px;
+  --t-micro:12px; --t-micro-lh:16px;
+  --t-kind:11px;  --t-kind-lh:14px;
 }
 
 @media (prefers-color-scheme:dark){

@@ -70,6 +70,44 @@ test("the neutrals are warm, not grey", () => {
   }
 });
 
+test("every custom property the stylesheet uses is defined in it", () => {
+  /**
+   * The general version of the test above, and the one that matters.
+   *
+   * On 2026-09-16 the whole :root block was replaced rather than edited, and
+   * the spacing scale, the radii and the two grounds went with it. Every
+   * padding, margin, gap and radius in the file became invalid at once and the
+   * page rendered flush to the edges with no containers.
+   *
+   * Nothing failed, because an undefined custom property is not an error: the
+   * declaration is just dropped. Listing the tokens I happened to think of
+   * would have missed it, so this checks the whole file against itself.
+   */
+  const used = new Set(
+    [...css.matchAll(/var\(\s*(--[a-z0-9-]+)/gi)].map((m) => m[1].toLowerCase()),
+  );
+  const defined = new Set(
+    [...css.matchAll(/(--[a-z0-9-]+)\s*:/gi)].map((m) => m[1].toLowerCase()),
+  );
+
+  // Set by next/font in the layout, not by this file.
+  for (const fromLayout of ["--font-sys", "--font-mono"]) defined.add(fromLayout);
+
+  const missing = [...used].filter((t) => !defined.has(t)).sort();
+  assert.deepEqual(missing, [], `used but never defined:\n  ${missing.join("\n  ")}`);
+});
+
+test("the spacing scale and the radii are all present", () => {
+  // Named explicitly as well, because these are what went, and a named test
+  // says what broke rather than only that something did.
+  for (let i = 1; i <= 12; i += 1) {
+    assert.match(css, new RegExp(`--s${i}\\s*:`), `--s${i} is gone`);
+  }
+  for (const r of ["--r-card", "--r-control", "--r-chip", "--r-pill"]) {
+    assert.match(css, new RegExp(`${r}\\s*:`), `${r} is gone`);
+  }
+});
+
 // ---------------------------------------------------------------------------
 // The fonts, and where they are loaded.
 // ---------------------------------------------------------------------------
