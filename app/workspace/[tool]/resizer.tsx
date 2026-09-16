@@ -38,6 +38,8 @@ export default function Resizer() {
   const [chosen, setChosen] = useState<string[]>(SIZES.filter((s) => s.on).map((s) => s.id));
   const [busy, setBusy] = useState(false);
   const [said, setSaid] = useState("");
+  /* Dragging over the box, which the stylesheet already has a look for. */
+  const [over, setOver] = useState(false);
   const canvas = useRef<HTMLCanvasElement>(null);
 
   /** Two sizes with the same pixels write the same file twice. Say so. */
@@ -226,16 +228,28 @@ export default function Resizer() {
         place it is going. It never leaves your computer.
       </p>
 
-      {/* A label wrapping the input, so there is a button to press.
-          The bare input rendered as the browser's own grey control with no
-          words on it, which is not a button anyone sees. The input itself is
-          kept reachable rather than hidden, because a file input hidden from
-          the keyboard is a file input nobody on a keyboard can use. */}
-      <div className="drop">
+      {/* A label wrapping the input, so there is one button and it says a word.
+          The input is clipped rather than display:none, because a file input
+          the keyboard cannot reach is a file nobody on a keyboard can choose.
+          The label is not a second "Choose a photo": the heading above it said
+          the same thing twice, which on screen read as two buttons. */}
+      <div
+        className={`drop${over ? " is-over" : ""}`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setOver(true);
+        }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setOver(false);
+          take(e.dataTransfer.files?.[0]);
+        }}
+      >
         <p className="t-row">
-          <strong>Choose a photo</strong>
+          <strong>{image ? name : "The photo a post asked you for"}</strong>
         </p>
-        <p className="t-meta">The one a post above asked you for.</p>
+        <p className="t-meta">Drop it here, or</p>
         <label className="btn">
           Choose a photo
           <input

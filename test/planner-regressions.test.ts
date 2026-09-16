@@ -358,10 +358,40 @@ test("the photo is drawn after the canvas exists", () => {
   assert.doesNotMatch(onload, /draw\(/, "it still draws before the canvas exists");
 });
 
-test("there is a button to choose a photo, not a bare file input", () => {
+test("there is one button to choose a photo, not two controls in one", () => {
+  /**
+   * The input inside the label rendered the browser's own "Choose file, no file
+   * chosen" control inside our button, so the box showed the words twice and a
+   * grey control on top of a red one. The test that existed only asked whether
+   * there was a label around an input, which was true the whole time it looked
+   * broken.
+   */
   const view = screen("resizer.tsx");
   assert.match(view, /<label className="btn">/, "the file input has no button around it");
   assert.match(view, /type="file"/, "there is nothing to choose a file with");
+
+  const css = styles(["app", "design.css"]);
+  const hidden = rule(css, ".drop label.btn input");
+  assert.match(hidden, /clip-path:\s*inset\(50%\)/, "the browser's own control still shows inside ours");
+  assert.doesNotMatch(hidden, /display:\s*none/,
+    "display:none takes the input out of the keyboard's reach, so nobody tabbing can choose a file");
+
+  /* The label and the line above it said the same words, which read as two
+     buttons before either of them rendered. */
+  const labels = [...view.matchAll(/>\s*Choose a photo\s*</g)].length;
+  assert.equal(labels, 1, `"Choose a photo" appears ${labels} times in the box`);
+});
+
+test("the drop zone the stylesheet draws is a drop zone that works", () => {
+  /* `.drop.is-over` has been in both stylesheets from the first version, so the
+     box has always looked like something you could drop a photo on. It was not.
+     A dashed border that does nothing is a promise the screen cannot keep. */
+  const view = screen("resizer.tsx");
+  for (const handler of ["onDragOver", "onDragLeave", "onDrop"]) {
+    assert.ok(view.includes(handler), `the box looks droppable and has no ${handler}`);
+  }
+  assert.match(view, /is-over/, "nothing shows that a photo is over the box");
+  assert.match(view, /dataTransfer\.files/, "a dropped photo is not read");
 });
 
 test("every post carries the three things the owner can do to it", () => {

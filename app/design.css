@@ -830,7 +830,19 @@ main{padding:0}
 .drop{display:block; padding:var(--s8) var(--s6); text-align:center;
   background:var(--card); border:2px dashed var(--muted); border-radius:var(--r-card)}
 .drop.is-over{border-color:var(--brand); background:var(--card-2)}
-.drop input{display:block; margin:var(--s4) auto 0}
+/* The input sits inside the button, so the button is what you see.
+ *
+ * It rendered the browser's own "Choose file, no file chosen" control inside
+ * our button, which is two controls in one and reads as broken. Hidden by
+ * clipping rather than `display:none`, because a file input the keyboard
+ * cannot reach is a file nobody on a keyboard can choose. */
+.drop label.btn{display:inline-flex; align-items:center; justify-content:center}
+.drop label.btn input{position:absolute; width:1px; height:1px; padding:0;
+  margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0}
+/* The focus ring follows the input inside, because the input is what takes
+   focus and the label is what is seen. Same treatment as :focus-visible above,
+   so there is one focus indicator in this product and not two. */
+.drop label.btn:has(input:focus-visible){outline:2px solid var(--brand); outline-offset:2px}
 
 /* The photo with the crop drawn on it. width:100% and height:auto because the
    canvas has a fixed pixel size for the maths and a fluid one on screen, and
