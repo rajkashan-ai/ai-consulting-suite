@@ -23,6 +23,7 @@ import { confidence, isDeadEnd, startWith, type Playbook } from "./playbook.ts";
 import { rank, type Found, type Scored } from "./rank.ts";
 import { notYou, oneEach, rightTrade, sift } from "./sift.ts";
 import { areasMissing, shortfall, type Funnel } from "./shortfall.ts";
+import { enough, nextToTry, refusals, type Attempt } from "./retry.ts";
 import { displayName } from "../../../Agents/Competitor Tracker/src/normalise.ts";
 import { scrubGrid, scrubStanding } from "./scrub.ts";
 import { plainly } from "../../lib/plainly.ts";
@@ -125,6 +126,8 @@ export type RunState = {
   shortfallWhy?: string;
   /** Said on the page when one of the four comparisons could not be built. */
   areasSay?: string;
+  /** Places that turned us away while looking for competitors. Shown. */
+  refusedSources?: { name: string; reason: string }[];
 };
 
 /**
@@ -403,20 +406,42 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
   const rows: Found[] = [];
   const pages: ReadPage[] = [];
 
-  // Booksy and Fresha are always different hosts, so there is never a reason to
-  // wait for one before asking the other.
-  const fetched = await Promise.all([...wanted].slice(0, 2).map((u) => ctx.read(u)));
+  /**
+   * Keep looking until we have enough names or have run out of places.
+   *
+   * This used to take the first two and stop, whatever came back. If one
+   * platform returned 403 and the other timed out, the run carried on with
+   * nothing off either and said nothing about it, and a thin result was
+   * indistinguishable from a thin market. The job of this tool is to find the
+   * best competitor data there is, and stopping after two tries is not that.
+   *
+   * A settled refusal moves us to the next platform. A timeout is asked again
+   * once, because it is the one failure where asking again is the right answer.
+   * See retry.ts for which is which.
+   */
+  const places = [...wanted];
+  const tried: Attempt[] = [];
 
-  for (const got of fetched) {
-    pages.push({
-      url: got.url,
-      ok: got.ok,
-      title: got.title,
-      text: got.text.slice(0, 20_000),
-      fetchedOn: got.fetchedAt.slice(0, 10),
-      note: got.note,
-    });
-    if (!got.ok) continue;
+  while (!enough(names, places, tried)) {
+    const batch = nextToTry(places, tried);
+    if (!batch.length) break;
+
+    // Different hosts, so there is never a reason to wait for one before
+    // asking the other.
+    const fetched = await Promise.all(batch.map((u) => ctx.read(u)));
+
+    for (const got of fetched) {
+      tried.push({ url: got.url, ok: got.ok, note: got.note });
+
+      pages.push({
+        url: got.url,
+        ok: got.ok,
+        title: got.title,
+        text: got.text.slice(0, 20_000),
+        fetchedOn: got.fetchedAt.slice(0, 10),
+        note: got.note,
+      });
+      if (!got.ok) continue;
 
     const found = (await ctx.think({
       system:
@@ -481,6 +506,7 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
         price: num(b.price),
         url: str(b.url),
       });
+      }
     }
   }
 
@@ -505,7 +531,16 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
 
   return {
     stage: "choosing",
-    state: { ...state, fromListings: names, listed: rows, listingPages: pages, learned },
+    state: {
+      ...state,
+      fromListings: names,
+      listed: rows,
+      listingPages: pages,
+      learned,
+      // Every place that turned us away, shown on the page. A source we could
+      // not read is a fact about the run and the owner is entitled to it.
+      refusedSources: refusals(tried),
+    },
     progress: names.length
       ? `Found ${names.length} ${profile.trade}s in ${profile.town}`
       : "Looking at who came up",
@@ -1066,9 +1101,23 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
     .filter((p) => p.ok)
     .map((p) => ({ url: p.url, fetchedOn: p.fetchedOn }));
 
-  const unreadable = Object.entries(pages).flatMap(([name, list]) =>
-    list.filter((p) => !p.ok).map((p) => ({ name, reason: reasonFor(p.note) })),
-  );
+  const unreadable = [
+    ...Object.entries(pages).flatMap(([name, list]) =>
+      list.filter((p) => !p.ok).map((p) => ({ name, reason: reasonFor(p.note) })),
+    ),
+    /**
+     * Places that turned us away while we were looking for who to compare.
+     *
+     * These used to be lost entirely: the listing step took two platforms, and
+     * if both refused, the run carried on with nothing and said nothing. The
+     * owner saw a thin comparison and no reason for it, which reads as a thin
+     * market rather than as a door we could not get through.
+     */
+    ...(state.refusedSources ?? []).map((r) => ({
+      name: r.name,
+      reason: reasonFor(r.reason),
+    })),
+  ];
 
   const card: Battlecard = {
     business: profile.name,
