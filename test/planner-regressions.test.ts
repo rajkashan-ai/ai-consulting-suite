@@ -6,6 +6,7 @@ import { decidePlan, sayNext } from "../tools/content-social-planner/freshness.t
 import { contentSocialPlanner, FIRST_STAGE } from "../tools/content-social-planner/index.ts";
 import { progressFor, type RunState, type Stage } from "../tools/content-social-planner/stages.ts";
 import { PLAN_DAYS } from "../../Agents/Content & Social Planner/src/plan-shape.ts";
+import { CADENCE_LABEL, CRITIQUES } from "../../Agents/Content & Social Planner/src/types.ts";
 
 /**
  * One test per thing that broke, so it cannot break again quietly.
@@ -192,6 +193,101 @@ test("the screen carries every section the spec promises", () => {
   for (const section of contract()) {
     const wanted = saidDifferently[section] ?? section;
     assert.ok(view.includes(wanted), `the screen lost "${section}"`);
+  }
+});
+
+/**
+ * Every control the design has, still on the screen.
+ *
+ * Raj: the upload button is gone, the tone buttons at the end of each post are
+ * gone, the section under the resizer is gone, check ALL of them.
+ *
+ * He was right and the list was longer than the three: nineteen buttons and two
+ * sections on the designed screen, none of them on the rebuilt one. The screen
+ * had been rebuilt as a document, and a document has no controls.
+ *
+ * So the list is read off the design rather than typed here, the same way the
+ * sections are read off the spec. A control that exists on the mockup and not
+ * in the app fails here, which is the only arrangement that would have caught
+ * this.
+ */
+function designedControls(): string[] {
+  const page = readFileSync(
+    join(here, "..", "..", "UI", "workspace.html"),
+    "utf8",
+  );
+  const from = page.indexOf("<!-- CONTENT & SOCIAL PLANNER -->");
+  const to = page.indexOf("<!-- FIRST-USE STATES -->");
+  assert.ok(from > -1 && to > from, "the designed screen is no longer in UI/workspace.html");
+  const section = page.slice(from, to);
+  return [...section.matchAll(/<button[^>]*>([\s\S]*?)<\/button>/g)]
+    .map((m) => m[1].replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .filter((v, i, all) => all.indexOf(v) === i);
+}
+
+test("every control on the designed screen is on the built one", () => {
+  const built = [
+    screen("plan.tsx"), screen("resizer.tsx"), screen("post-controls.tsx"),
+    screen("plan-controls.tsx"), screen("send-week.tsx"),
+  ].join("\n");
+
+  /**
+   * A label can reach the screen two ways: written in the component, or read
+   * off a shared constant. The cadence names and the five corrections come from
+   * `types.ts`, so they are rendered without appearing in any component's text,
+   * and a test that only reads source calls them missing.
+   *
+   * So a label counts as present if the component renders the constant that
+   * produces it. Resolved from the same constants the app uses, rather than
+   * typed here, or this becomes a third copy of the list.
+   */
+  const fromConstants = built.includes("CADENCE_LABEL[c]")
+    ? Object.values(CADENCE_LABEL)
+    : [];
+  const fromCritiques = built.includes("Object.values(CRITIQUES)") ? Object.values(CRITIQUES) : [];
+  const rendered = [...fromConstants, ...fromCritiques];
+
+  /* Two say the same thing in different words, named here so the exception is
+     visible rather than the test being loosened until it passes. */
+  const saidDifferently: Record<string, string> = {
+    "Connect Instagram": "Connecting one is not built yet",
+    "Connect Facebook": "Connecting one is not built yet",
+  };
+
+  const missing = designedControls().filter(
+    (label) => !built.includes(saidDifferently[label] ?? label) && !rendered.includes(label),
+  );
+  assert.deepEqual(missing, [], `controls on the design and not in the app:\n  ${missing.join("\n  ")}`);
+});
+
+test("there is a button to choose a photo, not a bare file input", () => {
+  const view = screen("resizer.tsx");
+  assert.match(view, /<label className="btn">/, "the file input has no button around it");
+  assert.match(view, /type="file"/, "there is nothing to choose a file with");
+});
+
+test("every post carries the three things the owner can do to it", () => {
+  const controls = screen("post-controls.tsx");
+  for (const label of ["Edit", "Size a photo", "Posted"]) {
+    assert.ok(controls.includes(label), `a post has no "${label}"`);
+  }
+  assert.match(controls, /type="url"/, "there is nowhere to paste the link");
+  /* Each one writes something. A control with nothing behind it is the
+     "Approve this week" button again. */
+  assert.match(controls, /action=\{saveEdit\}/);
+  assert.match(controls, /action=\{markPosted\}/);
+});
+
+test("no control is offered that writes nothing", () => {
+  const actions = readFileSync(join(here, "..", "app", "workspace", "[tool]", "planner-actions.ts"), "utf8");
+  for (const name of ["saveEdit", "markPosted", "toggleCritique", "changeCadence"]) {
+    assert.match(actions, new RegExp(`export async function ${name}\\b`), `${name} is wired to nothing`);
+    assert.match(
+      actions.slice(actions.indexOf(`export async function ${name}`)).slice(0, 2000),
+      /\.upsert\(|\.insert\(|\.delete\(/,
+      `${name} is called and writes nothing`,
+    );
   }
 });
 

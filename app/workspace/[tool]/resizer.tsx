@@ -151,28 +151,56 @@ export default function Resizer() {
         .showDirectoryPicker;
 
       if (picker) {
-        const root = await picker.call(window);
-        const folder = await root.getDirectoryHandle(`${name} for posting`, { create: true });
-        for (const f of files) {
-          const handle = await folder.getFileHandle(f.name, { create: true });
-          const writable = await handle.createWritable();
-          await writable.write(f.blob);
-          await writable.close();
+        try {
+          const root = await picker.call(window);
+          const folder = await root.getDirectoryHandle(`${name} for posting`, { create: true });
+          for (const f of files) {
+            const handle = await folder.getFileHandle(f.name, { create: true });
+            const writable = await handle.createWritable();
+            await writable.write(f.blob);
+            await writable.close();
+          }
+          setSaid(`${files.length} saved into "${name} for posting".`);
+          return;
+        } catch (e) {
+          /**
+           * The three ways choosing a folder ends, which are not the same thing.
+           *
+           * Raj hit the middle one: the browser refuses a folder it considers
+           * the system's, and says "can't open this folder because it contains
+           * system files". The Desktop root and the home folder are both
+           * usually refused. Saying "nothing was saved" there is true and
+           * useless, because it does not say the one thing they need to know,
+           * which is to pick a different folder or let it go to downloads.
+           *
+           * Cancel is a decision and gets no lecture. Anything else falls
+           * through to downloads rather than dead ending, because the files
+           * are already made and throwing them away helps nobody.
+           */
+          const why = e instanceof Error ? e.name : "";
+          if (why === "AbortError") {
+            setSaid("Nothing saved. Nothing has been lost, press it again when you want them.");
+            return;
+          }
+          setSaid("That folder is one the browser will not write to, so these went to your downloads instead. A folder inside Documents works.");
         }
-        setSaid(`${files.length} saved into "${name} for posting".`);
-      } else {
-        for (const f of files) {
-          const a = document.createElement("a");
-          a.href = URL.createObjectURL(f.blob);
-          a.download = f.name;
-          a.click();
-          URL.revokeObjectURL(a.href);
-        }
-        setSaid(`${files.length} saved to your downloads. This browser cannot save into a folder you choose.`);
       }
+
+      /* Downloads, either because this browser cannot pick a folder at all or
+         because the one they picked was refused. */
+      for (const f of files) {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(f.blob);
+        a.download = f.name;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
+      setSaid((was) =>
+        was ||
+        `${files.length} saved to your downloads. This browser cannot save into a folder you choose.`,
+      );
     } catch {
-      /* A cancelled folder picker is a decision, not a fault. */
-      setSaid("Nothing was saved.");
+      setSaid("We could not make the files. Try a different photo.");
     } finally {
       setBusy(false);
     }
@@ -186,16 +214,25 @@ export default function Resizer() {
         place it is going. It never leaves your computer.
       </p>
 
+      {/* A label wrapping the input, so there is a button to press.
+          The bare input rendered as the browser's own grey control with no
+          words on it, which is not a button anyone sees. The input itself is
+          kept reachable rather than hidden, because a file input hidden from
+          the keyboard is a file input nobody on a keyboard can use. */}
       <div className="drop">
         <p className="t-row">
           <strong>Choose a photo</strong>
         </p>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => take(e.target.files?.[0])}
-          aria-label="The photo to resize"
-        />
+        <p className="t-meta">The one a post above asked you for.</p>
+        <label className="btn">
+          Choose a photo
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => take(e.target.files?.[0])}
+            aria-label="The photo to resize"
+          />
+        </label>
       </div>
 
       {image ? (

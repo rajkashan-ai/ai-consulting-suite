@@ -1,6 +1,9 @@
 import type { DocumentBody } from "@/tools/content-social-planner/document";
 import { isWrittenPost } from "@/tools/content-social-planner/stages";
 import Resizer from "./resizer";
+import SendWeek from "./send-week";
+import PostControls, { type PostState } from "./post-controls";
+import { CadenceChoice, VoiceCorrections } from "./plan-controls";
 import { CADENCE_LABEL, CHANNEL } from "../../../../Agents/Content & Social Planner/src/types";
 
 /**
@@ -50,14 +53,64 @@ function Words({ words }: { words: string }) {
   );
 }
 
-export default function PlanView({ plan, nextPlan }: { plan: DocumentBody; nextPlan: string }) {
+export default function PlanView({
+  plan,
+  nextPlan,
+  workspaceId,
+  postState,
+  corrections,
+}: {
+  plan: DocumentBody;
+  nextPlan: string;
+  workspaceId: string;
+  /** What the owner has already done to each post, keyed date|channel. */
+  postState: Record<string, PostState>;
+  /** Corrections they have made to how we write for them. */
+  corrections: string[];
+}) {
   const written = plan.posts.filter(isWrittenPost);
   const blanks = written.flatMap((p) => p.words.match(/\[[^\]]+\]/g) ?? []);
   const ahead = plan.weeks.slice(1);
 
   return (
     <>
-      {/* The figures first, and each one says which count it is. "2 blanks" and
+      {/* What has gone out, first, because it is the question an owner opens
+          this on: not "what should I post" but "am I keeping it up". The count
+          says which count it is, because posts through this tool and posts on
+          their account are two numbers and showing the first as the second
+          tells a barber of four years they have posted twice. */}
+      <h2 className="t-sub">What you have posted</h2>
+      <p className="t-doc-sm">
+        Paste the link when a post goes out and we keep the count.
+      </p>
+      <div className="card">
+        <ul className="rows">
+          {plan.channels.map((c) => {
+            const done = plan.posts.filter(
+              (p) => p.channel === c && postState[`${p.date}|${c}`]?.postedAt,
+            ).length;
+            const last = plan.posts
+              .filter((p) => p.channel === c && postState[`${p.date}|${c}`]?.postedAt)
+              .map((p) => p.date)
+              .sort()
+              .pop();
+            return (
+              <li className="t-row" key={c}>
+                <strong>{CHANNEL[c].label}</strong>{" "}
+                {done
+                  ? `${done} through here${last ? `, last on ${day(last)}` : ""}.`
+                  : "Nothing through here yet."}{" "}
+                <span className="note">
+                  We cannot see the rest of your account. Connecting one is not built yet, so how a
+                  post did is something you can see and we cannot.
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      {/* The figures, and each one says which count it is. "2 blanks" and
           "2 posts" are different things and an owner reading the wrong one
           plans their week around it. */}
       <div className="kpis">
@@ -91,6 +144,8 @@ export default function PlanView({ plan, nextPlan }: { plan: DocumentBody; nextP
           ))}
         </ul>
       </div>
+      <p className="t-doc-sm">You can change this, and the whole month is written to the new number.</p>
+      <CadenceChoice workspaceId={workspaceId} current={plan.cadence} />
 
       <h2 className="t-sub">What you sound like</h2>
       {/* Where it came from, said here rather than only in the footer. Raj
@@ -103,12 +158,13 @@ export default function PlanView({ plan, nextPlan }: { plan: DocumentBody; nextP
       <div className="panel">
         <p className="t-doc">{plan.voice.words}</p>
       </div>
+      <VoiceCorrections workspaceId={workspaceId} chosen={corrections} />
 
       <h2 className="t-sub">This week</h2>
       <p className="t-doc-sm">
         The days are a suggestion. A day later is fine, and nothing here is ever late.
       </p>
-      <div className="posts">
+      <div className="posts" id="this-week">
         {written.map((p) => (
           <article className="card" key={p.date}>
             <div className="card__head card__head--base">
@@ -130,14 +186,24 @@ export default function PlanView({ plan, nextPlan }: { plan: DocumentBody; nextP
               </div>
               <p className="t-meta">{p.why}</p>
             </div>
+            <PostControls
+              workspaceId={workspaceId}
+              postDate={p.date}
+              channel={p.channel}
+              words={p.words}
+              state={postState[`${p.date}|${p.channel}`] ?? {}}
+            />
           </article>
         ))}
       </div>
+      <SendWeek />
 
       {/* The photo each post asked for, sized for where it is going. It sits
           after the posts because that is the order the owner does it in: read
           the post, take the photo, size it. */}
-      <Resizer />
+      <div id="resize-a-photo">
+        <Resizer />
+      </div>
 
       <h2 className="t-sub">The rest of the month</h2>
       <p className="t-doc-sm">
@@ -152,9 +218,12 @@ export default function PlanView({ plan, nextPlan }: { plan: DocumentBody; nextP
         ))}
       </ul>
 
+      {/* Always here, even when there is nothing in it. A section that appears
+          only on a bad week teaches the reader that its absence means nothing,
+          when its absence is the good news. */}
+      <h2 className="t-sub">What we did not write</h2>
       {plan.dropped.length ? (
         <>
-          <h2 className="t-sub">What we did not write</h2>
           <p className="t-doc-sm">
             A gap with no reason beside it reads as a shrug, so here is the reason.
           </p>
@@ -166,7 +235,11 @@ export default function PlanView({ plan, nextPlan }: { plan: DocumentBody; nextP
             ))}
           </ul>
         </>
-      ) : null}
+      ) : (
+        <p className="t-doc-sm">
+          Nothing. Everything we wrote this week is backed by something on your own pages.
+        </p>
+      )}
 
       {/* Said once, at the end. Every post carrying its own address was thirty
           repetitions of the same line in the Tracker's first table, and the

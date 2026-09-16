@@ -57,7 +57,40 @@ export default async function ContentSocialPlanner({
   const decision = decidePlan(document?.created_at ?? null, new Date());
 
   if (document && !decision.allowed) {
-    return <PlanView plan={document.body as never} nextPlan={sayNext(decision)} />;
+    /**
+     * What the owner has already done, read beside the plan rather than stored
+     * inside it. A document is what we produced; this is what they did with it,
+     * and the two have different lifetimes: the plan is remade every thirty
+     * days and the fact that they posted on the 17th outlives it.
+     */
+    const [{ data: state }, { data: voice }] = await Promise.all([
+      supabase
+        .from("content_post_state")
+        .select("post_date, channel, edited_words, posted_at, posted_url")
+        .eq("workspace_id", workspaceId),
+      supabase
+        .from("content_voice_note")
+        .select("corrections")
+        .eq("workspace_id", workspaceId)
+        .maybeSingle(),
+    ]);
+
+    const postState = Object.fromEntries(
+      (state ?? []).map((r) => [
+        `${r.post_date}|${r.channel}`,
+        { editedWords: r.edited_words, postedAt: r.posted_at, postedUrl: r.posted_url },
+      ]),
+    );
+
+    return (
+      <PlanView
+        plan={document.body as never}
+        nextPlan={sayNext(decision)}
+        workspaceId={workspaceId}
+        postState={postState}
+        corrections={(voice?.corrections ?? []) as string[]}
+      />
+    );
   }
 
   if (!ready) {
