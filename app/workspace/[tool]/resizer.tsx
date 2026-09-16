@@ -222,7 +222,7 @@ export default function Resizer() {
 
   return (
     <>
-      <h2 className="t-sub">Resize a photo</h2>
+      <h2 className="t-section">Resize a photo</h2>
       <p className="t-doc-sm">
         You took the photo a post asked for. Put it here and get it at the right size for every
         place it is going. It never leaves your computer.

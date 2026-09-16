@@ -364,9 +364,20 @@ test("the page is laid out in bands, which is the only landmark the system has",
   );
 
   /* Section headings are t-section. They were all t-sub, which is the level
-     below, so every section on the page announced itself at sub-heading size. */
-  assert.equal((view.match(/className="t-sub"/g) ?? []).length, 0, "a section heading is still t-sub");
-  assert.ok((view.match(/className="t-section"/g) ?? []).length >= 6, "the sections are not t-section");
+     below, so every section announced itself at sub-heading size.
+     Checked across every file that renders one: this asserted plan.tsx alone
+     and passed while the resizer's own heading, in its own file, stayed t-sub
+     and rendered three points smaller than the six around it. */
+  const everyView = ["plan.tsx", "resizer.tsx", "post-controls.tsx", "plan-controls.tsx", "send-week.tsx"]
+    .map(screen)
+    .join("\n");
+  const subHeadings = [...everyView.matchAll(/<h2 className="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(
+    subHeadings.filter((c) => !c.includes("t-section")),
+    [],
+    "a section heading is not t-section",
+  );
+  assert.ok(subHeadings.length >= 7, `only ${subHeadings.length} section headings found`);
 });
 
 test("the preview canvas is not stretched by the stylesheet", () => {
