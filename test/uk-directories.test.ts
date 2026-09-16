@@ -120,7 +120,12 @@ test("the coverage gap is stated rather than hidden", () => {
   // Every trade has somewhere to look now. What separates them is price, and
   // for about forty trades nothing publishes one. Counting sources stopped
   // being informative the moment the answer became "all of them".
-  assert.equal(c.withSpecialist, c.trades, "a trade lost its only source");
+  // Not all of them. Moving sources from groups to named trades on 2026-09-16
+  // took 20 trades from "covered" to "nothing", which is what they always were:
+  // AutoTrader never covered car valeting, and Gudog never covered a vet.
+  // The general floor still applies to every trade; this counts specialists.
+  assert.ok(c.withSpecialist >= 70 && c.withSpecialist <= c.trades,
+    `${c.withSpecialist} of ${c.trades} have a specialist, which looks wrong`);
   assert.ok(c.canComparePrices > 0 && c.canComparePrices < c.trades,
     `price coverage is ${c.canComparePrices} of ${c.trades}, which is suspicious`);
   assert.ok(c.noPriceAnywhere.includes("plumber"), "plumbers are claimed to have public prices");

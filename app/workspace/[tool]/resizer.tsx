@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IMAGE_SIZES } from "../../../../Agents/Content & Social Planner/src/platform";
 import { cropBox, fitPreview, keptFraction } from "../../../../Agents/Content & Social Planner/src/preview.js";
 
@@ -63,10 +63,22 @@ export default function Resizer() {
       setName(file.name.replace(/\.[^.]+$/, ""));
       setFocal({ x: 0.5, y: 0.5 });
       setSaid("");
-      draw(img, { x: 0.5, y: 0.5 });
     };
     img.src = URL.createObjectURL(file);
   }
+
+  /**
+   * Drawn after the canvas exists, not when the photo loads.
+   *
+   * The canvas is inside the block that only renders once there is an image, so
+   * at the moment the photo finished loading there was no canvas to draw on:
+   * the ref was still null, draw returned immediately, and what the owner got
+   * was a correctly sized empty box where their photo should be. Nothing threw
+   * and nothing logged, which is why it looked like a styling fault.
+   */
+  useEffect(() => {
+    if (image) draw(image, focal);
+  }, [image, focal]);
 
   function draw(img: HTMLImageElement, at: Focal) {
     const c = canvas.current;
@@ -243,7 +255,7 @@ export default function Resizer() {
               Click the photo to move the circle if we have the wrong part of it. Every size follows
               it.
             </p>
-            <canvas className="shot" ref={canvas} onClick={moveFocal} />
+            <canvas className="cropper" ref={canvas} onClick={moveFocal} />
 
             {tightest < 0.45 ? (
               <div className="inset">
@@ -255,19 +267,21 @@ export default function Resizer() {
             ) : null}
 
             <p className="t-kind">The sizes</p>
-            <div className="controls">
+            <div className="sizes">
               {SIZES.map((s) => (
                 <button
                   key={s.id}
                   type="button"
-                  className="toggle"
+                  className="toggle toggle--stack"
                   aria-pressed={chosen.includes(s.id)}
                   onClick={() =>
                     setChosen((was) => (was.includes(s.id) ? was.filter((x) => x !== s.id) : [...was, s.id]))
                   }
                 >
-                  {s.name} {s.w} × {s.h}
-                  <span className="t-meta"> {s.who}</span>
+                  <span>
+                    {s.name} {s.w} × {s.h}
+                  </span>
+                  <span className="toggle__who">{s.who}</span>
                 </button>
               ))}
             </div>

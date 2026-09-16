@@ -164,14 +164,29 @@ test("the screen says what the voice note was read off", () => {
  * the screen has it, which is the direction the dependency should run.
  */
 function contract(): string[] {
+  /**
+   * The screen's list, not the document's.
+   *
+   * These are two contracts and I conflated them: I put the resizer into the
+   * block that defines the exported document, and the agent's own test failed,
+   * correctly, because a resizer is not a section of a file that goes to their
+   * customers. The screen holds two things the document does not, what has gone
+   * out and the resizer, and neither belongs in an export.
+   */
   const spec = readFileSync(
     join(here, "..", "..", "Agents", "Content & Social Planner", "CLAUDE.md"),
     "utf8",
   );
-  const from = spec.indexOf("## What we suggest");
-  const to = spec.indexOf("```", from);
-  assert.ok(from > -1 && to > from, "the spec no longer holds a section contract");
-  return [...spec.slice(from, to).matchAll(/^## (.+)$/gm)].map((m) => m[1].trim());
+  const heading = "### The screen is a different list, and it is also a contract";
+  const from = spec.indexOf(heading);
+  assert.ok(from > -1, "the spec no longer says what the screen holds");
+  const block = spec.slice(from + heading.length, spec.indexOf("\n\n", spec.indexOf("\n\n", from) + 2) + 1);
+  const names = block
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith("#"));
+  assert.ok(names.length >= 6, `only ${names.length} sections in the screen contract`);
+  return names;
 }
 
 test("the spec still holds a contract worth checking against", () => {
@@ -259,6 +274,88 @@ test("every control on the designed screen is on the built one", () => {
     (label) => !built.includes(saidDifferently[label] ?? label) && !rendered.includes(label),
   );
   assert.deepEqual(missing, [], `controls on the design and not in the app:\n  ${missing.join("\n  ")}`);
+});
+
+/* ── the two stylesheets say the same thing about the shared parts ───────── */
+
+const styles = (path: string[]) => readFileSync(join(here, "..", ...path), "utf8");
+
+/** One rule's body, whitespace flattened, from whichever stylesheet. */
+function rule(css: string, selector: string): string {
+  const at = css.indexOf(`\n${selector}{`);
+  assert.ok(at > -1, `${selector} is not in that stylesheet`);
+  return css.slice(at + selector.length + 2, css.indexOf("}", at)).replace(/\s+/g, " ").trim();
+}
+
+test("no two components share a class name across the stylesheets", () => {
+  /**
+   * The crop canvas was `.shot` and so is a screenshot block on the preview
+   * page, in a different stylesheet, with 48px of padding and a max width. Both
+   * are global, so the padding landed on the canvas: a 630 by 420 drawing came
+   * out 670 by 468. It read as a stretch, and a stretch is what I went looking
+   * for. A collision is the harder of the two to see, because every rule
+   * involved is correct on its own.
+   */
+  const app = styles(["app", "design.css"]);
+  const auth = styles(["app", "auth.css"]);
+  const named = (css: string) =>
+    new Set([...css.matchAll(/^\.([a-z][a-z0-9_-]*)\s*\{/gm)].map((m) => m[1]));
+
+  /**
+   * `.grid` is one component's rules split across the two files, not two
+   * components sharing a name: auth.css sets the comparison table's widths and
+   * design.css its layout, and both belong to the Competitor Tracker. Named
+   * here rather than the test being dropped, so the next shared name still
+   * fails. Untidy and not a fault; not mine to move.
+   */
+  const knownPairs = ["grid"];
+
+  const shared = [...named(app)].filter((c) => named(auth).has(c) && !knownPairs.includes(c));
+  assert.deepEqual(shared, [], `defined in two stylesheets, so one silently wins: ${shared.join(", ")}`);
+});
+
+test("the preview canvas is not stretched by the stylesheet", () => {
+  /**
+   * A canvas has its own pixel size, and `width:100%` scales the drawing to the
+   * container: a 720 by 420 preview was drawn at 1780 wide with the photo
+   * stretched inside it. The agent's suite has caught this in UI/app.css since
+   * 15 September. The app's copy was never fixed and had no equivalent test, so
+   * it shipped the bug the other file was already protected from.
+   */
+  const shot = rule(styles(["app", "design.css"]), ".cropper");
+  assert.match(shot, /max-width:\s*100%/, "the canvas is stretched to its container");
+  assert.doesNotMatch(shot, /(^|;)\s*width:\s*100%/, "width:100% scales the drawing");
+});
+
+test("the rules both stylesheets carry say the same thing in both", () => {
+  /* The two copies exist because the mockup and the app are separate pages.
+     That is a reason for two files, not a licence for two answers. */
+  const app = styles(["app", "design.css"]);
+  const mock = styles(["..", "UI", "app.css"]);
+  for (const selector of [".cropper", ".sizes", ".toggle--stack", ".toggle__who"]) {
+    assert.equal(rule(app, selector), rule(mock, selector), `${selector} has drifted between the two`);
+  }
+});
+
+test("the size chips are a grid of option cards, not a row of pills", () => {
+  const view = screen("resizer.tsx");
+  assert.match(view, /className="sizes"/, "they are back in a flex row that stretches to the longest label");
+  assert.match(view, /toggle toggle--stack/);
+  assert.match(view, /className="toggle__who"/, "the chips no longer say what each size is for");
+});
+
+test("the photo is drawn after the canvas exists", () => {
+  /**
+   * The canvas lives inside the block that only renders once there is an image,
+   * so drawing when the photo finished loading drew on a ref that was still
+   * null. Nothing threw and nothing logged: the owner got a correctly sized
+   * empty box, which reads as a styling fault rather than a missing photo.
+   */
+  const view = screen("resizer.tsx");
+  assert.match(view, /useEffect\(\(\) => \{\s*if \(image\) draw\(image, focal\);/,
+    "nothing draws after the canvas mounts");
+  const onload = view.slice(view.indexOf("img.onload"), view.indexOf("img.src"));
+  assert.doesNotMatch(onload, /draw\(/, "it still draws before the canvas exists");
 });
 
 test("there is a button to choose a photo, not a bare file input", () => {

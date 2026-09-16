@@ -56,8 +56,18 @@ export type Directory = {
   name: string;
   /** Matched against a url, so no scheme and no www. */
   host: string;
-  /** Empty means it covers every trade: the floor under all of them. */
-  covers: Group[];
+  /**
+   * A whole group, or named trades, or both.
+   *
+   * It was groups only until 2026-09-16, and that made the file lie. Compare My
+   * Move covers removals and conveyancing; tagged "home-services" it claimed
+   * price coverage for twenty six trades including plumbers. Gudog covers dog
+   * walking; tagged "pets" it claimed to cover vets. A group is the right unit
+   * for Booksy and the wrong one for most of the rest.
+   *
+   * Empty means every trade: the floor under all of them.
+   */
+  covers: (Group | string)[];
   /**
    * Whether a listing page here names several businesses with something
    * comparable beside them. A directory that only carries a name and a phone
@@ -202,7 +212,9 @@ export const SPECIALIST: Directory[] = [
   {
     name: "AutoTrader UK",
     host: "autotrader.co.uk",
-    covers: ["automotive"],
+    // Car prices, which are the right number for a dealer and the wrong one
+    // for a garage selling servicing.
+    covers: ["car-sales", "dealership"],
     carries: ["names", "prices"],
     source: BIRDEYE,
     reachable: { state: "untested" },
@@ -266,14 +278,6 @@ export const SPECIALIST: Directory[] = [
     reachable: { state: "untested" },
   },
   {
-    name: "Zoopla",
-    host: "zoopla.co.uk",
-    covers: ["property"],
-    carries: ["names"],
-    source: BIRDEYE,
-    reachable: { state: "untested" },
-  },
-  {
     name: "OnTheMarket",
     host: "onthemarket.com",
     covers: ["property"],
@@ -289,7 +293,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "WhoCanFixMyCar",
     host: "whocanfixmycar.com",
-    covers: ["automotive"],
+    covers: ["garage", "servicing"],
     carries: ["names", "ratings", "reviewCount", "prices", "services"],
     source: GEMINI,
     reachable: { state: "yes", checked: CHECKED },
@@ -300,7 +304,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "Servicing Stop",
     host: "servicingstop.co.uk",
-    covers: ["automotive"],
+    covers: ["garage", "servicing"],
     carries: ["names", "prices", "services"],
     source: GEMINI,
     reachable: { state: "yes", checked: CHECKED },
@@ -316,7 +320,8 @@ export const SPECIALIST: Directory[] = [
   {
     name: "Compare My Move",
     host: "comparemymove.com",
-    covers: ["legal", "home-services"],
+    // Removals and conveyancing. Not plumbing, not building, not roofing.
+    covers: ["removals", "conveyancer", "solicitor"],
     carries: ["names", "ratings", "reviewCount", "prices"],
     source: GEMINI,
     reachable: { state: "yes", checked: CHECKED },
@@ -325,7 +330,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "reallymoving",
     host: "reallymoving.com",
-    covers: ["legal", "home-services"],
+    covers: ["removals", "conveyancer", "solicitor"],
     carries: ["names", "ratings", "prices"],
     source: GEMINI,
     reachable: { state: "yes", checked: CHECKED },
@@ -333,7 +338,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "The Law Superstore",
     host: "thelawsuperstore.co.uk",
-    covers: ["legal"],
+    covers: ["conveyancer", "solicitor"],
     carries: ["names", "ratings", "prices"],
     source: GEMINI,
     reachable: { state: "yes", checked: CHECKED },
@@ -341,7 +346,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "Direct2Florist",
     host: "direct2florist.co.uk",
-    covers: ["retail-and-events"],
+    covers: ["florist"],
     carries: ["names", "ratings", "reviewCount", "prices"],
     source: GEMINI,
     reachable: { state: "yes", checked: CHECKED },
@@ -350,7 +355,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "Poptop",
     host: "poptop.uk.com",
-    covers: ["retail-and-events"],
+    covers: ["photographer", "events", "caterer"],
     carries: ["names", "ratings", "reviewCount", "prices"],
     source: GEMINI,
     reachable: { state: "yes", checked: CHECKED },
@@ -359,7 +364,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "Add to Event",
     host: "addtoevent.co.uk",
-    covers: ["retail-and-events"],
+    covers: ["photographer", "events", "caterer"],
     carries: ["names", "ratings", "reviewCount", "prices"],
     source: GEMINI,
     reachable: { state: "yes", checked: CHECKED },
@@ -367,7 +372,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "Daynurseries",
     host: "daynurseries.co.uk",
-    covers: ["education"],
+    covers: ["childcare", "childminder", "pre-school"],
     carries: ["names", "ratings", "reviewCount"],
     source: GEMINI,
     reachable: { state: "yes", checked: CHECKED },
@@ -376,7 +381,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "Childcare.co.uk",
     host: "childcare.co.uk",
-    covers: ["education"],
+    covers: ["childcare", "childminder", "pre-school"],
     carries: ["names", "ratings", "reviewCount"],
     source: GEMINI,
     reachable: { state: "yes", checked: CHECKED },
@@ -384,7 +389,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "Unbiased",
     host: "unbiased.co.uk",
-    covers: ["professional"],
+    covers: ["accountant", "accountancy", "mortgage-broker"],
     carries: ["names", "ratings", "reviewCount"],
     source: GEMINI,
     reachable: { state: "yes", checked: CHECKED },
@@ -393,7 +398,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "VouchedFor",
     host: "vouchedfor.co.uk",
-    covers: ["professional"],
+    covers: ["accountant", "accountancy", "mortgage-broker"],
     carries: ["names", "ratings", "reviewCount"],
     source: GEMINI,
     reachable: { state: "yes", checked: CHECKED },
@@ -401,7 +406,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "Creativepool",
     host: "creativepool.com",
-    covers: ["professional"],
+    covers: ["marketing-agency", "branding"],
     carries: ["names"],
     source: GEMINI,
     reachable: { state: "yes", checked: CHECKED },
@@ -471,7 +476,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "Tutorful",
     host: "tutorful.co.uk",
-    covers: ["education"],
+    covers: ["tuition", "tutor"],
     carries: ["names", "ratings", "reviewCount", "prices"],
     source: CHATGPT,
     reachable: { state: "yes", checked: CHECKED },
@@ -480,7 +485,8 @@ export const SPECIALIST: Directory[] = [
   {
     name: "ClassForKids",
     host: "classforkids.co.uk",
-    covers: ["education"],
+    // Children's clubs and activities. Not nurseries, not driving lessons.
+    covers: ["tuition", "tutor"],
     carries: ["names", "prices"],
     source: CHATGPT,
     reachable: { state: "yes", checked: CHECKED },
@@ -512,7 +518,13 @@ export const SPECIALIST: Directory[] = [
   {
     name: "BorrowMyDoggy",
     host: "borrowmydoggy.com",
-    covers: ["pets"],
+    /**
+     * Dog walking and sitting, which is not one of our trades at all. Our pets
+     * group is vet, pet-groomer and kennels, and this covers none of them.
+     * Kept because the trade may be worth adding; covering nothing today is the
+     * honest entry, and it is why pets has no price source.
+     */
+    covers: [],
     carries: ["names", "prices"],
     source: CHATGPT,
     reachable: { state: "yes", checked: CHECKED },
@@ -521,7 +533,8 @@ export const SPECIALIST: Directory[] = [
   {
     name: "Gudog",
     host: "gudog.co.uk",
-    covers: ["pets"],
+    // Dog walking and boarding by individuals, not licensed kennels.
+    covers: [],
     carries: ["names", "ratings", "reviewCount", "prices"],
     source: CHATGPT,
     reachable: { state: "yes", checked: CHECKED },
@@ -537,7 +550,8 @@ export const SPECIALIST: Directory[] = [
   {
     name: "Psychology Today",
     host: "psychologytoday.com",
-    covers: ["professional"],
+    // Therapists only. Not accountants, IT, marketing or recruitment.
+    covers: ["counselling", "psychotherapist", "therapist"],
     carries: ["names", "prices"],
     source: CHATGPT,
     reachable: { state: "yes", checked: CHECKED },
@@ -546,7 +560,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "Eventbrite",
     host: "eventbrite.co.uk",
-    covers: ["retail-and-events"],
+    covers: ["events"],
     carries: ["names", "prices"],
     source: CHATGPT,
     reachable: { state: "yes", checked: CHECKED },
@@ -554,7 +568,7 @@ export const SPECIALIST: Directory[] = [
   {
     name: "Tagvenue",
     host: "tagvenue.com",
-    covers: ["retail-and-events"],
+    covers: ["events"],
     carries: ["names", "ratings", "reviewCount", "prices"],
     source: CHATGPT,
     reachable: { state: "yes", checked: CHECKED },
@@ -628,14 +642,17 @@ export const NO_PUBLIC_PRICES: { group: Group; why: string }[] = [
       "Every UK trade directory works on quote for the job. Checkatrade, " +
       "MyBuilder, Rated People, TrustATrader and Bark all publish names, " +
       "ratings and review counts, and none publishes a rate or a call-out fee. " +
-      "26 trades, the largest group we have.",
+      "26 trades, the largest group we have. Removals is the one exception: " +
+      "Compare My Move and reallymoving quote it, because a move is a priceable " +
+      "job and a leaking pipe is not.",
   },
   {
     group: "pets",
     why:
-      "Walking and sitting have marketplace prices. Veterinary treatment and " +
-      "kennel boarding do not: no UK directory indexes them, and vets price " +
-      "after a consultation.",
+      "Nothing for any of our three. Dog walking and sitting have marketplace " +
+      "prices on BorrowMyDoggy and Gudog, but walking is not a trade we offer: " +
+      "ours are vet, pet-groomer and kennels. Veterinary treatment is priced " +
+      "after a consultation, and no UK directory indexes kennel rates.",
   },
   {
     group: "healthcare",
@@ -740,10 +757,47 @@ export function sourcesFor(trade: string | null): Directory[] {
   const group = trade ? TRADE_GROUP[trade] : undefined;
   const open = (d: Directory) => d.reachable.state !== "blocked";
 
-  return [
-    ...SPECIALIST.filter((d) => group && d.covers.includes(group)).filter(open),
-    ...GENERAL.filter(open),
-  ];
+  // Named trades first, then the trade's group, then the floor. A source that
+  // names this exact trade knows more about it than one covering the group.
+  const named = SPECIALIST.filter((d) => trade && d.covers.includes(trade)).filter(open);
+  const byGroup = SPECIALIST.filter(
+    (d) => group && d.covers.includes(group) && !named.includes(d),
+  ).filter(open);
+
+  return [...named, ...byGroup, ...GENERAL.filter(open)];
+}
+
+/** Every trade this source claims, whether it named them or named their group. */
+export function tradesCovered(d: Directory): string[] {
+  const all = Object.keys(TRADE_GROUP);
+  if (!d.covers.length) return all;
+  return all.filter((t) => d.covers.includes(t) || d.covers.includes(TRADE_GROUP[t]));
+}
+
+/**
+ * One row per trade, for checking by somebody who did not build this.
+ *
+ * Deliberately flat and dull: trade, whether its price can be compared, by
+ * what, and on whose word. Everything needed to disagree with it.
+ */
+export function asRows() {
+  const noPrices = new Set(NO_PUBLIC_PRICES.map((n) => n.group));
+
+  return Object.keys(TRADE_GROUP).sort().map((trade) => {
+    const open = sourcesFor(trade).filter((d) => d.covers.length > 0);
+    const priced = open.filter((d) => d.carries.includes("prices"));
+    const group = TRADE_GROUP[trade];
+
+    return {
+      trade,
+      group,
+      canComparePrices: priced.length > 0,
+      priceSources: priced.map((d) => d.name),
+      otherSources: open.filter((d) => !d.carries.includes("prices")).map((d) => d.name),
+      groupHasNoPublicPrices: noPrices.has(group),
+      sourceOfClaim: [...new Set(priced.map((d) => d.source.split(",")[0]))],
+    };
+  });
 }
 
 /**
