@@ -177,3 +177,38 @@ test("every refusal says what is wrong in words an owner can read", () => {
     assert.ok(why!.length > 12, why!);
   }
 });
+
+// ---------------------------------------------------------------------------
+// What is not here, and why. Added 2026-09-16.
+// ---------------------------------------------------------------------------
+
+test("the reason a comparison is short reaches the document", () => {
+  /**
+   * The line is worked out in the choosing stage and stored on the run. If it
+   * does not get copied into the document, the owner sees a comparison of two
+   * businesses with nothing said about it, which is the exact silence this
+   * whole piece of work exists to remove.
+   *
+   * Breaking this on purpose changed no test result until this was written: the
+   * rule was tested on its own, and so was the document, and nothing ran across
+   * the join. That is the third time today the join was the gap.
+   */
+  const state = {
+    card: { business: "x", competitors: [{ name: "a", claims: {} }], actions: [{ headline: "do" }] },
+    grid: REAL.grid,
+    shortfallSay: "We compared the one other farrier in Clun we could find and read.",
+    areasSay: "We could not build the reviews comparison this time.",
+  } as unknown as RunState;
+
+  const body = buildBody(state);
+  assert.match(body?.shortfall ?? "", /one other farrier/);
+  assert.match(body?.areas ?? "", /reviews/);
+});
+
+test("a full comparison carries neither line", () => {
+  // Nothing to explain, so nothing said. An empty explanation on a complete
+  // document reads as though something is wrong when nothing is.
+  const body = buildBody({ card: REAL, grid: REAL.grid } as unknown as RunState);
+  assert.equal(body?.shortfall, undefined);
+  assert.equal(body?.areas, undefined);
+});
