@@ -63,6 +63,20 @@ export type Verdict = { say: string; why: string } | null;
  */
 export const WORKING_MINUTES = 12;
 
+/**
+ * The most input tokens one run may spend before we stop it.
+ *
+ * There was no ceiling at all. On 2026-09-16 a single St Albans run spent
+ * 434,033 input tokens over 20 minutes and produced nothing, and a second
+ * started thirteen seconds later to do it again. Time was capped; money was
+ * not, and the two are not the same thing: a run can be cheap and slow, or
+ * fast and ruinous.
+ *
+ * Checked before each step, like the clock, so a run that has already spent
+ * this much does not start another call.
+ */
+export const TOKEN_CEILING = 150_000;
+
 /** Kept for anything still reading the old name. */
 export const WHOLE_RUN_MINUTES = WORKING_MINUTES;
 
@@ -163,6 +177,22 @@ export function check(
       // nothing, so the one sentence an owner was given was untrue.
       say: "This took longer than it should, so we stopped it. Start it again.",
       why: `spent ${minutes.toFixed(1)} minutes working, past the ${WORKING_MINUTES} minute limit, at ${at.stage}`,
+    };
+  }
+
+  /**
+   * Spend, summed the same way as time.
+   *
+   * Deliberately counts input only. Output is the smaller number and the one
+   * we actually want: a run that writes a long card has done its job. Input is
+   * where waste hides, because the same evidence pile gets sent again and
+   * again by calls that fan out.
+   */
+  const spentTokens = Object.values(watch.cost ?? {}).reduce((sum, c) => sum + (c?.input ?? 0), 0);
+  if (spentTokens > TOKEN_CEILING) {
+    return {
+      say: "This turned out to be a bigger job than it should be, so we stopped it. Start it again.",
+      why: `spent ${spentTokens.toLocaleString()} input tokens, past the ${TOKEN_CEILING.toLocaleString()} ceiling, at ${at.stage}`,
     };
   }
 

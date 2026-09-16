@@ -205,6 +205,19 @@ const PAGES_PER_STEP = 8;
  * has ever needed: the worst today refused four sentences across its whole life
  * and only ever one or two at a time.
  */
+/**
+ * How many times a refused card may be rewritten.
+ *
+ * Cut to 1 on 2026-09-16 to save tokens, and put back the same hour. The mend
+ * loop is not a rewrite of the whole card: it takes one refused sentence at a
+ * time and drops the claim when a rewrite is no better. Cutting the passes
+ * means a card with two refused sentences can never settle, so it is refused
+ * whole. That spends everything it took to build the card and shows nothing,
+ * which is more waste, not less.
+ *
+ * The ceiling on spend belongs in the watchdog, where it stops any stage
+ * running away, rather than here where it breaks the thing that rescues cards.
+ */
 const MAX_MENDS = 5;
 
 export async function advance(
@@ -2135,8 +2148,20 @@ const GRID_SHAPE = {
 };
 
 /** The four areas, in the order they are read on the page. */
-export const GRID_AREAS = ["pricing", "channels", "reviews", "blindspots"] as const;
-export type GridArea = (typeof GRID_AREAS)[number];
+/**
+ * The comparison areas, one model call each.
+ *
+ * Every call carries the whole evidence pile, so this array is a multiplier on
+ * the largest input cost in the product: four areas meant the evidence was
+ * bought four times. Cut to the two the tool is actually for, the basics, on
+ * 2026-09-16. Channels and blindspots were the extras, and extras are not worth
+ * doubling the bill for while we are still working out the shape.
+ */
+const ALL_AREAS = ["pricing", "channels", "reviews", "blindspots"] as const;
+export type GridArea = (typeof ALL_AREAS)[number];
+
+/** The ones a run actually asks for. Turning one back on is adding it here. */
+export const GRID_AREAS: readonly GridArea[] = ["pricing", "reviews"];
 
 /**
  * What each area is for, said once.

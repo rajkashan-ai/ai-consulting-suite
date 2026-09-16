@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { advance, type RunState } from "../tools/competitor-tracker/stages.ts";
+import { advance, GRID_AREAS, type RunState } from "../tools/competitor-tracker/stages.ts";
 import { buildBody, hollow } from "../tools/competitor-tracker/document.ts";
 import { expand } from "../tools/competitor-tracker/sources.ts";
 import { aBusiness, fakeContext, type Recorded } from "./fake.ts";
@@ -223,9 +223,9 @@ test("breakit: a grid cell with a value always carries a source url and a date",
 // A document stored as done has to be the thing that was promised.
 // ---------------------------------------------------------------------------
 
-test("breakit: a document stored as done covers all four areas", async () => {
+test("breakit: a document stored as done covers every area asked for", async () => {
   /**
-   * Only the pricing area comes back with rows. The other three calls answer
+   * Only the pricing area comes back with rows. The other calls answer
    * honestly with nothing. The fake is left to do its own per-area filtering
    * here, so this is the product's behaviour and not the fake's.
    */
@@ -250,25 +250,29 @@ test("breakit: a document stored as done covers all four areas", async () => {
 
   /**
    * Contract settled by Raj on 2026-09-16, after asking whether a business can
-   * genuinely have one competitor: four areas is a target, not a promise, and a
-   * shortfall must never be silent.
+   * genuinely have one competitor: the full set of areas is a target, not a
+   * promise, and a shortfall must never be silent.
    *
    * An area is built by its own call and one that fails is dropped rather than
-   * taking the others with it, because three tables beat none. What was wrong,
+   * taking the others with it, because two tables beat none. What was wrong,
    * and what this now checks, is that the page said nothing: a missing reviews
    * table could equally mean nobody publishes reviews or that our call fell
    * over, and neither the owner nor we could tell which.
    *
-   * So: all four, or a line on the document naming what is missing.
+   * Measured against GRID_AREAS, not a list written here. An area we never
+   * asked for is not a silent shortfall, it is a decision, and the rule is
+   * about the ones we did ask for. Written as a fixed four it failed the day
+   * the areas were cut to two, complaining that a table nobody had requested
+   * was missing.
    */
   const areas = new Set((body?.grid ?? []).map((g) => g.area));
 
-  if (areas.size < 4) {
+  if (areas.size < GRID_AREAS.length) {
     assert.ok(
       body?.areas,
-      `stored with ${areas.size} of 4 areas and nothing on the document saying so`,
+      `stored with ${areas.size} of ${GRID_AREAS.length} areas and nothing on the document saying so`,
     );
-    for (const missing of ["channels", "reviews", "blindspots"].filter((a) => !areas.has(a))) {
+    for (const missing of GRID_AREAS.filter((a) => !areas.has(a))) {
       assert.match(body!.areas!, new RegExp(missing), `"${missing}" is missing and unmentioned`);
     }
     return;

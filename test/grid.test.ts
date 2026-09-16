@@ -270,9 +270,13 @@ async function writingCalls(answers: Record<string, unknown> = {}) {
 
 test("the grid is asked for one area at a time", () => {
   // A plain shape check, so it fails at the schema rather than after a live run.
+  // Two areas, not four, since 2026-09-16: every area is a separate call
+  // carrying the whole evidence pile, so the count is a multiplier on the
+  // largest input cost in the product. Pricing and reviews are what the tool
+  // is for; channels and blindspots were the extras.
   const areas = new Set(GRID_AREAS);
-  assert.equal(areas.size, 4);
-  assert.ok(areas.has("pricing") && areas.has("blindspots"));
+  assert.equal(areas.size, 2);
+  assert.ok(areas.has("pricing") && areas.has("reviews"));
 });
 
 test("four grid calls are made, each pinned to a different area", async () => {
@@ -353,7 +357,14 @@ test("the model is never asked to write a url", async () => {
   const { calls } = await writingCalls();
 
   const asked = calls.think.filter((c) => c.shape === "comparison" || c.shape === "battlecard");
-  assert.ok(asked.length >= 5, `only ${asked.length} writing calls were recorded`);
+  // One call per area plus the narrative. Counted off GRID_AREAS rather than
+  // written as a number, so changing the areas does not silently leave this
+  // test asserting a shape the product no longer has.
+  const expected = GRID_AREAS.length + 1;
+  assert.ok(
+    asked.length >= expected,
+    `only ${asked.length} writing calls were recorded, expected ${expected}`,
+  );
 
   for (const call of asked) {
     assert.ok(call.shapeFull, `${call.shape} recorded no schema, so this test proves nothing`);

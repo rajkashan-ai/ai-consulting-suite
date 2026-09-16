@@ -90,7 +90,11 @@ test("a missing area is named, so it is not mistaken for nobody publishing", () 
 });
 
 test("several missing areas read as a sentence, not a list dump", () => {
-  const said = areasMissing(GRID_AREAS, ["pricing"]);
+  // Written against a fixed list rather than GRID_AREAS, because the point is
+  // the sentence, not which areas a run happens to ask for today. It used to
+  // use GRID_AREAS and broke the moment the areas changed, which tested the
+  // configuration and not the wording.
+  const said = areasMissing(["pricing", "channels", "reviews", "blindspots"], ["pricing"]);
   assert.match(said ?? "", /channels, reviews and blindspots/);
 });
 

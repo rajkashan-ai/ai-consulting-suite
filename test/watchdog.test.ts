@@ -3,11 +3,12 @@ import assert from "node:assert/strict";
 import {
   CAPS,
   STILL_LIMIT,
+  TOKEN_CEILING,
   WORKING_MINUTES,
   check,
   note,
   type Watch,
-} from "../lib/watchdog.ts";
+ } from "../lib/watchdog.ts";
 
 /**
  * When does a run get stopped?
@@ -245,4 +246,51 @@ test("everything we keep tells us enough to find the fault", () => {
   const v = check({ spent: { writing: 99 } }, { stage: "writing", startedAt: ago(1) });
   assert.match(v?.why ?? "", /writing/);
   assert.match(v?.why ?? "", /99/);
+});
+
+/**
+ * Time was capped and money was not, and the two are not the same thing: a run
+ * can be cheap and slow, or fast and ruinous.
+ *
+ * On 2026-09-16 a St Albans run spent 434,033 input tokens over 20 minutes and
+ * produced nothing, then a second started thirteen seconds later to do it
+ * again. Nothing anywhere was looking at the total.
+ */
+test("a run that has spent too much is stopped, however quick it was", () => {
+  const rich = {
+    cost: {
+      // Well inside the time limit. Only the spend is wrong.
+      writing: { seconds: 30, input: TOKEN_CEILING + 1, output: 100, pages: 0 },
+    },
+  };
+  const verdict = check(rich, { stage: "writing", startedAt: new Date() });
+
+  assert.ok(verdict, "spent past the ceiling and was allowed to carry on");
+  assert.match(verdict!.why, /input tokens/);
+  assert.doesNotMatch(verdict!.say, /token|ceiling|stage|input/i, "our machinery reached the screen");
+});
+
+test("a run inside the ceiling is left alone", () => {
+  const fine = {
+    cost: { writing: { seconds: 30, input: TOKEN_CEILING - 1, output: 100, pages: 0 } },
+  };
+  assert.equal(check(fine, { stage: "writing", startedAt: new Date() }), null);
+});
+
+test("spend is summed across stages, not judged one at a time", () => {
+  // Four calls that each look reasonable and together are not. This is exactly
+  // the shape the grid had: one evidence pile, sent once per area.
+  const each = Math.ceil(TOKEN_CEILING / 3);
+  const spread = {
+    cost: {
+      listings: { seconds: 10, input: each, output: 0, pages: 2 },
+      writing: { seconds: 10, input: each, output: 0, pages: 0 },
+      fixing: { seconds: 10, input: each, output: 0, pages: 0 },
+      checking: { seconds: 10, input: each, output: 0, pages: 0 },
+    },
+  };
+  assert.ok(
+    check(spread, { stage: "checking", startedAt: new Date() }),
+    "four affordable stages added up to an unaffordable run and nothing noticed",
+  );
 });
