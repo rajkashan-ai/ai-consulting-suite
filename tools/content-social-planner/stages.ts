@@ -18,7 +18,7 @@ import {
 import { cite, citeRules, numberPages, type Cited, type Page } from "./sources.ts";
 import { pagesFrom } from "../../lib/research/sitemap.ts";
 import { shapeMonth } from "./shape.ts";
-import { keep, unsafe } from "./scrub.ts";
+import { houseStyle, keep, unDash, unsafe } from "./scrub.ts";
 
 /**
  * A month of posts, a step at a time.
@@ -94,6 +94,15 @@ export type RunState = {
 };
 
 export type Step = { stage: Stage; state: RunState; progress: string };
+
+/**
+ * A string with no em dash and no en dash in it, for a JSON schema.
+ *
+ * Written as a lookahead over the whole string because a schema pattern is
+ * matched against the value, and "must not contain" has to be expressed as
+ * "starts with something that is not followed by one anywhere".
+ */
+const NO_DASH = "^(?![\\s\\S]*[\\u2014\\u2013])[\\s\\S]*$";
 
 /** Pages worth asking for beyond the home page, best first. */
 const WORTH = /price|pricing|cost|service|treatment|menu|what-we-do|rates|package|book|about/i;
@@ -312,27 +321,38 @@ async function voice(state: RunState, business: Business, ctx: ToolContext): Pro
 
   const got = (await ctx.think({
     system:
-      "You read a small business's own website and say how they sound, so that anything written " +
-      "for them later sounds like them. You never flatter and you never invent.",
+      "You describe how a small business already writes, so that anything written for them later " +
+      "sounds like them. You are describing, never marking: this is shown to the owner, and their " +
+      "copy is their work. Never call it plain, basic, functional, thin, sparse or anything else " +
+      "that grades it. Never quote more than three or four words in a row. " +
+      "You never use an em dash or an en dash, and never a word nobody says out loud.",
     prompt:
       `${citeRules(pages)}\n\nTHE PAGES\n\n${text}\n\n` +
-      `Say how ${business.name ?? "this business"} sounds, in two or three sentences, using their ` +
-      `own words where you can. Describe what is there. If the copy is plain, say it is plain.`,
+      `In two sentences, say how ${business.name ?? "this business"} sounds, so a writer could ` +
+      `match it: the tone they take, and the kind of words they reach for. Write it to them, ` +
+      `about themselves.`,
     shape: {
       name: "voice",
-      description: "How this business already sounds, read off their own pages.",
+      description: "How this business already sounds, in two sentences, written to them.",
       input_schema: {
         type: "object",
         properties: {
-          // Capped in the schema, not asked for in the prose. A length asked
-          // for politely drifts: CLAUDE.md 1.4a.
-          words: { type: "string", maxLength: 420 },
+          /**
+           * Two sentences, capped in the shape.
+           *
+           * At 420 this came back as a paragraph of criticism with six quotes
+           * in it: what the copy "allows itself", what it is "by contrast".
+           * Raj, 2026-09-16: a summary, more generic, never rude. A length
+           * asked for in prose drifts, so it is the schema that holds it, and
+           * a short cap is what stops it becoming an assessment.
+           */
+          words: { type: "string", minLength: 40, maxLength: 260, pattern: NO_DASH },
           from: { type: "integer", description: "The page number this was read off." },
         },
         required: ["words", "from"],
       },
     },
-    maxTokens: 400,
+    maxTokens: 300,
   })) as { words?: string; from?: unknown };
 
   const cited = cite(got, pages) as { words?: string; source?: Cited | null };
@@ -340,10 +360,18 @@ async function voice(state: RunState, business: Business, ctx: ToolContext): Pro
     return fail(state, "We could not read enough of your website to tell how you write.");
   }
 
+  /* The voice note is on the screen and goes on the profile, so it lives under
+     the same house rules as a post: the dash repaired, the word refused. */
+  const words = unDash(cited.words.trim());
+  const house = houseStyle(words);
+  if (house) {
+    return fail(state, "We could not describe how you write in words we would stand behind.");
+  }
+
   ctx.progress("Read how you write");
   return {
     stage: "shaping",
-    state: { ...state, voice: { words: cited.words.trim(), source: cited.source } },
+    state: { ...state, voice: { words, source: cited.source } },
     progress: "Read how you write",
   };
 }
@@ -517,7 +545,10 @@ async function writing(state: RunState, business: Business, ctx: ToolContext): P
   const got = (await ctx.think({
     system:
       "You write social posts as a small business owner, in their own voice. The owner posts what " +
-      "you write under their own name, so anything you invent becomes their lie. You never invent " +
+      "you write under their own name, so anything you invent becomes their lie. " +
+      "You never use an em dash or an en dash: a comma or a full stop, the way they would type it. " +
+      "You never use a word nobody says out loud, such as leverage, seamless, robust, bespoke, " +
+      "cutting edge, elevate, unlock, delve, boasts or nestled. You never invent " +
       "a client, a result, a percentage, a timescale, a qualification, an award, a review, a " +
       "number of years, or a number of customers. Where a post needs something only they know, " +
       "you leave a square bracket saying exactly what to put in it.",
@@ -542,9 +573,12 @@ async function writing(state: RunState, business: Business, ctx: ToolContext): P
             items: {
               type: "object",
               properties: {
-                words: { type: "string", minLength: 80, maxLength: 1400 },
-                shot: { type: "string", minLength: 20, maxLength: 180 },
-                why: { type: "string", minLength: 10, maxLength: 140 },
+                /* No dash, refused by the shape rather than asked for nicely.
+                   A ban asked for in prose drifts (CLAUDE.md 1.4a), and an em
+                   dash is the clearest tell that a person did not write it. */
+                words: { type: "string", minLength: 80, maxLength: 1400, pattern: NO_DASH },
+                shot: { type: "string", minLength: 20, maxLength: 180, pattern: NO_DASH },
+                why: { type: "string", minLength: 10, maxLength: 140, pattern: NO_DASH },
                 from: { type: "integer", description: "The page its facts came off." },
               },
               required: ["words", "shot", "why", "from"],
@@ -573,11 +607,13 @@ async function writing(state: RunState, business: Business, ctx: ToolContext): P
     const at = slots.indexOf(slot);
     if (at < 0) return slot;
     const w = written[at];
+    /* The dash goes before anything else looks at the words, so the checking
+       stage never has to decide whether a keystroke is worth a whole post. */
     const out: WrittenPost = {
       ...slot,
-      words: (w.words ?? "").trim(),
-      shot: (w.shot ?? "").trim(),
-      why: (w.why ?? "").trim(),
+      words: unDash((w.words ?? "").trim()),
+      shot: unDash((w.shot ?? "").trim()),
+      why: unDash((w.why ?? "").trim()),
       source: w.source ?? null,
     };
     const cap = CHANNEL[slot.channel].titleChars;

@@ -92,6 +92,13 @@ export default function PlanView({ plan, nextPlan }: { plan: DocumentBody; nextP
       </div>
 
       <h2 className="t-sub">What you sound like</h2>
+      {/* Where it came from, said here rather than only in the footer. Raj
+          asked "what is this based on?" of the first live run, which is the
+          question anything on this page has to be able to answer. */}
+      <p className="t-doc-sm">
+        Read off {plan.voice.source ? host(plan.voice.source.url) : "your own pages"}
+        {plan.voice.source ? `, ${plan.voice.source.fetchedOn}` : ""}.
+      </p>
       <div className="panel">
         <p className="t-doc">{plan.voice.words}</p>
       </div>

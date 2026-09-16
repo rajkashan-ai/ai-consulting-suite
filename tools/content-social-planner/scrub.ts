@@ -29,6 +29,67 @@ import type { WrittenPost } from "./stages.ts";
  * A shorter week is a state this tool already has and already reads well.
  */
 
+/* ── House style, which is not a matter of taste ──────────────────────────── */
+
+/**
+ * Words that tell a reader nobody wrote this.
+ *
+ * `base-prompt.md` has said "no jargon, no buzzwords, no em dashes" since its
+ * first version and nothing ever checked it, so the first live run put eight em
+ * dashes and three en dashes into two posts. The rule was written, agreed and
+ * called by nothing: the same shape as a guard that exists and is never wired.
+ *
+ * Bounded on both sides, because "elevate" is a word about a barber's chair and
+ * "unlocking" is what a locksmith does. Narrow the context, never the keyword.
+ */
+const HOUSE: [RegExp, string][] = [
+  [/\bleverag(e|ing|ed)\b/i, "leverage"],
+  [/\bseamless(ly)?\b/i, "seamless"],
+  [/\bat scale\b/i, "at scale"],
+  [/\bunlock(s|ing)? (?:the |your |a )?(?:potential|value|power|growth)\b/i, "unlock"],
+  [/\brobust\b/i, "robust"],
+  [/\bsupercharg(e|ing|ed)\b/i, "supercharge"],
+  [/\bdelve\b/i, "delve"],
+  [/\belevate your\b/i, "elevate your"],
+  [/\bgame[- ]chang(er|ing)\b/i, "game changer"],
+  [/\bin today'?s (?:fast[- ]paced|digital|modern)\b/i, "in today's fast-paced world"],
+  [/\bnestled\b/i, "nestled"],
+  [/\bboasts?\b/i, "boasts"],
+  [/\blook no further\b/i, "look no further"],
+  [/\bthe perfect blend of\b/i, "the perfect blend of"],
+  [/\bcutting[- ]edge\b/i, "cutting edge"],
+  [/\btake it to the next level\b/i, "the next level"],
+];
+
+/**
+ * Put back what a person would have typed.
+ *
+ * Deterministic, and nothing but the mark changes. A dash closing a sentence
+ * becomes a full stop, one joining a clause becomes a comma, and one between
+ * digits stays a dash because "8:45-17:00" is how opening hours are written.
+ *
+ * Repaired rather than refused, because a dash is a keystroke and dropping a
+ * finished post over a typographic mark costs the owner a post to fix nothing.
+ * A word is not a keystroke, which is why the list above is refused instead.
+ */
+export function unDash(text: string): string {
+  return String(text)
+    .replace(/(\d)\s*[\u2014\u2013]\s*(\d)/g, "$1-$2")
+    .replace(/\s*[\u2014\u2013]\s+(?=[A-Z])/g, ". ")
+    .replace(/\s*[\u2014\u2013]\s*/g, ", ")
+    .replace(/,\s*,/g, ",")
+    .replace(/\s+([,.])/g, "$1");
+}
+
+/** Which house-style word this text uses, or null when it uses none. */
+export function houseStyle(text: string): string | null {
+  for (const [shape, name] of HOUSE) if (shape.test(text)) return name;
+  return null;
+}
+
+/** A dash that survived the repair. After unDash this should never be true. */
+export const hasDash = (text: string): boolean => /[\u2014\u2013]/.test(text);
+
 /**
  * Why this post cannot go on the page, or null when it can.
  *
@@ -72,6 +133,15 @@ export function unsafe(post: WrittenPost, pages: Page[], known: KnownFacts): str
 
   const local = findLocalAssumptions(post.words, known);
   if (local.length) return "an assumption that their customers are local";
+
+  /* A word nobody says out loud. Refused rather than repaired: "leverage" is
+     not a worse way of saying something true, it is the sentence a person would
+     not have written, and rewriting it here would be us guessing what they
+     meant. Any dash is already gone, repaired on the way in. */
+  const house = houseStyle(text);
+  if (house) return `a word nobody would say out loud ("${house}")`;
+
+  if (hasDash(text)) return "a dash we could not put right";
 
   return null;
 }
