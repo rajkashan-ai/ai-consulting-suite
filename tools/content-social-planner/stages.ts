@@ -386,12 +386,22 @@ async function shaping(state: RunState, business: Business, ctx: ToolContext): P
     return fail(state, "We could not lay the month out correctly.");
   }
 
-  const weeks: WeekRow[] = slotWeeks(rec.cadence).map((w: number) => ({
-    week: `Week ${w}`,
-    about: "",
-    channels,
-    posts: slots.filter((s) => s.week === w).length,
-  }));
+  /**
+   * One row per week, not one per post.
+   *
+   * `slotWeeks` returns a week number for every slot, so mapping over it gave
+   * a row per slot: the screen listed "Week 2, 2 posts" twice, then Week 3
+   * twice, then Week 4 twice. Nine slots, nine rows, in a section whose whole
+   * job is to show four weeks at a glance.
+   */
+  const weeks: WeekRow[] = [...new Set(slots.map((s) => s.week))]
+    .sort((a, b) => a - b)
+    .map((w) => ({
+      week: `Week ${w}`,
+      about: "",
+      channels: [...new Set(slots.filter((s) => s.week === w).map((s) => s.channel))],
+      posts: slots.filter((s) => s.week === w).length,
+    }));
 
   ctx.progress(`${slots.length} posts laid out across ${channels.length} of your accounts`);
   return {

@@ -149,6 +149,27 @@ test("each step stops, so a closed tab loses one step and not the run", async ()
 
 /* ── the month is the shape the rules require ─────────────────────────────── */
 
+test("the month is listed one row per week, not one per post", async () => {
+  const { ctx } = fake();
+  const { state } = await runToEnd(ctx);
+  const weeks = state.weeks ?? [];
+
+  assert.ok(weeks.length, "no month spine at all");
+  assert.equal(
+    new Set(weeks.map((w) => w.week)).size,
+    weeks.length,
+    `the same week is listed twice: ${weeks.map((w) => w.week).join(", ")}`,
+  );
+  assert.equal(
+    weeks.reduce((n, w) => n + w.posts, 0),
+    (state.posts ?? []).length,
+    "the weeks do not add up to the month",
+  );
+  for (const w of weeks) {
+    assert.equal(new Set(w.channels).size, w.channels.length, `${w.week} lists a channel twice`);
+  }
+});
+
 test("the month satisfies the shape rules in the agent folder", () => {
   for (const cadence of ["weekly", "twice-weekly", "most-days"] as const) {
     const slots = shapeMonth(cadence, "2026-09-16T09:00:00.000Z", ["instagram", "facebook"]);

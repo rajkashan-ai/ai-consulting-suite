@@ -176,9 +176,19 @@ test("the clock is read on the client, never while rendering", () => {
 
 test("the first screen says what it will do and roughly how long", () => {
   // The reader is deciding whether to wait, so that is the question to answer.
-  assert.match(waiting, /up to five competitors/i);
-  assert.match(waiting, /about three minutes/i);
-  assert.match(waiting, /comes off a page we have read/i, "nothing says why it is worth the wait");
+  //
+  // These three lines used to be asserted against running.tsx, which is shared
+  // by every tool, so the assertion was really "the shared screen describes the
+  // Competitor Tracker's work" — which it did, for whatever was running. The
+  // copy now lives with the tool that means it, and so does the assertion.
+  const tracker = readFileSync(
+    join(here, "..", "app", "workspace", "[tool]", "competitor-tracker.tsx"),
+    "utf8",
+  );
+  assert.match(tracker, /up to five competitors/i);
+  assert.match(tracker, /about three minutes/i);
+  assert.match(tracker, /comes off a page we have read/i, "nothing says why it is worth the wait");
+  assert.match(waiting, /\{opening\.doing\}/, "the shared screen no longer shows an opening at all");
 });
 
 test("the running screen shows the real progress line, not a fixed word", () => {

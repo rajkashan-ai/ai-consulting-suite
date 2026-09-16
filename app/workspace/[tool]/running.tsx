@@ -21,12 +21,28 @@ type Progress = {
  * It never shows a percentage. We do not know what fraction of the work is
  * left, and a made-up percentage is a lie that people sit and watch.
  */
+/**
+ * What to say for the first twelve seconds, before the run has said anything.
+ *
+ * It used to be one paragraph about finding five competitors and reading their
+ * prices, shown whatever was running. The Content Planner reads the owner's own
+ * site and researches nobody, so its first screen told them we were looking at
+ * their rivals. Same defect as the engine naming a tool and the page naming a
+ * tool: a shared thing that knows one tool's work.
+ *
+ * After twelve seconds this is replaced by the run's own progress, which was
+ * always the tool's own words.
+ */
+export type Opening = { doing: string; takes: string; note: string };
+
 export default function Running({
   runId,
   startedAt,
+  opening,
 }: {
   runId: string;
   startedAt: string;
+  opening: Opening;
 }) {
   const router = useRouter();
   const [progress, setProgress] = useState("Starting");
@@ -133,14 +149,9 @@ export default function Running({
       {since < 12 ? (
         <div className="working">
           <span className="working__dot" aria-hidden="true" />
-          <strong className="t-row">Looking for who you are up against</strong>
-          <span className="t-meta">Usually about three minutes</span>
-          <p className="working__note t-meta">
-            We find up to five competitors and read what each of them publishes
-            about prices, booking, reviews and opening. Every figure comes off a
-            page we have read, so none of it is guesswork. Close this if you
-            like and come back: it keeps going without you.
-          </p>
+          <strong className="t-row">{opening.doing}</strong>
+          <span className="t-meta">{opening.takes}</span>
+          <p className="working__note t-meta">{opening.note}</p>
         </div>
       ) : (
         <div className="working">
@@ -168,7 +179,7 @@ export default function Running({
         <span className="sk sk--short" />
       </div>
       <p className="t-meta">
-        <span className="hide">Loading the battlecard.</span>
+        <span className="hide">Loading.</span>
       </p>
     </>
   );

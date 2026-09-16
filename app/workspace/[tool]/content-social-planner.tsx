@@ -12,6 +12,15 @@ import Running from "./running";
  * and a tool importing another tool's screen is the coupling `contract.ts`
  * exists to remove.
  */
+const OPENING = {
+  doing: "Reading your own website",
+  takes: "Usually a minute or two",
+  note:
+    "Everything we write comes off your own pages, so we read them first: what " +
+    "you sell, what it costs, and how you already write. We research nobody " +
+    "else. Close this if you like and come back: it keeps going without you.",
+};
+
 export default async function ContentSocialPlanner({
   workspaceId,
   ready,
@@ -42,7 +51,7 @@ export default async function ContentSocialPlanner({
   const latest = runs?.[0];
 
   if (latest && latest.stage !== "done" && latest.stage !== "failed") {
-    return <Running runId={latest.id} startedAt={latest.started_at} />;
+    return <Running runId={latest.id} startedAt={latest.started_at} opening={OPENING} />;
   }
 
   const decision = decidePlan(document?.created_at ?? null, new Date());
@@ -92,10 +101,10 @@ export default async function ContentSocialPlanner({
     return (
       <>
         <p className="auth__error t-doc-sm">Last time: {latest.error} Trying again now.</p>
-        <Running runId={started.id} startedAt={started.started_at} />
+        <Running runId={started.id} startedAt={started.started_at} opening={OPENING} />
       </>
     );
   }
 
-  return <Running runId={started.id} startedAt={started.started_at} />;
+  return <Running runId={started.id} startedAt={started.started_at} opening={OPENING} />;
 }

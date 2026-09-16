@@ -15,6 +15,16 @@ import Running from "./running";
  * Swap-in box reimplemented candidate.ts inline and the two copies contradicted
  * each other within hours.
  */
+const OPENING = {
+  doing: "Looking for who you are up against",
+  takes: "Usually about three minutes",
+  note:
+    "We find up to five competitors and read what each of them publishes about " +
+    "prices, booking, reviews and opening. " +
+    "Every figure comes off a page we have read, so none of it is guesswork. " +
+    "Close this if you like and come back: it keeps going without you.",
+};
+
 export default async function CompetitorTracker({
   workspaceId,
   ready,
@@ -45,7 +55,7 @@ export default async function CompetitorTracker({
   const latest = runs?.[0];
 
   if (latest && latest.stage !== "done" && latest.stage !== "failed") {
-    return <Running runId={latest.id} startedAt={latest.started_at} />;
+    return <Running runId={latest.id} startedAt={latest.started_at} opening={OPENING} />;
   }
 
   const decision = decideRun(document?.created_at ?? null, new Date());
@@ -100,10 +110,10 @@ export default async function CompetitorTracker({
         <p className="auth__error t-doc-sm">
           Last time: {latest.error} Trying again now.
         </p>
-        <Running runId={started.id} startedAt={started.started_at} />
+        <Running runId={started.id} startedAt={started.started_at} opening={OPENING} />
       </>
     );
   }
 
-  return <Running runId={started.id} startedAt={started.started_at} />;
+  return <Running runId={started.id} startedAt={started.started_at} opening={OPENING} />;
 }

@@ -72,6 +72,42 @@ test("every tool answers whether it can start, in its own terms", () => {
   assert.equal(readyFor("content-social-planner", siteOnly), true);
 });
 
+test("the screen every run shares says nothing about any one tool's work", () => {
+  /**
+   * The running screen announced "looking for who you are up against" and
+   * "we find up to five competitors" for whatever was running. The Content
+   * Planner reads the owner's own site and researches nobody, so its first
+   * screen told them we were looking at their rivals.
+   *
+   * Third instance of one defect: the engine named a tool, the page named a
+   * tool, and the shared progress screen described one tool's work. Each was
+   * found separately, which is the argument for the rule rather than the fix.
+   */
+  /* Comments stripped. A comment recording that this file used to describe one
+     tool's work is not the file describing it. */
+  const running = readFileSync(join(here, "..", "app", "workspace", "[tool]", "running.tsx"), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+  for (const word of ["competitor", "battlecard", "rival", "up against", "posts", "cadence"]) {
+    assert.doesNotMatch(running, new RegExp(word, "i"), `the shared progress screen says "${word}"`);
+  }
+  for (const tool of TOOLS) {
+    assert.doesNotMatch(running, new RegExp(tool.slug), `the shared progress screen names ${tool.slug}`);
+  }
+});
+
+test("every tool that can run says what it is doing while it runs", () => {
+  /* An empty opening is a blank panel for the first twelve seconds, which
+     reads as broken. Checked as text because these are .tsx. */
+  for (const tool of TOOLS.filter((t) => t.built)) {
+    const file = readFileSync(join(here, "..", "app", "workspace", "[tool]", `${tool.slug}.tsx`), "utf8");
+    assert.match(file, /const OPENING = \{/, `${tool.slug} has no opening line`);
+    assert.match(file, /opening=\{OPENING\}/, `${tool.slug} does not pass its opening to Running`);
+    const doing = file.match(/doing:\s*"([^"]+)"/)?.[1] ?? "";
+    assert.ok(doing.length > 10, `${tool.slug} says nothing while it runs`);
+  }
+});
+
 test("a tool nobody has written a rule for cannot start", () => {
   const full: Workspace = { id: "w", name: "X", website: "https://x.test", trade: "barber", town: "S" };
   assert.equal(readyFor("nothing-like-this", full), false, "silence read as permission");
