@@ -52,6 +52,24 @@ const KINDS: { when: RegExp; say: string }[] = [
     say: "One of the addresses we were given could not be read. Check the website is right.",
   },
   {
+    /**
+     * Out of credit. Checked before the other 400s, because the message is a
+     * 400 like any other and the right thing to say is nothing like the others.
+     *
+     * A real run died here on 2026-09-16 and the owner was told "something went
+     * wrong at our end, start it again". It would have failed identically every
+     * time. Telling somebody to retry something that cannot succeed is the
+     * worst message in the product: it costs them their afternoon and it looks
+     * like the product is broken rather than unpaid.
+     *
+     * It says "we" rather than "you" because for a paying customer this is
+     * genuinely our bill, not theirs. Whoever needs to act on it finds the real
+     * text on the run.
+     */
+    when: /credit balance|billing|quota|insufficient.*(credit|funds)|payment required|\b402\b/i,
+    say: "We have run out of credit at our end, so this could not finish. Nothing has been saved and nothing has been charged to you. It will work again once that is sorted.",
+  },
+  {
     when: /401|403|unauthorized|forbidden|invalid.*key|authentication/i,
     say: "We could not get through to finish this. Start it again, and tell us if it keeps happening.",
   },

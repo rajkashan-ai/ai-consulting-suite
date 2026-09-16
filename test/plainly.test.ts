@@ -101,3 +101,31 @@ test("a step that throws keeps the real reason as well as the plain one", async 
   assert.match(step.state.watch?.stopped ?? "", /Cannot read properties/, "the real reason was thrown away");
   assert.match(step.state.watch?.stopped ?? "", /^searching:/, "it does not say which step failed");
 });
+
+test("running out of credit does not tell them to try again", () => {
+  /**
+   * A real run died here on 2026-09-16 and the owner was told "something went
+   * wrong at our end, start it again". It would have failed identically every
+   * time. Telling somebody to retry something that cannot succeed is the worst
+   * message in the product: it costs them their afternoon, and it makes the
+   * product look broken rather than unpaid.
+   */
+  const { say, why } = plainly(
+    new Error(
+      '400 {"type":"error","error":{"type":"invalid_request_error","message":' +
+        '"Your credit balance is too low to access the Anthropic API."}}',
+    ),
+  );
+
+  assert.match(say, /run out of credit/i);
+  assert.doesNotMatch(say, /start it again|try again/i, say);
+  assert.doesNotMatch(say, MACHINERY, say);
+  assert.match(why, /credit balance is too low/, "the real text was not kept");
+});
+
+test("a billing failure is not mistaken for an ordinary refusal", () => {
+  // Both are 400s and both mention access. The right thing to say is nothing
+  // alike, so the order of the checks matters and this pins it.
+  assert.match(plainly(new Error("402 payment required")).say, /run out of credit/i);
+  assert.match(plainly(new Error("403 forbidden")).say, /could not get through/i);
+});
