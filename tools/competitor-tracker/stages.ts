@@ -218,7 +218,18 @@ export async function advance(
   try {
     return await run(stage, state, business, ctx);
   } catch (e) {
-    return stop(state, plainly(e).say);
+    /**
+     * Both halves, or the next failure is undiagnosable.
+     *
+     * This threw away `why` and kept only `say`. A real run failed on
+     * 2026-09-16, the owner got "something went wrong at our end", and there
+     * was nothing anywhere to say what: not in the run, not in the log,
+     * because catching it is exactly what stops it being logged. I built the
+     * two readers rule and then applied half of it.
+     */
+    const plain = plainly(e);
+    const watch = { ...(state.watch ?? {}), stopped: `${stage}: ${plain.why}` };
+    return { ...stop(state, plain.say), state: { ...state, reason: plain.say, watch } };
   }
 }
 

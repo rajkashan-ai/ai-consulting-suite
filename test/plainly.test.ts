@@ -76,3 +76,28 @@ test("an enormous error text is not kept whole", () => {
   const { why } = plainly(new Error("x".repeat(50_000)));
   assert.ok(why.length <= 2100, `kept ${why.length} characters`);
 });
+
+test("a step that throws keeps the real reason as well as the plain one", async () => {
+  /**
+   * A real run failed on 2026-09-16, the owner saw "something went wrong at our
+   * end", and there was nothing anywhere saying what. Not in the run row, and
+   * not in the server log either, because catching an error is precisely what
+   * stops it being logged. I wrote the two readers rule and applied half of it.
+   */
+  const { advance } = await import("../tools/competitor-tracker/stages.ts");
+  const { aBusiness } = await import("./fake.ts");
+
+  const ctx = {
+    read: async () => ({ ok: true, url: "x", text: "", title: null, fetchedAt: "", note: "" }),
+    think: async () => { throw new TypeError("Cannot read properties of undefined (reading 'name')"); },
+    search: async () => { throw new TypeError("Cannot read properties of undefined (reading 'name')"); },
+    progress: () => {},
+  } as never;
+
+  const step = await advance("searching" as never, {}, aBusiness(), ctx);
+
+  assert.equal(step.stage, "failed");
+  assert.match(step.state.reason ?? "", /Something went wrong at our end/);
+  assert.match(step.state.watch?.stopped ?? "", /Cannot read properties/, "the real reason was thrown away");
+  assert.match(step.state.watch?.stopped ?? "", /^searching:/, "it does not say which step failed");
+});
