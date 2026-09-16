@@ -119,6 +119,16 @@ const SKIP = /privacy|terms|cookie|policy|login|account|cart|basket|\.(jpg|png|p
 /** How many of their own pages one run reads. Their site, not the web. */
 const MAX_PAGES = 5;
 
+/**
+ * How many of them one step fetches.
+ *
+ * The watchdog allows six steps in `reading`, sized for a tool that fetches
+ * eight pages a step. Three keeps a five page site inside two steps of reading
+ * with room to spare, and still saves after each one, which is the promise that
+ * matters: a closed laptop loses a step, never the run.
+ */
+const PER_STEP = 3;
+
 /** Weeks written on the first run. The rest is shaped and arrives weekly. */
 const WEEKS_WRITTEN = 1;
 
@@ -199,37 +209,35 @@ const fail = (state: RunState, say: string): Step => ({
 async function reading(state: RunState, business: Business, ctx: ToolContext): Promise<Step> {
   const already = state.read ?? [];
 
+  /**
+   * The home page and the list of what to read next, in one step.
+   *
+   * These were two steps and the second read nothing, which cost a tick to
+   * produce no page. `lib/watchdog.ts` allows six steps in `reading` and says
+   * why in a comment: the Competitor Tracker fetches eight pages a step. This
+   * tool fetched one, so a site with a real sitemap needed seven steps and the
+   * watchdog stopped it, correctly, having read five pages and used none.
+   */
   if (!already.length) {
     const home = await ctx.read(business.website);
     if (!home.ok) {
       return fail(state, "We could not open your website, so there is nothing to write from yet.");
     }
+    const first = asRead(home);
+    const queue = await worthReading(new URL(first.url).origin, first, ctx);
     ctx.progress("Read your home page");
     return {
       stage: "reading",
-      state: { ...state, read: [asRead(home)] },
+      state: { ...state, read: [first], queue },
       progress: "1 page of your site read",
     };
   }
 
-  const origin = new URL(already[0].url).origin;
   const seen = (u: string) => u.replace(/\/+$/, "");
   const done = new Set(already.map((p) => seen(p.url)));
+  const next = (state.queue ?? []).filter((u) => !done.has(seen(u))).slice(0, PER_STEP);
 
-  /* Worked out once and then drained one a tick, so a step stays small and a
-     tick that dies loses one page rather than the plan. */
-  if (!state.queue) {
-    const queue = await worthReading(origin, already[0], ctx);
-    return {
-      stage: "reading",
-      state: { ...state, queue: queue.filter((u) => !done.has(seen(u))) },
-      progress: "1 page of your site read",
-    };
-  }
-
-  const next = state.queue.find((u) => !done.has(seen(u)));
-
-  if (!next || already.length >= MAX_PAGES) {
+  if (!next.length || already.length >= MAX_PAGES) {
     const pages = numberPages(
       already
         .filter((p) => p.ok && p.text.trim().length > 40)
@@ -243,13 +251,18 @@ async function reading(state: RunState, business: Business, ctx: ToolContext): P
     };
   }
 
-  const got = await ctx.read(next);
-  ctx.progress(`Read ${already.length + 1} pages of your site`);
-  return {
-    stage: "reading",
-    state: { ...state, read: [...already, asRead(got)] },
-    progress: `${already.length + 1} pages of your site read`,
-  };
+  /**
+   * Several a step, saved together.
+   *
+   * One a step was a tick per page, which a five page site cannot finish inside
+   * the cap. `lib/research/fetch.ts` still queues per host with a pause between,
+   * so this is no less polite; it is the same requests reported in fewer saves.
+   * A tick that dies loses these three rather than the run.
+   */
+  const got = await Promise.all(next.map((u) => ctx.read(u)));
+  const read = [...already, ...got.map(asRead)];
+  ctx.progress(`Read ${read.length} pages of your site`);
+  return { stage: "reading", state: { ...state, read }, progress: `${read.length} pages of your site read` };
 }
 
 const asRead = (r: Awaited<ReturnType<ToolContext["read"]>>): ReadPage => ({
@@ -261,6 +274,22 @@ const asRead = (r: Awaited<ReturnType<ToolContext["read"]>>): ReadPage => ({
   note: r.note,
 });
 
+/**
+ * Addresses in whatever came back, tags or no tags.
+ *
+ * A sitemap is `<loc>https://...</loc>`, and `lib/research/fetch.ts` hands back
+ * visible text with the tags taken out, so a parser looking for `<loc>` found
+ * nothing on every real site and the run fell through to guessing paths. It
+ * worked in the test because the fake handed back raw xml, which is the fixture
+ * being easier to satisfy than the thing it stands in for, for the third time
+ * in this tool.
+ *
+ * The addresses survive either way, so match those.
+ */
+export function urlsIn(text: string): string[] {
+  return [...new Set((String(text).match(/https?:\/\/[^\s<>"')]+/g) ?? []).map((u) => u.replace(/[.,;]+$/, "")))];
+}
+
 /** The pages of their own site worth reading, best first. */
 export async function worthReading(
   origin: string,
@@ -269,15 +298,53 @@ export async function worthReading(
 ): Promise<string[]> {
   const out: string[] = [];
 
-  const fromSitemap = await pagesFrom(
-    origin,
-    async (u) => {
-      const got = await ctx.read(u);
-      return { ok: got.ok, text: got.text };
-    },
-    MAX_PAGES,
-  );
-  out.push(...fromSitemap);
+  const read = async (u: string) => {
+    const got = await ctx.read(u);
+    return { ok: got.ok, text: got.text };
+  };
+
+  /**
+   * Ask robots.txt where the sitemap is, before assuming.
+   *
+   * `lib/research/sitemap.ts` tries `/sitemap.xml`, which is right for most
+   * sites and wrong for WordPress, where it is `/wp-sitemap.xml`. A Hertfordshire
+   * salon on WordPress therefore fell through to guessing, and four of the five
+   * guesses were 404s fetched one at a time with a pause between.
+   *
+   * robots.txt is where a site is supposed to declare it, and reading that
+   * costs one request and works whatever the site is built with. The default
+   * still runs after it, because plenty of sites publish a sitemap and never
+   * mention it in robots.
+   */
+  const robots = await ctx.read(`${origin}/robots.txt`);
+  const declared = robots.ok
+    ? [...robots.text.matchAll(/sitemap:\s*(\S+)/gi)].map((m) => m[1].replace(/[.,;]+$/, ""))
+    : [];
+
+  for (const url of declared.slice(0, 2)) {
+    try {
+      if (new URL(url).origin !== origin) continue;
+    } catch {
+      continue;
+    }
+    const map = await ctx.read(url);
+    if (!map.ok) continue;
+    const locs = urlsIn(map.text);
+    /* One level of nesting, the same as pagesFrom allows: a sitemap index
+       pointing at other sitemaps is the common WordPress shape. */
+    for (const loc of locs.slice(0, 8)) {
+      if (!/\.xml(\?|$)/i.test(loc)) {
+        out.push(loc);
+        continue;
+      }
+      const child = await ctx.read(loc);
+      if (child.ok) {
+        for (const u of urlsIn(child.text)) if (!/\.xml(\?|$)/i.test(u)) out.push(u);
+      }
+    }
+  }
+
+  if (!out.length) out.push(...(await pagesFrom(origin, read, MAX_PAGES)));
 
   /* Guessing is a claim about a site nobody has read, so it comes second and
      never instead. */
@@ -299,10 +366,20 @@ export async function worthReading(
     }
   }
 
-  return [...new Set(out)]
+  /* One page, one entry. A sitemap listing /services-price-list/ and a link
+     to /services-price-list is the same page twice, and reading it twice costs
+     a request and puts the same facts in front of the model under two
+     numbers. */
+  const once = new Map<string, string>();
+  for (const u of out) {
+    const key = u.replace(/\/+$/, "").toLowerCase();
+    if (!once.has(key)) once.set(key, u);
+  }
+
+  return [...once.values()]
     .filter((u) => {
       const path = new URL(u).pathname;
-      return path !== "/" && !SKIP.test(path) && WORTH.test(path);
+      return path.replace(/\/+$/, "") !== "" && !SKIP.test(path) && WORTH.test(path);
     })
     .sort((a, b) => Number(/price|cost|rate|menu/i.test(b)) - Number(/price|cost|rate|menu/i.test(a)))
     .slice(0, MAX_PAGES);

@@ -16,12 +16,18 @@ export default function Channels({
   confirmed,
 }: {
   workspaceId: string;
-  /** What their own pages mention. A suggestion, not an answer. */
-  detected: string[];
+  /**
+   * What their own pages mention, or null when nobody has read them yet.
+   *
+   * The two are not the same and the screen said they were: before the first
+   * run there is nothing to detect from, and it told them "your site does not
+   * mention any", which is a claim about their site made without looking at it.
+   */
+  detected: string[] | null;
   /** What they told us, or null if nobody has asked yet. */
   confirmed: string[] | null;
 }) {
-  const ticked = confirmed ?? detected;
+  const ticked = confirmed ?? detected ?? [];
 
   return (
     <form action={saveChannels}>
@@ -30,9 +36,11 @@ export default function Channels({
       <p className="t-doc-sm">
         {confirmed
           ? "Change this and we write the month again for the new ones."
-          : detected.length
-            ? "These are the ones your own site mentions. Tell us if we have it wrong."
-            : "Your site does not mention any, so we cannot guess. Tell us and we will write the month."}
+          : detected === null
+            ? "Tell us where you post and we will read your site and write the month."
+            : detected.length
+              ? "These are the ones your own site mentions. Tell us if we have it wrong."
+              : "Your own pages do not mention any, so we are not guessing. Tell us and we will write the month."}
       </p>
 
       <div className="controls">

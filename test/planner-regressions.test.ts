@@ -760,3 +760,173 @@ test("hashtags come off, because they do not do what people think", async () => 
   assert.match(stages, /words somebody would actually search for/i, "it is not told what to do instead");
   assert.match(stages, /unTag\(/, "the guard exists and nothing calls it");
 });
+
+test("reading a whole site fits inside the steps the watchdog allows", async () => {
+  /**
+   * The watchdog allows six steps in `reading` and says why in a comment: the
+   * Competitor Tracker fetches eight pages a step. This tool fetched one, and
+   * spent a further step building the queue without reading anything, so a site
+   * with a real sitemap needed seven and was stopped having read five pages and
+   * used none of them.
+   *
+   * The barber never showed it, because two pages fit. A Hertfordshire salon on
+   * WordPress with a declared sitemap did, on the first live run against it.
+   *
+   * The caps are keyed by the Tracker's stage names and sized for its work,
+   * which is the same shared-thing-knows-one-tool defect as the engine, the
+   * page and the running screen. `lib/watchdog.ts` is read-only to a tool, so
+   * this fits inside the cap rather than changing it.
+   */
+  const { CAPS } = await import("../lib/watchdog.ts");
+  const { advance } = await import("../tools/content-social-planner/stages.ts");
+
+  /* A site with five readable pages and a sitemap that names them. */
+  const pages = ["/", "/prices", "/services", "/about", "/booking"];
+  /* As the real reader hands it back: tags stripped, addresses surviving.
+     Written as raw xml, this fixture was easier to satisfy than the thing it
+     stands in for and the live run fell through to guessing. */
+  const sitemap = pages.map((p) => `https://x.test${p}`).join("\n");
+  const ctx = {
+    read: async (url: string) => ({
+      ok: true,
+      url,
+      text: url.endsWith("robots.txt")
+        ? "User-agent: *\nSitemap: https://x.test/wp-sitemap.xml"
+        : url.endsWith(".xml")
+          ? sitemap
+          : "Words about the salon, enough of them to count as a page worth reading.",
+      title: null,
+      fetchedAt: "2026-09-16T09:00:00.000Z",
+      note: "",
+    }),
+    think: async () => ({}),
+    search: async () => [],
+    progress: () => {},
+  };
+
+  let stage = "reading";
+  let state: Record<string, unknown> = {};
+  let steps = 0;
+  while (stage === "reading" && steps < 20) {
+    const step = await advance(stage as never, state as never, { website: "https://x.test" } as never, ctx as never);
+    stage = step.stage;
+    state = step.state as never;
+    steps += 1;
+  }
+
+  assert.notEqual(stage, "failed", `reading failed: ${(state as { reason?: string }).reason}`);
+  assert.ok(
+    steps < CAPS.reading,
+    `reading took ${steps} steps and the watchdog stops it at ${CAPS.reading}`,
+  );
+  assert.ok(((state as { pages?: unknown[] }).pages ?? []).length >= 2, "it read a site and numbered nothing");
+});
+
+test("a sitemap the site declares in robots.txt is the one we read", async () => {
+  /**
+   * `lib/research/sitemap.ts` tries `/sitemap.xml`, which is right for most
+   * sites and wrong for WordPress, where it is `/wp-sitemap.xml`. A salon on
+   * WordPress therefore fell through to guessing paths, four of the five 404s
+   * fetched one at a time with a pause between. robots.txt is where a site is
+   * supposed to declare it.
+   */
+  const { worthReading } = await import("../tools/content-social-planner/stages.ts");
+  const asked: string[] = [];
+  const ctx = {
+    read: async (url: string) => {
+      asked.push(url);
+      if (url.endsWith("robots.txt")) {
+        return { ok: true, url, text: "Sitemap: https://x.test/wp-sitemap.xml", title: null, fetchedAt: "", note: "" };
+      }
+      if (url.endsWith("wp-sitemap.xml")) {
+        return { ok: true, url, text: "https://x.test/services-price-list/", title: null, fetchedAt: "", note: "" };
+      }
+      return { ok: false, url, text: "", title: null, fetchedAt: "", note: "not there" };
+    },
+    think: async () => ({}),
+    search: async () => [],
+    progress: () => {},
+  };
+
+  const home = { url: "https://x.test/", ok: true, title: null, text: "Words.", fetchedOn: "d", note: "" };
+  const found = await worthReading("https://x.test", home as never, ctx as never);
+
+  assert.ok(asked.some((u) => u.endsWith("/robots.txt")), "it never asked where the sitemap is");
+  assert.deepEqual(found, ["https://x.test/services-price-list/"]);
+  /* And having found one, it does not go on to guess. */
+  assert.equal(asked.filter((u) => /\/prices$|\/menu$/.test(u)).length, 0, "it guessed anyway");
+});
+
+test("one page is read once, whatever the trailing slash", async () => {
+  const { worthReading } = await import("../tools/content-social-planner/stages.ts");
+  const ctx = {
+    read: async (url: string) => ({
+      ok: true,
+      url,
+      text: url.endsWith("robots.txt")
+        ? "Sitemap: https://x.test/wp-sitemap.xml"
+        : "https://x.test/services-price-list/\nhttps://x.test/services-price-list",
+      title: null,
+      fetchedAt: "",
+      note: "",
+    }),
+    think: async () => ({}),
+    search: async () => [],
+    progress: () => {},
+  };
+  const home = { url: "https://x.test/", ok: true, title: null, text: "Words.", fetchedOn: "d", note: "" };
+  const found = await worthReading("https://x.test", home as never, ctx as never);
+  assert.equal(found.length, 1, `the same page twice: ${JSON.stringify(found)}`);
+});
+
+test("no fake in these tests is easier to satisfy than the real reader", () => {
+  /**
+   * THE TRAP THAT KEEPS COMING BACK. Three times in this tool now:
+   *
+   *  1. the page fixture was captured with a plain fetch, so the code parsed
+   *     anchors that do not survive, and the live run would have written a
+   *     month of posts with no prices in them;
+   *  2. a fake matched urls by exact string while the real reader follows
+   *     redirects, so every offline test failed at the first page;
+   *  3. a sitemap fake handed back raw xml, so a parser looking for <loc>
+   *     passed here and found nothing on any real site, and the live run fell
+   *     through to guessing paths and read four 404s.
+   *
+   * Each cost a live run to find. The rule is one line: `lib/research/fetch.ts`
+   * hands back visible text, and `visibleText` strips every tag before anything
+   * else sees it. A fake that returns markup is testing a reader we do not have.
+   *
+   * Checked on the fakes themselves rather than on their output, because a fake
+   * is a fixture and a fixture nobody compares to reality drifts back.
+   */
+  const files = ["planner.test.ts", "planner-regressions.test.ts"];
+  const offenders: string[] = [];
+
+  for (const f of files) {
+    const src = readFileSync(join(here, f), "utf8");
+    /* Only the text a fake hands back, which is what the reader would have
+       stripped. Assertions about markup elsewhere are not fakes. */
+    for (const m of src.matchAll(/text:\s*(?:url\.endsWith[\s\S]{0,400}?|)(["'`])([\s\S]*?)\1/g)) {
+      const handed = m[2];
+      if (/<[a-z][a-z0-9]*(\s|>|\/)/i.test(handed)) {
+        offenders.push(`${f}: a fake hands back markup: ${handed.slice(0, 60)}`);
+      }
+    }
+  }
+
+  assert.deepEqual(offenders, [], offenders.join("\n  "));
+});
+
+test("the fixture on disk is still what the reader would have produced", () => {
+  /* The same rule for the captured pages, asserted separately because a fixture
+     is recaptured by hand and a fake is written by hand, and they drift apart
+     for different reasons. */
+  const fixture = JSON.parse(
+    readFileSync(join(here, "..", "tools", "content-social-planner", "fixtures", "barber.json"), "utf8"),
+  ) as { pages: { url: string; text: string }[] };
+
+  for (const p of fixture.pages) {
+    if (p.url.endsWith(".xml")) continue;
+    assert.doesNotMatch(p.text, /<[a-z][a-z0-9]*(\s|>|\/)/i, `${p.url} holds markup the reader strips`);
+  }
+});
