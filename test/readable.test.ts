@@ -131,3 +131,55 @@ test("the value is the loudest thing in a cell", () => {
 test("every column is the same width, so no business looks more important", () => {
   assert.match(css, /\.grid \{ table-layout: fixed; \}/);
 });
+
+// ---------------------------------------------------------------------------
+// The waiting screen. Added 2026-09-16.
+// ---------------------------------------------------------------------------
+
+const waitingSrc = readFileSync(join(here, "..", "app", "workspace", "[tool]", "running.tsx"), "utf8");
+
+/**
+ * The file with its comments removed and its line wraps flattened.
+ *
+ * Both of these caught me out writing the tests below. A comment explaining
+ * what a message used to say still contains that message, so a check for the
+ * old wording fired on the note explaining why it went. And a sentence wrapped
+ * across two lines does not match a regex written as one sentence.
+ */
+const waiting = waitingSrc
+  .replace(/\/\*[\s\S]*?\*\//g, " ")
+  .replace(/\/\/[^\n]*/g, " ")
+  .replace(/\s+/g, " ");
+
+test("nothing on the waiting screen predicts how long is left", () => {
+  /**
+   * It said "About a minute to go" for the first ninety seconds of a run that
+   * takes about three, then "Nearly there" for the rest. Both hardcoded,
+   * neither true. UI/CLAUDE.md section 7 rule 7: a status claim about our own
+   * work is the easiest false statement in the product to write, because
+   * nobody can check it.
+   */
+  assert.doesNotMatch(waiting, /About a minute to go|Nearly there|to go</i);
+  assert.match(waiting, /Running for/, "nothing tells the reader it is still alive");
+});
+
+test("the clock is read on the client, never while rendering", () => {
+  // Reading Date.now() during render puts one second in the server's HTML and
+  // the next in the client's, and React refuses the mismatch. It is the
+  // textbook hydration fault and it reached the screen once.
+  assert.doesNotMatch(waitingSrc, /const since = Math\.round\(\(Date\.now\(\)/);
+  assert.match(waiting, /useEffect\(\(\) => \{ setNow\(Date\.now\(\)\)/);
+  assert.match(waiting, /now !== null && <span/, "the elapsed line renders before the clock is read");
+});
+
+test("the first screen says what it will do and roughly how long", () => {
+  // The reader is deciding whether to wait, so that is the question to answer.
+  assert.match(waiting, /up to five competitors/i);
+  assert.match(waiting, /about three minutes/i);
+  assert.match(waiting, /comes off a page we have read/i, "nothing says why it is worth the wait");
+});
+
+test("the running screen shows the real progress line, not a fixed word", () => {
+  // "Found 32 barbers in Shrewsbury" is both proof of life and proof of work.
+  assert.match(waiting, /<strong className="t-row">\{progress\}<\/strong>/);
+});

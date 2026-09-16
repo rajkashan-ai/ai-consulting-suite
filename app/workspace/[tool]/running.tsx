@@ -89,22 +89,71 @@ export default function Running({
     );
   }
 
-  const since = Math.round((Date.now() - new Date(startedAt).getTime()) / 1000);
+  /**
+   * The clock is read on the client only, and never during the first render.
+   *
+   * Reading Date.now() while rendering means the server writes one second into
+   * the HTML and the client writes the next one a moment later, and React
+   * refuses the mismatch: "Running for 1 min 57 sec" against "1 min 58 sec".
+   * It is the textbook hydration fault and I walked straight into it.
+   *
+   * Null until mounted, which also gives the first screen the right default:
+   * a run nobody has timed yet is a run that has just started.
+   */
+  const [now, setNow] = useState<number | null>(null);
+
+  useEffect(() => {
+    setNow(Date.now());
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(tick);
+  }, []);
+
+  const since = now === null ? 0 : Math.round((now - new Date(startedAt).getTime()) / 1000);
+
+  /**
+   * Two different questions, asked at two different moments.
+   *
+   * At the start the reader is deciding whether to wait, and wants to know how
+   * long and whether it is worth it. Once it is running they have stopped
+   * caring about that and want to know it is still alive.
+   *
+   * What was here said "About a minute to go" for the first ninety seconds of
+   * a run that takes about three, then "Nearly there" for the rest. Both were
+   * hardcoded and neither was true. UI/CLAUDE.md section 7 rule 7: a status
+   * claim about our own work is the easiest false statement in the product to
+   * write, because nobody can check it. Nothing below is a prediction.
+   */
+  const elapsed =
+    since < 60
+      ? `Running for ${since} seconds`
+      : `Running for ${Math.floor(since / 60)} min ${since % 60} sec`;
 
   return (
     <>
-      <div className="working">
-        <span className="working__dot" aria-hidden="true" />
-        <strong className="t-row">{progress}</strong>
-        <span className="t-meta">
-          {since < 90 ? "About a minute to go" : "Nearly there"}
-        </span>
-        <p className="working__note t-meta">
-          You can close this. It keeps going and it will be here when you come
-          back. We read one page at a time with a pause between, so we are never
-          a burden on a small business&rsquo;s website.
-        </p>
-      </div>
+      {since < 12 ? (
+        <div className="working">
+          <span className="working__dot" aria-hidden="true" />
+          <strong className="t-row">Looking for who you are up against</strong>
+          <span className="t-meta">Usually about three minutes</span>
+          <p className="working__note t-meta">
+            We find up to five competitors and read what each of them publishes
+            about prices, booking, reviews and opening. Every figure comes off a
+            page we have read, so none of it is guesswork. Close this if you
+            like and come back: it keeps going without you.
+          </p>
+        </div>
+      ) : (
+        <div className="working">
+          <span className="working__dot" aria-hidden="true" />
+          <strong className="t-row">{progress}</strong>
+          {now !== null && <span className="t-meta">{elapsed}</span>}
+          <p className="working__note t-meta">
+            You can close this. It keeps going and it will be here when you come
+            back. We read one page at a time with a pause between, so we are
+            never a burden on a small business&rsquo;s website.
+          </p>
+        </div>
+      )}
 
       {/* Bars at the real shape of what is coming. Not a spinner: a spinner
           says something is happening, this says what is going to be there. */}
