@@ -30,15 +30,32 @@ test("the system prompt is cached", () => {
   assert.match(think, /system: \[\{[^]*cache_control/, "the system prompt is sent uncached");
 });
 
-test("the prompt is not cached", () => {
+test("only the shared half of a prompt is cached, never the varying half", () => {
   /**
-   * It carries the evidence, which differs in every run and mostly between the
-   * calls of one run. Caching a block that changes writes a new entry every
-   * time and reads none: 1.25x to achieve nothing.
+   * The rule is the same as it always was: the breakpoint goes on a block that
+   * stays identical between requests. What changed is that there is now such a
+   * block inside the user message.
+   *
+   * Measured on 2026-09-17: the writing stage's two grid calls sent prompts of
+   * 71,579 and 71,561 characters that differed by eighteen, and were billed
+   * 35,998 and 36,002 input tokens. The shared part is `cachedPrefix` and it
+   * carries the breakpoint. `prompt` is the part that differs and must never
+   * carry one: caching a block that changes writes a new entry every time and
+   * reads none, which is 1.25x to achieve nothing.
    */
   const think = engine.slice(engine.indexOf("think: async"));
   const messages = think.slice(think.indexOf("messages: ["), think.indexOf("}).finalMessage()"));
-  assert.doesNotMatch(messages, /cache_control/, "the varying block carries a cache breakpoint");
+
+  // The breakpoint sits on the cached prefix.
+  assert.match(
+    messages,
+    /text: cachedPrefix,\s*cache_control/,
+    "the shared prefix is sent without a breakpoint, so nothing is ever cached",
+  );
+
+  // And nowhere near the block that differs between calls.
+  const varying = messages.slice(messages.indexOf("{ type: \"text\" as const, text: prompt }"));
+  assert.doesNotMatch(varying, /cache_control/, "the varying block carries a cache breakpoint");
 });
 
 test("what the cache did is recorded, separately from ordinary input", () => {

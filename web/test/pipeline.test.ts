@@ -45,8 +45,20 @@ test("the whole thing runs end to end, in the right order", async () => {
    * before "listings": that is the fallback working, not a detour.
    */
   const { seen, stage } = await runTo("writing");
+
+  /**
+   * Stages in order, with the repeats collapsed.
+   *
+   * Searching, listings and reading each take one item per step and come back
+   * for the next, so how many times one of them appears is how much there was
+   * to do, not a property of the pipeline. Pinning the exact list made this
+   * test fail when listings was split into a page per step, which was a fix,
+   * not a regression. What matters is that no stage is skipped and none runs
+   * out of turn.
+   */
+  const order = seen.filter((s, i) => s !== seen[i - 1]);
   assert.deepEqual(
-    seen.slice(0, 5),
+    order.slice(0, 5),
     ["searching", "listings", "choosing", "reading", "writing"],
   );
   assert.notEqual(stage, "failed");

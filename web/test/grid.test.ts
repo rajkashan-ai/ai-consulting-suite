@@ -183,7 +183,7 @@ test("the customer's own prices are put in front of the writing step", async () 
   }
   const writing = calls.think.find((t) => t.shape === "comparison");
   assert.ok(writing, "the grid was never asked for");
-  assert.match(writing!.prompt, /Classic cut/, "their own services are not in the prompt");
+  assert.match(writing!.asked, /Classic cut/, "their own services are not in the prompt");
 });
 
 test("an answer that was cut off is not quietly accepted", async () => {
@@ -230,8 +230,8 @@ test("the narrative is written from the grid, not from every page again", async 
 
   // The second call must be much smaller than the first, or nothing was saved.
   assert.ok(
-    wordsCall!.prompt.length < gridCall!.prompt.length / 2,
-    `the second call is ${wordsCall!.prompt.length} against ${gridCall!.prompt.length}: ` +
+    wordsCall!.asked.length < gridCall!.asked.length / 2,
+    `the second call is ${wordsCall!.asked.length} against ${gridCall!.asked.length}: ` +
       `it is still carrying the pages`,
   );
 });

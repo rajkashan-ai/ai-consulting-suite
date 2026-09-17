@@ -167,6 +167,10 @@ export type RunState = {
   /** The comparison as a grid, one row per thing and one column per business. */
   grid?: Grid[];
   listingPages?: ReadPage[];
+  /** Listing pages still to read, and what has been tried. Carried between
+   *  steps so the stage can stop after one page and be picked up again. */
+  listingPlaces?: string[];
+  listingTried?: Attempt[];
   card?: Battlecard;
   /**
    * The two columns at the top of the screen. Kept beside the battlecard rather
@@ -775,9 +779,17 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
     };
   }
 
-  const names: string[] = [];
-  const rows: Found[] = [];
-  const pages: ReadPage[] = [];
+  /**
+   * Carried between steps, because this stage no longer finishes in one.
+   *
+   * Measured on 2026-09-17: four listing pages in a single step took 120.5
+   * seconds. The step route is capped at 60, so that step was killed every
+   * time, saved nothing, and was picked up again to do the same thing. One page
+   * per step is about thirty seconds, and each one saves.
+   */
+  const names: string[] = [...(state.fromListings ?? [])];
+  const rows: Found[] = [...(state.listed ?? [])];
+  const pages: ReadPage[] = [...(state.listingPages ?? [])];
 
   /**
    * Keep looking until we have enough names or have run out of places.
@@ -792,15 +804,21 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
    * once, because it is the one failure where asking again is the right answer.
    * See retry.ts for which is which.
    */
-  const places = [...wanted];
-  const tried: Attempt[] = [];
+  const places = state.listingPlaces ?? [...wanted];
+  const tried: Attempt[] = state.listingTried ?? [];
 
-  while (!enough(names, places, tried)) {
-    const batch = nextToTry(places, tried);
-    if (!batch.length) break;
+  /**
+   * One page, then save and come back.
+   *
+   * This was a `while` loop that read every place before returning. Reading
+   * them at once was faster on a clock that does not exist: there is a 60
+   * second cap on the step, so the whole loop was thrown away at 60 seconds
+   * having saved nothing, for ever. A page at a time is slower on paper and is
+   * the only version that finishes.
+   */
+  const batch = enough(names, places, tried) ? [] : nextToTry(places, tried).slice(0, 1);
 
-    // Different hosts, so there is never a reason to wait for one before
-    // asking the other.
+  if (batch.length) {
     const fetched = await Promise.all(batch.map((u) => ctx.read(u)));
 
     for (const got of fetched) {
@@ -888,6 +906,25 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
         url: str(b.url),
       });
       }
+    }
+
+    // Still places left to look at. Save what this page gave us and come back
+    // for the next one, so a killed step costs one page rather than the lot.
+    if (!enough(names, places, tried) && nextToTry(places, tried).length) {
+      return {
+        stage: "listings",
+        state: {
+          ...state,
+          listingPlaces: places,
+          listingTried: tried,
+          fromListings: names,
+          listed: rows,
+          listingPages: pages,
+        },
+        progress:
+          `Read ${tried.length} of the ${places.length} places that list ` +
+          `${profile.trade}s in ${profile.town}`,
+      };
     }
   }
 
@@ -1414,23 +1451,43 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
    * of three areas is a worse card; a grid of none is no card at all, and
    * before this one bad area was all four.
    */
-  const settled = await Promise.allSettled(
-    GRID_AREAS.map((area) =>
-      ctx.think({
-        hard: true,
-        system: BATTLECARD_RULES,
-        prompt:
-          `${evidencePrompt}\n\nBuild the comparison grid for ONE area only: ${area}.\n` +
-          `${AREA_MEANS[area]}\n\n` +
-          `At most six rows. Only rows you have real data for. A row every ` +
-          `business leaves blank is a row worth cutting: it tells the reader ` +
-          `nothing and it crowds out the ones that do. If this area has nothing ` +
-          `worth a table, return no rows: that is an honest answer.`,
-        shape: gridShapeFor(area),
-        maxTokens: 9_000,
-      }),
-    ),
-  );
+  /**
+   * One area at a time, sharing the evidence rather than paying for it twice.
+   *
+   * These ran in parallel, on the reasoning that input tokens are not what the
+   * clock waits for. Measured on 2026-09-17 that was half true and expensive:
+   * the two calls were billed 35,998 and 36,002 input tokens for prompts that
+   * differed by eighteen characters, and the run then died on the 150,000
+   * token ceiling at the last stage with the work essentially done.
+   *
+   * Run one after another, the second reads the first's cache at a tenth of
+   * the price. The cost is the second call's latency, which the same
+   * measurement put at about twenty seconds against a sixty second step cap.
+   */
+  const settled: PromiseSettledResult<unknown>[] = [];
+  for (const area of GRID_AREAS) {
+    settled.push(
+      await ctx
+        .think({
+          hard: true,
+          system: BATTLECARD_RULES,
+          cachedPrefix: evidencePrompt,
+          prompt:
+            `Build the comparison grid for ONE area only: ${area}.\n` +
+            `${AREA_MEANS[area]}\n\n` +
+            `At most six rows. Only rows you have real data for. A row every ` +
+            `business leaves blank is a row worth cutting: it tells the reader ` +
+            `nothing and it crowds out the ones that do. If this area has nothing ` +
+            `worth a table, return no rows: that is an honest answer.`,
+          shape: gridShapeFor(area),
+          maxTokens: 9_000,
+        })
+        .then(
+          (value) => ({ status: "fulfilled" as const, value }),
+          (reason) => ({ status: "rejected" as const, reason }),
+        ),
+    );
+  }
 
   const comparison: Grid[] = [];
   for (const [i, outcome] of settled.entries()) {

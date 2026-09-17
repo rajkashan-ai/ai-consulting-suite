@@ -95,6 +95,21 @@ export type ToolContext = {
   think: (options: {
     system: string;
     prompt: string;
+    /**
+     * The part of the prompt that is identical between several calls, sent
+     * first and cached.
+     *
+     * Measured on 2026-09-17: the two grid calls in the writing stage each sent
+     * a 71,500 character evidence pile that differed between them by eighteen
+     * characters, and were billed 35,998 and 36,002 input tokens for it. They
+     * ran in parallel, so neither could read what the other wrote, and the
+     * cache read nothing both times.
+     *
+     * Put the shared part here and the part that differs in `prompt`, and run
+     * the calls one after another. The first pays to write it, the rest pay a
+     * tenth to read it.
+     */
+    cachedPrefix?: string;
     /** Give a shape and you get structured data back instead of prose. */
     shape?: { name: string; description: string; input_schema: object };
     /**

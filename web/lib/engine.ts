@@ -244,7 +244,7 @@ export async function step(runId: string): Promise<Progress | null> {
       return found;
     },
 
-    think: async ({ system, prompt, shape, tools, hard, maxTokens }) => {
+    think: async ({ system, prompt, cachedPrefix, shape, tools, hard, maxTokens }) => {
       /**
        * Streamed, always.
        *
@@ -297,9 +297,49 @@ export async function step(runId: string): Promise<Progress | null> {
         ...(shape && !tools?.length
           ? { tool_choice: { type: "tool" as const, name: shape.name } }
           : {}),
-        messages: [{ role: "user", content: prompt }],
+        /**
+         * A shared prefix goes in its own block with the breakpoint on it, so
+         * the calls after the first read it instead of paying for it again.
+         * Without one this is the plain string it always was.
+         */
+        messages: [
+          {
+            role: "user" as const,
+            content: cachedPrefix
+              ? [
+                  {
+                    type: "text" as const,
+                    text: cachedPrefix,
+                    cache_control: { type: "ephemeral" as const },
+                  },
+                  { type: "text" as const, text: prompt },
+                ]
+              : prompt,
+          },
+        ],
       }).finalMessage();
 
+      /**
+       * Say what this one call cost, and what it was carrying.
+       *
+       * The run-level and stage-level numbers could not answer "which call is
+       * the expensive one". On 2026-09-17 a writing step billed 110,249 input
+       * tokens and the only way offered to explain it was arithmetic over the
+       * saved state, which came out at half that and was therefore wrong. One
+       * line per call, printed beside the real usage from the response, is the
+       * measurement rather than the estimate.
+       */
+      console.log(
+        `[think] ${shape?.name ?? "prose"}${hard ? " hard" : ""}: ` +
+          `system ${system.length.toLocaleString()} chars, ` +
+          `prompt ${prompt.length.toLocaleString()} chars` +
+          (cachedPrefix ? ` (+${cachedPrefix.length.toLocaleString()} shared)` : "") +
+          ` -> ` +
+          `${response.usage.input_tokens.toLocaleString()} in, ` +
+          `${response.usage.output_tokens.toLocaleString()} out, ` +
+          `cache ${(response.usage.cache_read_input_tokens ?? 0).toLocaleString()} read / ` +
+          `${(response.usage.cache_creation_input_tokens ?? 0).toLocaleString()} written`,
+      );
       spent.input += response.usage.input_tokens;
       spent.output += response.usage.output_tokens;
       countCache(spent, response.usage);

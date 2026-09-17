@@ -34,6 +34,12 @@ export type Calls = {
   think: {
     system: string;
     prompt: string;
+    /** The shared, cached part of the user message, if the call sent one. */
+    cachedPrefix?: string;
+    /** Everything the model was sent as the user message, cached part first.
+     *  What a test about prompt content or size should look at: which half a
+     *  sentence sits in is a caching decision, not a change in what was asked. */
+    asked: string;
     shape?: string;
     /** The whole schema, so a test can assert what the model was asked for. */
     shapeFull?: unknown;
@@ -87,8 +93,16 @@ export function fakeContext(
      * adding a stage to the pipeline breaks the tests until somebody says what
      * that stage should return.
      */
-    think: async ({ system, prompt, shape, tools }) => {
-      calls.think.push({ system, prompt, shape: shape?.name, shapeFull: shape, searched: Boolean(tools?.length) });
+    think: async ({ system, prompt, cachedPrefix, shape, tools }) => {
+      calls.think.push({
+        system,
+        prompt,
+        cachedPrefix,
+        asked: `${cachedPrefix ?? ""}${prompt}`,
+        shape: shape?.name,
+        shapeFull: shape,
+        searched: Boolean(tools?.length),
+      });
 
       const given = shape?.name ? answers.think?.[shape.name] : undefined;
       if (given !== undefined) return given;
