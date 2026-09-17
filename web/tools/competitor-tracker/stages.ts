@@ -443,7 +443,22 @@ async function name(state: RunState, business: Business, ctx: ToolContext): Prom
       "a search result. Trading names as a customer would say them, one per " +
       "line, no commentary, no directories, no listing sites.",
     prompt: askFor(profile),
-    tools: [searchToolConfig(profile, 4) as never],
+    /**
+     * Two searches, not four.
+     *
+     * Every search result block stays in the conversation and the API bills
+     * input for each turn carrying everything before it, so four searches cost
+     * one copy of the pile, then two, then three, then four. Measured across
+     * four runs of the same business, identical input: 282 input tokens then
+     * 33,193, and 612.4 seconds then 133.5 then 99.7 then 41.9. The swing is
+     * how many searches the model chose to run, and 33,000 tokens of swing
+     * against a 150,000 ceiling is what makes a working run fail on a Tuesday.
+     *
+     * Two bounds it. The searching stage below does five searches properly,
+     * one per call, so this one does not have to be exhaustive: it is the fast
+     * path that skips the crawl when the answer is easy.
+     */
+    tools: [searchToolConfig(profile, 2) as never],
     /**
      * Enough room to search out loud and then answer.
      *

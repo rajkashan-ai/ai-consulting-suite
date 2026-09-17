@@ -119,13 +119,20 @@ export function fakeContext(
        * actually asked, or it is testing itself.
        */
       if (shape?.name === "comparison") {
-        const asked = (
-          shape as unknown as {
-            input_schema?: {
-              properties?: { comparison?: { items?: { properties?: { area?: { enum?: string[] } } } } };
-            };
-          }
-        ).input_schema?.properties?.comparison?.items?.properties?.area?.enum?.[0];
+        /**
+         * Which area was asked for, read from the prompt.
+         *
+         * This used to read it out of the tool schema's `area` enum, because
+         * that was where the product pinned it. The schema is now the same for
+         * every area on purpose: tools sit at the front of what can be cached,
+         * so a schema that differed per area meant the shared evidence prefix
+         * could never be reused, and both calls paid to write it.
+         *
+         * The prompt is where the area is named now, so that is where the fake
+         * has to look. Reading the old place silently returned pricing rows for
+         * every call, which is the fake answering a question nobody asked.
+         */
+        const asked = /ONE area only:\s*([a-z]+)/i.exec(prompt)?.[1];
 
         const all = (recorded.grid ?? []) as { area?: string }[];
         if (!asked) return { comparison: all };

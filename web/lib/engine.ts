@@ -189,6 +189,21 @@ export async function step(runId: string): Promise<Progress | null> {
   const CALL_SECONDS = 180;
   const RETRIES = 1;
 
+  /**
+   * How long a stream may say nothing before we give up on it.
+   *
+   * The client timeout above does NOT cover this, and believing it did cost a
+   * measurement run. It guards the HTTP request; once a stream is open and
+   * bytes are flowing it does not re-arm, so a stream that goes quiet halfway
+   * hangs for ever. On 2026-09-17 the naming call took 402 events, went silent,
+   * and sat there for 19.5 minutes with `timeout: 180000` set on the client.
+   *
+   * 120 seconds because the longest real gap measured between events on a call
+   * that went on to finish was 95 seconds, while a web search was running. One
+   * observation, so this is a floor with a margin, not a settled number.
+   */
+  const QUIET_SECONDS = 120;
+
   const anthropic = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY,
     timeout: CALL_SECONDS * 1000,
@@ -205,7 +220,7 @@ export async function step(runId: string): Promise<Progress | null> {
    * one was, so a stall is told apart from a call that is simply long.
    */
   const sayIfStalled = (
-    stream: { on: (e: "streamEvent", cb: () => void) => unknown },
+    stream: { on: (e: "streamEvent", cb: () => void) => unknown; abort: () => void },
     label: string,
   ) => {
     let events = 0;
@@ -216,6 +231,14 @@ export async function step(runId: string): Promise<Progress | null> {
     });
     const tick = setInterval(() => {
       const quiet = Math.round((Date.now() - last) / 1000);
+      if (quiet >= QUIET_SECONDS) {
+        // Ending it is the point. This used to only print, and printing is what
+        // it did for nineteen and a half minutes while a run sat there.
+        console.warn(`[stall] ${label}: silent for ${quiet}s after ${events} events. Ending it.`);
+        clearInterval(tick);
+        stream.abort();
+        return;
+      }
       console.warn(`[stall] ${label}: ${events} events so far, nothing for ${quiet}s`);
     }, 30_000);
     return () => clearInterval(tick);

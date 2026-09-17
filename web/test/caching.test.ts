@@ -150,7 +150,10 @@ test("the short prompts are not pretending to be cached", () => {
  */
 test("the searching call can afford the answer it now produces", () => {
   const tool = sourceOf("competitor-tracker");
-  const call = tool.slice(tool.indexOf("searchToolConfig(profile, 4)"));
+  // Found by what the call is, not by how many searches it is allowed. Pinning
+  // the literal "searchToolConfig(profile, 4)" meant this went red, reporting a
+  // cap of 0, the day that 4 became 2 for an unrelated reason.
+  const call = tool.slice(tool.indexOf("tools: [searchToolConfig(profile,"));
   const cap = Number(/maxTokens:\s*([\d_]+)/.exec(call)?.[1]?.replace(/_/g, "") ?? 0);
 
   assert.ok(

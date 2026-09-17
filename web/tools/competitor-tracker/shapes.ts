@@ -347,15 +347,34 @@ export const AREA_MEANS: Record<GridArea, string> = {
 /** The grid shape, restricted to one area, so a call cannot answer for another. */
 
 /** The grid shape, restricted to one area, so a call cannot answer for another. */
-export function gridShapeFor(area: GridArea) {
+/**
+ * The same shape for every area, on purpose.
+ *
+ * This built a different schema per area: the description named the area and
+ * the `area` enum held only that one. Tools sit at the front of what can be
+ * cached, before the system prompt and the messages, so a tools block that
+ * differs between two calls means nothing after it can match either.
+ *
+ * Measured on 2026-09-17: the two grid calls each sent an identical 71,135
+ * character evidence prefix and each WROTE 38,390 cache tokens and read none.
+ * The second paid full price for a block the first had just stored.
+ *
+ * Which area a call is for is said in the prompt, and the caller stamps the
+ * area on every row it keeps from that call, so pinning it in the schema as
+ * well was belt and braces that cost a cache hit.
+ *
+ * The parameter stays because callers read better naming the area they want,
+ * and because a future shape may differ by area for a reason worth paying for.
+ */
+export function gridShapeFor(_area: GridArea) {
   const items = structuredClone(
     BATTLECARD_SHAPE.input_schema.properties.comparison,
   ) as { items: { properties: { area: { enum: string[] } } } };
-  items.items.properties.area = { enum: [area] } as never;
+  items.items.properties.area = { enum: [...GRID_AREAS] } as never;
 
   return {
     name: "comparison",
-    description: `The ${area} comparison: a row per comparable thing, a column per business.`,
+    description: "One area of the comparison: a row per comparable thing, a column per business.",
     input_schema: {
       type: "object",
       properties: { comparison: items },

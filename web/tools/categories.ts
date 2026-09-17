@@ -33,7 +33,7 @@ export const CATEGORIES: Group[] = [
   {
     group: "Hair, beauty and wellbeing",
     categories: [
-      { id: "barber", label: "Barber", also: ["barbershop", "barbers", "gents hairdresser"] },
+      { id: "barber", label: "Barber", also: ["barbershop", "barbers", "barbering", "gents hairdresser"] },
       { id: "hairdresser", label: "Hairdresser or salon", also: ["hair salon", "stylist"] },
       { id: "beauty-salon", label: "Beauty salon", also: ["beautician", "aesthetics"] },
       { id: "nail-salon", label: "Nail salon", also: ["nail bar", "manicurist"] },
@@ -162,10 +162,20 @@ export function matchTrade(raw: string | null | undefined): string | null {
       const alt = a.toLowerCase();
       return said === alt || said.includes(alt);
     })) return c.id;
-    // The label's first word: "Barber" out of "Barber", "Plumber" out of
-    // "Plumber". Whole word, so "car sales" does not match "carpenter".
+    /**
+     * The label's first word: "Barber" out of "Barber", "Plumber" out of
+     * "Plumber". Whole word, so "car sales" does not match "carpenter".
+     *
+     * The `ing` matters and cost a whole report. This was `\bbarbers?\b`, which
+     * does not match "Barbering": the boundary after "barber" fails against the
+     * "i". So on 2026-09-17 "Alternative Barbering", "Distinct Barbering" and
+     * "Mebstar Barbering Salon" all came back as trade unknown, were kept for a
+     * hairdresser, and A Cut Above, a women's salon whose twelve published
+     * prices are all ladies cuts from 35 to 78 pounds, was told its problem was
+     * not publishing a men's cut price.
+     */
     const first = c.label.toLowerCase().split(/[ ,]/)[0];
-    if (first.length > 3 && new RegExp(`\\b${first}s?\\b`).test(said)) return c.id;
+    if (first.length > 3 && new RegExp(`\\b${first}(s|ing)?\\b`).test(said)) return c.id;
   }
   return null;
 }
