@@ -4,13 +4,16 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   CAPS,
+  STAGE_TOKENS,
+  STEP_SECONDS,
   STILL_LIMIT,
   TOKEN_CEILING,
   WORKING_MINUTES,
   check,
   note,
   type Watch,
- } from "../lib/watchdog.ts";
+} from "../lib/watchdog.ts";
+import { MOST_TRIES } from "../tools/competitor-tracker/retry.ts";
 
 /**
  * When does a run get stopped?
@@ -273,8 +276,15 @@ test("a run that has spent too much is stopped, however quick it was", () => {
 });
 
 test("a run inside the ceiling is left alone", () => {
+  /**
+   * Inside both limits now, and it has to be. The old fixture put the whole
+   * run's budget into one stage, which is under the run ceiling and four times
+   * what the writing stage has ever cost. The per-stage budget caught it,
+   * correctly: this test is about the run ceiling, so its fixture should not be
+   * a stage doing something no stage has ever done.
+   */
   const fine = {
-    cost: { writing: { seconds: 30, input: TOKEN_CEILING - 1, output: 100, pages: 0 } },
+    cost: { writing: { seconds: 30, input: 60_000, output: 100, pages: 0 } },
   };
   assert.equal(check(fine, { stage: "writing", startedAt: new Date() }), null);
 });
@@ -291,10 +301,20 @@ test("spend is summed across stages, not judged one at a time", () => {
       checking: { seconds: 10, input: each, output: 0, pages: 0 },
     },
   };
+  const verdict = check(spread, { stage: "checking", startedAt: new Date() });
   assert.ok(
-    check(spread, { stage: "checking", startedAt: new Date() }),
+    verdict,
     "four affordable stages added up to an unaffordable run and nothing noticed",
   );
+  /**
+   * And stopped for the right reason.
+   *
+   * Each stage here is over its own budget as well, so this would pass on the
+   * per-stage rule while the thing it exists to check, that spend is summed
+   * across stages, was broken. A test that cannot tell which rule caught it is
+   * a test that cannot fail for its own reason.
+   */
+  assert.match(verdict!.why, /past the .* ceiling/, `stopped by: ${verdict!.why}`);
 });
 
 /**
@@ -342,4 +362,82 @@ test("the failure path counts the cache as well as the tokens", () => {
 
   assert.match(faulted, /cacheWritten/);
   assert.match(faulted, /cacheRead/);
+});
+
+// ---------------------------------------------------------------------------
+// Budgets per stage, so the stage that is misbehaving is the one that stops
+// ---------------------------------------------------------------------------
+
+test("a stage over its own budget stops, without waiting for the whole run", () => {
+  /**
+   * The run ceiling only notices after the damage, when every earlier stage
+   * has already been paid for. Searching measured 69,364 billed on the runs
+   * that finished, so 140,000 is twice anything it has ever cost.
+   */
+  const greedy = {
+    cost: { searching: { seconds: 20, input: STAGE_TOKENS.searching + 1, output: 0, pages: 0 } },
+  };
+  const verdict = check(greedy, { stage: "searching", startedAt: new Date() });
+  assert.ok(verdict, "a stage spent past its budget and carried on");
+  assert.match(verdict!.why, /searching spent/);
+  assert.doesNotMatch(
+    verdict!.say,
+    /token|budget|stage|searching/i,
+    "our machinery reached the screen",
+  );
+});
+
+test("a stage's budget counts the cache too, like the ceiling does", () => {
+  // Or the same evidence moves into cache_creation and the budget stops
+  // seeing most of it, which is exactly what happened to the run ceiling.
+  const cached = {
+    cost: { listings: { seconds: 10, input: 0, output: 0, pages: 1, cacheWritten: 40_000 } },
+  };
+  // 40,000 written is 50,000 billed, over the 35,000 listings budget.
+  assert.ok(check(cached, { stage: "listings", startedAt: new Date() }));
+});
+
+test("a stage nobody measured has no budget, rather than an invented one", () => {
+  // choosing and picking spend nothing. A limit for them would be a made-up
+  // fact, and this product has paid for those.
+  assert.equal(STAGE_TOKENS.choosing, undefined);
+  assert.equal(STAGE_TOKENS.picking, undefined);
+});
+
+test("the step time limit is above the slowest step that has ever worked", () => {
+  /**
+   * Raj asked for 60 seconds. Measured, that aborts a stage that works: the
+   * writing step took 65.3 and 68.6 seconds on the two runs that finished, and
+   * listings 50.9. Setting the limit below the floor would stop the product
+   * working while looking like a safety measure.
+   */
+  assert.ok(STEP_SECONDS > 68.6, "60 seconds would abort the writing step, which succeeds");
+  assert.ok(STEP_SECONDS <= 130, "a step twice the slowest that has ever worked is already generous");
+
+  const slow = {
+    spent: { writing: 1 },
+    cost: { writing: { seconds: STEP_SECONDS + 1, input: 10, output: 0, pages: 0 } },
+  };
+  assert.ok(check(slow, { stage: "writing", startedAt: new Date() }), "a stalled step carried on");
+
+  // Measured against the average, not the total, or a stage that legitimately
+  // takes four steps trips on its fourth.
+  const normalSteps = {
+    spent: { listings: 3 },
+    cost: { listings: { seconds: 3 * 50, input: 10, output: 0, pages: 3 } },
+  };
+  assert.equal(check(normalSteps, { stage: "listings", startedAt: new Date() }), null);
+});
+
+test("the listings cap allows every page that stage is allowed to try", () => {
+  /**
+   * The stage reads one page per step and may try MOST_TRIES pages, then takes
+   * one more step to find there are none left. The cap was 4, left over from
+   * when it read every page in a single step, so a town with five listings
+   * would have been stopped as "circling" while working exactly as designed.
+   */
+  assert.ok(
+    CAPS.listings >= MOST_TRIES + 1,
+    `listings may try ${MOST_TRIES} pages a step at a time and the cap is ${CAPS.listings}`,
+  );
 });

@@ -196,6 +196,9 @@ export type RunState = {
   problems?: { rule: string; sentences: string[] }[];
   /** Repair attempts spent. One is allowed. */
   repairs?: number;
+  /** What the guards objected to last pass, so an identical objection twice
+   *  running stops the loop rather than paying for a third identical answer. */
+  lastComplaint?: string;
   /** Why it failed, in words a customer reads. */
   reason?: string;
   /** What the watchdog has seen. See lib/watchdog.ts. */
@@ -2212,7 +2215,38 @@ function hostOf(url: string): string {
  * them. A shorter true card beats a refused one, and dropping is a floor that
  * always terminates.
  */
+/**
+ * What the guards objected to this pass, as one comparable string.
+ *
+ * Sorted, so the same complaints in a different order are the same complaint.
+ */
+const complaintIn = (state: RunState): string =>
+  JSON.stringify((state.problems ?? []).map((p) => [p.rule, ...(p.sentences ?? [])]).sort());
+
 async function fix(state: RunState, ctx: ToolContext): Promise<Step> {
+  /**
+   * The same complaint twice running means mending is not working.
+   *
+   * The passes below fix one refused sentence at a time, so each one is meant
+   * to be a different complaint. Getting the identical set back means the
+   * rewrite changed nothing the guards can see, and a third attempt spends the
+   * same money to be told the same thing. Stop and keep what we have.
+   *
+   * This is the circuit breaker, and it is on the loop that can actually
+   * circle. The pass count is not: five passes are five different sentences,
+   * and cutting it to two on 2026-09-16 meant a card with two refused
+   * sentences could never settle and was thrown away whole.
+   */
+  const complaint = complaintIn(state);
+  if (complaint !== "[]" && complaint === state.lastComplaint) {
+    return {
+      stage: "checking",
+      state: { ...state, repairs: MAX_MENDS, problems: undefined },
+      progress: "Checking it",
+    };
+  }
+
+
   const card = state.card;
   const problems = state.problems ?? [];
   if (!card || !problems.length) {
@@ -2291,6 +2325,7 @@ async function fix(state: RunState, ctx: ToolContext): Promise<Step> {
       ...state,
       card: next,
       repairs: (state.repairs ?? 0) + 1,
+      lastComplaint: complaint,
       problems: undefined,
     },
     progress: "Checking it",

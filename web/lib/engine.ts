@@ -516,7 +516,17 @@ export async function step(runId: string): Promise<Progress | null> {
     result = await tool.advance(run.stage, state as never, business, ctx);
   } catch (e) {
     const seconds = (Date.now() - startedStep) / 1000;
-    console.warn(`[step] ${run.stage} threw after ${seconds.toFixed(1)}s`);
+    /**
+     * The raw stack, not the sentence.
+     *
+     * A truncated message says "400 invalid_request_error" and the line that
+     * threw is the only thing that says where. This prints where it is read,
+     * in the terminal running it, and nothing about it reaches the customer:
+     * `faulted` below turns it into one plain sentence for them and keeps the
+     * reason in the run. Two readers, CLAUDE.md 1.4c rule 2.
+     */
+    console.error(`[step] ${run.stage} threw after ${seconds.toFixed(1)}s`);
+    console.error(e instanceof Error ? (e.stack ?? e.message) : String(e));
     watch.began = null;
     return faulted(db, runId, run.state, watch, e, spent, pages, {
       stage: run.stage,

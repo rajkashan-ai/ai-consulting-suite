@@ -115,33 +115,30 @@ export const WORKING_MINUTES = 12;
  * Checked before each step, like the clock, so a run that has already spent
  * this much does not start another call.
  */
-export const TOKEN_CEILING = 200_000;
+export const TOKEN_CEILING = 300_000;
 
 /**
- * Why 200,000 and not the 150,000 it was.
+ * Counted as billed, which is why this is not the number it was.
  *
- * The ceiling was set when a run did all its discovery up front and read
- * whatever pages the listing happened to link. It now also looks up a page for
- * each business the owner chose, because 13 of 58 businesses on a real listing
- * had any url at all and a comparison with one column is a run refusing itself.
+ * It was 150,000 measured against `input` alone. Two things then changed and
+ * they pull the same way:
  *
- * Measured parts, from the run of 2026-09-17 that finished:
- *   searching, 5 broad terms      69,364
- *   listings, 2 pages             16,802
- *   writing, after caching         6,711
+ *   1. `billed()` now counts cache writes at 1.25 and reads at 0.1, so the
+ *      same successful run reads as 145,980 rather than 87,274.
+ *   2. A run using the picker also looks up a page for each business the owner
+ *      chose, at about 13,500 a search, five at most.
  *
- * Estimated part, and it is an estimate, not a measurement:
- *   finding, 5 lookups            67,500   at about 13,500 a search
+ * So a full picker run is about 146,000 plus 67,500, call it 214,000. The old
+ * ceiling would have stopped every one of them at the last stage with the work
+ * already done, which is exactly how three runs died on 2026-09-17.
  *
- * That is about 160,000, so the old ceiling would have stopped every run that
- * used the picker, at the last stage, with the work done. 200,000 leaves room
- * for the spread without leaving room for a runaway: the old failure was a run
- * that reached 434,000.
+ * 300,000 leaves room for the spread and none for the failure this exists to
+ * catch: the worst real run reached 434,033 input tokens alone.
  *
- * Revisit this once three runs have gone through `finding` and the estimate is
- * a measurement. Raising a limit on arithmetic is a thing to be uncomfortable
- * about, which is why the arithmetic is written down here rather than in a
- * commit message nobody reads twice.
+ * The lookup figure is an estimate and the rest are measurements. Revisit once
+ * three runs have gone through `finding`. Raising a limit on arithmetic is a
+ * thing to be uncomfortable about, which is why the arithmetic is here rather
+ * than in a commit message nobody reads twice.
  */
 
 /** Kept for anything still reading the old name. */
@@ -159,6 +156,45 @@ export const STILL_LIMIT = 3;
  * declared is treated as work, and work that repeats is a fault.
  */
 export const WAITING_ON_A_PERSON = new Set(["picking"]);
+
+/**
+ * What one stage may spend before it is stopped on its own.
+ *
+ * The whole-run ceiling only notices after the damage, when a run is already
+ * past it and every earlier stage has been paid for. A per-stage budget stops
+ * the stage that is actually misbehaving, which is what Raj asked for: abort
+ * that stage rather than loop.
+ *
+ * Every number is the measured cost of that stage times two, so a stage has to
+ * be doing something genuinely different to trip it, not merely having a slow
+ * day. Measured 2026-09-17, billed, on the runs that finished:
+ *
+ *   searching   69,364    listings  16,802
+ *   writing     60,000    finding   67,500 (estimated, 5 lookups)
+ *
+ * A stage with no entry is not budgeted: choosing and picking spend nothing,
+ * and inventing a limit for them would be inventing a fact.
+ */
+export const STAGE_TOKENS: Record<string, number> = {
+  searching: 140_000,
+  listings: 35_000,
+  finding: 140_000,
+  writing: 120_000,
+};
+
+/**
+ * How long one step may take before it is stopped.
+ *
+ * Raj asked for 60 seconds. Measured, that would abort a stage that works: the
+ * writing step took 65.3 and 68.6 seconds on the two runs that finished, and
+ * the listings step 50.9. So 60 is below the floor rather than above the
+ * ceiling, and setting it there would stop the product working while looking
+ * like a safety measure.
+ *
+ * 120 is twice the slowest step that has ever succeeded. A step over that is
+ * doing something no successful run has done.
+ */
+export const STEP_SECONDS = 120;
 
 /**
  * How many steps a stage may take before it is circling.
@@ -181,7 +217,16 @@ export const CAPS: Record<string, number> = {
    */
   finding: 6,
   searching: 3,
-  listings: 4,
+  /**
+   * One page per step now, so this is MOST_TRIES plus the step that finds
+   * there are none left.
+   *
+   * It was 4, set when the stage read every listing page in a single step. The
+   * split on 2026-09-17 made it one page a step and left this behind, so a town
+   * with five listings would have been stopped as "circling" while it was
+   * working exactly as intended. Found by a test fixture, not by a run.
+   */
+  listings: 7,
   choosing: 3,
   reading: 6,
   writing: 4,
@@ -248,6 +293,33 @@ export function note(
 }
 
 /**
+ * What a run has actually cost, in base-input units.
+ *
+ * Not the same as the input tokens it was charged for, and the difference is
+ * most of the bill. A cache write is 1.25 times base input and a cache read is
+ * a tenth, so a run that moves its evidence into the cache moves it out of
+ * `input` at the same time.
+ *
+ * Measured on 2026-09-17, after caching was turned on:
+ *   0699ede3  input 81,442  written 21,015  read 17,641  ->  109,475
+ *   a66b85d2  input 87,274  written 43,736  read 40,362  ->  145,980
+ *
+ * The ceiling was reading the first column. On a66b85d2 it believed the run
+ * had spent 87,274 while the real figure was about 146,000, a 67 per cent
+ * undercount, and the gap arrived with the caching fix: the same evidence
+ * simply moved somewhere the guard was not looking. A limit that cannot see
+ * two thirds of the spend is not a limit.
+ */
+export function billed(watch: Watch): number {
+  return Math.round(
+    Object.values(watch.cost ?? {}).reduce(
+      (sum, c) => sum + (c?.input ?? 0) + (c?.cacheWritten ?? 0) * 1.25 + (c?.cacheRead ?? 0) * 0.1,
+      0,
+    ),
+  );
+}
+
+/**
  * Should this run carry on? Called before each step, so a run that has already
  * gone wrong does not spend money proving it again.
  */
@@ -284,7 +356,7 @@ export function check(
    * where waste hides, because the same evidence pile gets sent again and
    * again by calls that fan out.
    */
-  const spentTokens = Object.values(watch.cost ?? {}).reduce((sum, c) => sum + (c?.input ?? 0), 0);
+  const spentTokens = billed(watch);
   if (spentTokens > TOKEN_CEILING) {
     return {
       say: "This turned out to be a bigger job than it should be, so we stopped it. Start it again.",
@@ -306,6 +378,33 @@ export function check(
    * reads no page, which is what makes waiting affordable in the first place.
    */
   if (WAITING_ON_A_PERSON.has(at.stage)) return null;
+
+  /**
+   * This stage, on its own, rather than the run as a whole.
+   *
+   * Checked before the cap below, because "searching has spent 140,000 tokens"
+   * is a more useful thing to know than "searching has taken four steps", and
+   * because a stage can blow a budget in one step.
+   */
+  const budget = STAGE_TOKENS[at.stage];
+  const here = watch.cost?.[at.stage];
+  if (budget !== undefined && here) {
+    const spentHere = Math.round(
+      (here.input ?? 0) + (here.cacheWritten ?? 0) * 1.25 + (here.cacheRead ?? 0) * 0.1,
+    );
+    if (spentHere > budget) {
+      return {
+        say: "One part of this turned out far bigger than it should be, so we stopped. Start it again.",
+        why: `${at.stage} spent ${spentHere.toLocaleString()} against its ${budget.toLocaleString()} budget`,
+      };
+    }
+    if ((here.seconds ?? 0) / Math.max(1, watch.spent?.[at.stage] ?? 1) > STEP_SECONDS) {
+      return {
+        say: "One part of this is taking far longer than it should, so we stopped. Start it again.",
+        why: `${at.stage} averaged over ${STEP_SECONDS}s a step, across ${watch.spent?.[at.stage]} steps`,
+      };
+    }
+  }
 
   const cap = CAPS[at.stage];
   const spent = watch.spent?.[at.stage] ?? 0;

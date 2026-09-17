@@ -16,7 +16,7 @@ import {
   type Offer,
 } from "../tools/competitor-tracker/shortlist.ts";
 import { advance, type RunState, type Stage } from "../tools/competitor-tracker/stages.ts";
-import { CAPS, TOKEN_CEILING, check, WAITING_ON_A_PERSON, STILL_LIMIT } from "../lib/watchdog.ts";
+import { CAPS, TOKEN_CEILING, billed, check, WAITING_ON_A_PERSON, STILL_LIMIT } from "../lib/watchdog.ts";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { aBusiness, fakeContext, type Recorded } from "./fake.ts";
@@ -528,25 +528,65 @@ test("the lookup stage is capped, because it is a stage that spends", () => {
   assert.equal(CAPS.finding, 6);
 });
 
-test("the ceiling has room for the lookups, and the arithmetic is written down", () => {
+test("the ceiling counts what is billed, not what is charged as input", () => {
   /**
-   * Looking a business up is about 13,500 input tokens and there can be five
-   * of them. Against the old 150,000 ceiling, a run using the picker would
-   * have been stopped at the last stage with the work already done, which is
-   * exactly how three runs died on 2026-09-17 before the ceiling was the
-   * problem rather than the symptom.
+   * The real numbers from 2026-09-17, after caching was turned on. The ceiling
+   * was reading `input` alone and believed a66b85d2 had spent 87,274 when it
+   * had spent about 146,000: the caching fix moved two thirds of the cost into
+   * a column the guard was not looking at.
    */
-  const measured = 69_364 + 16_802 + 6_711;   // searching, listings, writing
-  const lookups = 5 * 13_500;                  // finding, estimated
+  const a66b85d2 = {
+    cost: { all: { seconds: 0, input: 87_274, output: 0, pages: 0, cacheWritten: 43_736, cacheRead: 40_362 } },
+  };
+  assert.equal(billed(a66b85d2), 145_980);
+
+  const p0699ede3 = {
+    cost: { all: { seconds: 0, input: 81_442, output: 0, pages: 0, cacheWritten: 21_015, cacheRead: 17_641 } },
+  };
+  assert.equal(billed(p0699ede3), 109_475);
+
+  // A run with no caching reads the same either way, which is what makes this
+  // a correction rather than a rescaling.
+  assert.equal(billed({ cost: { all: { seconds: 0, input: 1_000, output: 0, pages: 0 } } }), 1_000);
+  assert.equal(billed({}), 0);
+});
+
+test("the ceiling has room for a picker run, and none for a runaway", () => {
+  const fullRun = 145_980;        // measured, a66b85d2
+  const lookups = 5 * 13_500;     // estimated, about 13,500 a search
   assert.ok(
-    TOKEN_CEILING > measured + lookups,
-    `a run that uses the picker costs about ${(measured + lookups).toLocaleString()} ` +
-      `and the ceiling is ${TOKEN_CEILING.toLocaleString()}`,
+    TOKEN_CEILING > fullRun + lookups,
+    `a picker run costs about ${(fullRun + lookups).toLocaleString()}, ceiling is ${TOKEN_CEILING.toLocaleString()}`,
   );
-  // And not so high that the runaway it exists to catch would pass. The worst
-  // real one reached 434,033.
+  // The failure it exists to catch: 434,033 input tokens on one run.
   assert.ok(TOKEN_CEILING < 434_033, "the ceiling would not have caught the run that caused it");
 
   const src = readFileSync(join(import.meta.dirname, "..", "lib", "watchdog.ts"), "utf8");
-  assert.match(src, /Revisit this once three runs have gone through/, "the estimate is not flagged");
+  assert.match(src, /The lookup figure is an estimate/, "the estimate is not flagged as one");
+});
+
+test("the same complaint twice stops the mend loop", () => {
+  /**
+   * The passes fix one refused sentence at a time, so each is meant to be a
+   * different complaint. Getting the identical set back means the rewrite
+   * changed nothing the guards can see, and a third attempt buys the same
+   * answer at the same price.
+   *
+   * The pass count is deliberately NOT the breaker. Five passes are five
+   * different sentences, and cutting that to two on 2026-09-16 meant a card
+   * with two refused sentences could never settle and was thrown away whole.
+   */
+  const src = sourceOf("competitor-tracker");
+  assert.match(src, /complaint !== "\[\]" && complaint === state\.lastComplaint/);
+  assert.match(src, /const complaintIn = /, "the complaint is not comparable between passes");
+});
+
+test("a thrown step prints where it threw, and shows the customer a sentence", () => {
+  /**
+   * A truncated message says "400 invalid_request_error" and the line that
+   * threw is the only thing that says where. The stack goes to the terminal
+   * running it; the customer gets one plain sentence. Two readers.
+   */
+  const engine = readFileSync(join(import.meta.dirname, "..", "lib", "engine.ts"), "utf8");
+  assert.match(engine, /console\.error\(e instanceof Error \? \(e\.stack \?\? e\.message\) : String\(e\)\)/);
 });

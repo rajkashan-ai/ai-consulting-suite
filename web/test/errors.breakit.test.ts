@@ -28,7 +28,14 @@ const MACHINERY =
 test("breakit: a thrown error is not handed to the customer word for word", () => {
   // The only catch around the pipeline. Whatever it caught becomes the run's
   // `progress` and `error`, which is what the screen reads.
-  const caught = engine.match(/catch \(e\) \{[\s\S]{0,300}?\n  \}/);
+  /**
+   * To the end of the block, not to an arbitrary number of characters.
+   *
+   * This was capped at 300 and went red on 2026-09-17 because a comment made
+   * the block longer, which is a test failing for the size of an explanation
+   * rather than for the rule it guards.
+   */
+  const caught = engine.match(/catch \(e\) \{[\s\S]*?\n  \}/);
   assert.ok(caught, "could not find the catch around advance()");
 
   assert.doesNotMatch(
