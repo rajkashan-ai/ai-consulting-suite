@@ -100,23 +100,64 @@ const WRONG_COUNTRY =
 
 const NOT_OURS = /\/en-us\/|\/us\/|\.com\/us|\/en-au\/|\/en-ca\//;
 
+/**
+ * Why a proposed name was not accepted.
+ *
+ * Kept because the alternative is what happened on 2026-09-17: a run proposed
+ * eight names, accepted one, and recorded nothing about the other seven. Asked
+ * why the cheap path had failed, the honest answer was that nobody could know,
+ * and every improvement anybody suggested including mine was a guess.
+ *
+ * Four outcomes, and they need different fixes. Nothing found means the model
+ * invented it or it has closed. Somewhere else means our town matching is
+ * wrong or the model picked a branch in another town. Another country is the
+ * Shrewsbury Pennsylvania problem. Not in a title means the business is real
+ * and our proof is too strict, which is the one we can act on directly.
+ */
+export type Verdict = "matched" | "nothing found" | "somewhere else" | "another country" | "not in a title";
+
+export type Judged = { name: string; verdict: Verdict; url?: string };
+
 export function proves(n: Named, results: SearchResult[], town: string): Checked | null {
+  return judge(n, results, town).found;
+}
+
+/**
+ * The same decision, with its reasoning kept.
+ *
+ * `proves` is this with the reasoning thrown away, so the two can never drift
+ * apart and disagree about the same name.
+ */
+export function judge(
+  n: Named,
+  results: SearchResult[],
+  town: string,
+): { found: Checked | null; verdict: Verdict } {
   const want = normaliseName(n.name);
-  if (!want || want.length < 3) return null;
+  if (!want || want.length < 3) return { found: null, verdict: "nothing found" };
 
   const here = town.toLowerCase().replace(/[^a-z]/g, "");
+
+  // The closest any result got, so a refusal can say which wall it hit.
+  let closest: Verdict = results.length ? "not in a title" : "nothing found";
 
   for (const r of results) {
     const title = normaliseName(r.title ?? "");
     const url = (r.url ?? "").toLowerCase();
 
     // Somebody else's country, whatever the name and the town say.
-    if (NOT_OURS.test(url) || WRONG_COUNTRY.test(r.title ?? "")) continue;
+    if (NOT_OURS.test(url) || WRONG_COUNTRY.test(r.title ?? "")) {
+      if (title.includes(want)) closest = "another country";
+      continue;
+    }
 
     // The name has to be in the title, not merely somewhere on a page that
     // listed forty businesses. A directory page mentioning them proves they
     // are listed, which is not the same as proving what we say about them.
     if (!title.includes(want)) continue;
+
+    // Named, so from here any refusal is about where it is, not whether it is.
+    if (closest === "not in a title") closest = "somewhere else";
 
     /**
      * Somewhere in the right country, at least.
@@ -132,9 +173,12 @@ export function proves(n: Named, results: SearchResult[], town: string): Checked
       url.includes("/en-gb/");
     if (!rightPlace) continue;
 
-    return { ...n, url: r.url, title: r.title ?? n.name };
+    return {
+      found: { ...n, url: r.url, title: r.title ?? n.name },
+      verdict: "matched",
+    };
   }
-  return null;
+  return { found: null, verdict: closest };
 }
 
 /** Two names for the same business, which a model does produce. */

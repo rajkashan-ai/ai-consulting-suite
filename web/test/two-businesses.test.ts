@@ -268,3 +268,66 @@ test("both businesses have their set written down for next time", async () => {
     assert.equal(saved[0][0].workspace_id, business.id);
   }
 });
+
+/**
+ * Every proposed name, and what happened to it, survives the run.
+ *
+ * Including the fallback to the crawler, which is the case that lost it: the
+ * crawler's searches overwrote `seen`, so by the time anybody asked why only
+ * one name of eight had verified, the searches and their results were gone.
+ */
+test("the verdicts survive, even when the run falls back to the crawler", async () => {
+  // Names the recorded results cannot confirm, so it drops below the threshold
+  // and hands over, which is exactly when the record used to disappear.
+  const cannotVerify: Recorded = {
+    ...recorded,
+    competitors: {
+      competitors: [
+        { name: "Definitely Not A Real Salon", why: "invented" },
+        { name: "Another Invented One", why: "invented" },
+        { name: "A Third That Does Not Exist", why: "invented" },
+      ],
+    },
+  };
+
+  const { ctx } = fakeContext(cannotVerify);
+  let stage: Stage = "searching";
+  let state: RunState = {};
+  for (let i = 0; i < 6; i++) {
+    const step = await advance(stage, state, theBarber, ctx);
+    stage = step.stage;
+    state = step.state;
+    if (stage === "listings" || stage === "failed") break;
+  }
+
+  assert.equal(state.triedNaming, true, "it should have fallen back");
+  assert.equal(state.judged?.length, 3, "the proposals were not kept");
+  assert.ok(
+    state.judged!.every((j) => j.verdict !== "matched"),
+    "these cannot verify against the recorded pages",
+  );
+  assert.ok(state.nameChecks?.length, "the name checks were lost to the crawler's searches");
+});
+
+test("a verdict says which wall the name hit, not just that it failed", async () => {
+  // Four outcomes need four different fixes. "No such business" and "our proof
+  // is too strict" look identical in a count and are not the same problem.
+  const mixed: Recorded = {
+    ...asked,
+    competitors: {
+      competitors: [
+        { name: "ARMANDO Barbershop", why: "real, and in the recorded results" },
+        { name: "Definitely Not A Real Salon", why: "invented" },
+        { name: "The Fade Inn Barbershop", why: "real" },
+        { name: "Medeiros", why: "real" },
+      ],
+    },
+  };
+
+  const { ctx } = fakeContext(mixed);
+  const step = await advance("searching", {}, theBarber, ctx);
+
+  const verdicts = Object.fromEntries((step.state.judged ?? []).map((j) => [j.name, j.verdict]));
+  assert.equal(verdicts["ARMANDO Barbershop"], "matched");
+  assert.equal(verdicts["Definitely Not A Real Salon"], "nothing found");
+});

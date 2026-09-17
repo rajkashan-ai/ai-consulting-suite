@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { playbookKey, seeded, whereToLook, wordsFor } from "../tools/competitor-tracker/where.ts";
+import { judge, proves } from "../tools/competitor-tracker/naming.ts";
 import type { Playbook } from "../tools/competitor-tracker/playbook.ts";
 import type { Business } from "../tools/types.ts";
 
@@ -154,4 +155,75 @@ test("no trade at all is a missing answer, not an unmatched one", () => {
   const halfDone = business({ trade: null, oneLiner: "Wedding cakes, made in Hertfordshire" });
   assert.equal(wordsFor(halfDone), null, "a blank trade must stop the run, not be guessed");
   assert.equal(playbookKey(halfDone), null);
+});
+
+// ---------------------------------------------------------------------------
+// Why a name was refused, kept
+// ---------------------------------------------------------------------------
+
+/**
+ * A run proposed eight names, accepted one, and recorded nothing about the
+ * other seven. Asked why the cheap path had failed, nothing in the run could
+ * answer, so every suggested improvement including mine was a guess.
+ *
+ * The four verdicts need four different fixes, which is the whole reason to
+ * tell them apart.
+ */
+const result = (url: string, title: string) => ({ url, title });
+
+test("a name nothing came back for is told apart from one we refused", () => {
+  const asked = { name: "Ghost Salon", why: "invented" };
+
+  assert.equal(judge(asked, [], "St Albans").verdict, "nothing found");
+  assert.equal(
+    judge(asked, [result("https://x.co.uk/a", "Somebody Else | St Albans")], "St Albans").verdict,
+    "not in a title",
+  );
+});
+
+test("a real business in the wrong place says so", () => {
+  // Named, found, and somewhere we did not ask about. Our town matching being
+  // wrong and the model picking another branch look identical from here, and
+  // both are worth seeing separately from "no such business".
+  const asked = { name: "Studio 10 Hair", why: "x" };
+  const elsewhere = [result("https://example.de/studio-10", "Studio 10 Hair Berlin")];
+
+  assert.equal(judge(asked, elsewhere, "St Albans").verdict, "somewhere else");
+});
+
+test("the Shrewsbury Pennsylvania case is its own verdict", () => {
+  const asked = { name: "The Barbers At Shrewsbury", why: "x" };
+  const american = [
+    result("https://fresha.com/lvp/the-barbers", "The Barbers At Shrewsbury - 308 N Main St C, Shrewsbury, PA 17361"),
+  ];
+
+  assert.equal(judge(asked, american, "Shrewsbury").verdict, "another country");
+});
+
+test("a match is a match, and carries the page that proved it", () => {
+  const asked = { name: "ARMANDO Barbershop", why: "x" };
+  const good = [result("https://booksy.com/en-gb/78530_armando", "ARMANDO Barbershop - Shrewsbury")];
+
+  const { found, verdict } = judge(asked, good, "Shrewsbury");
+  assert.equal(verdict, "matched");
+  assert.equal(found?.url, "https://booksy.com/en-gb/78530_armando");
+});
+
+test("judge and proves never disagree about the same name", () => {
+  /**
+   * `proves` is `judge` with the reasoning thrown away, and it is written that
+   * way on purpose: two copies of this decision would drift, and the one the
+   * customer sees is not the one anybody reads.
+   */
+  const cases = [
+    { name: "ARMANDO Barbershop", why: "x" },
+    { name: "Ghost Salon", why: "x" },
+    { name: "ab", why: "too short" },
+  ];
+  const results = [result("https://booksy.com/en-gb/78530_armando", "ARMANDO Barbershop - Shrewsbury")];
+
+  for (const c of cases) {
+    const viaJudge = judge(c, results, "Shrewsbury").found;
+    assert.deepEqual(proves(c, results, "Shrewsbury"), viaJudge, `${c.name} disagrees`);
+  }
 });

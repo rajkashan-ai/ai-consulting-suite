@@ -48,9 +48,10 @@ import {
   NAMES_SHAPE,
   askFor,
   distinct,
-  proves,
+  judge,
   searchFor,
   type Checked,
+  type Judged,
   type Named,
 } from "./naming.ts";
 import { rank, type Found, type Scored } from "./rank.ts";
@@ -120,6 +121,10 @@ export type RunState = {
   playbook?: Playbook | null;
   /** Competitors a model named and a search then confirmed exist. */
   namedThenChecked?: Checked[];
+  /** Every name proposed, and why each was accepted or refused. */
+  judged?: Judged[];
+  /** The searches that checked those names, kept apart from the crawler's. */
+  nameChecks?: { term: string; results: { url: string; title: string }[] }[];
   /** The set we already had before this run started. Skips discovery. */
   kept?: Kept[];
   /** How old that set is, said out loud rather than implied. */
@@ -439,8 +444,11 @@ async function name(state: RunState, business: Business, ctx: ToolContext): Prom
   );
 
   const checked: Checked[] = [];
+  const judged: Judged[] = [];
+
   for (const [i, c] of proposed.entries()) {
-    const found = proves(c, seen[i]?.results ?? [], profile.town);
+    const { found, verdict } = judge(c, seen[i]?.results ?? [], profile.town);
+    judged.push({ name: c.name, verdict, url: found?.url });
     if (found) checked.push(found);
   }
 
@@ -457,7 +465,23 @@ async function name(state: RunState, business: Business, ctx: ToolContext): Prom
   if (confirmed.length < 3) {
     return {
       stage: "searching",
-      state: { ...state, profile, namedThenChecked: confirmed, seen, triedNaming: true },
+      state: {
+        ...state,
+        profile,
+        namedThenChecked: confirmed,
+        judged,
+        /**
+         * The name checks are kept apart from `seen`, which the crawler is
+         * about to overwrite with its own searches.
+         *
+         * On 2026-09-17 a run fell back and the record of what we had searched
+         * for, and what came back, was gone by the time anybody looked. Asked
+         * why only one name of eight had verified, nothing in the run could
+         * answer, so the whole question was guesswork.
+         */
+        nameChecks: seen,
+        triedNaming: true,
+      },
       progress: "Looking them up",
     };
   }
@@ -469,6 +493,8 @@ async function name(state: RunState, business: Business, ctx: ToolContext): Prom
       profile,
       seen,
       namedThenChecked: confirmed,
+      judged,
+      nameChecks: seen,
       // choose() ranks whatever is in `listed`. These carry no review counts or
       // prices, which is correct: those come off their own pages in `reading`,
       // and inventing them here is the thing the whole product refuses to do.
