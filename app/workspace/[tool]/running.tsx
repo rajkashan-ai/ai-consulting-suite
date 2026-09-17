@@ -2,6 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { report } from "../../report";
+
+/**
+ * Consecutive failures to reach our own server before we stop and say so.
+ *
+ * Three, at four seconds apart, is twelve seconds. Long enough that a dropped
+ * connection reconnecting is not reported as a fault, short enough that nobody
+ * watches a spinner while nothing is happening.
+ */
+const GIVE_UP_AFTER = 3;
 
 type Progress = {
   stage: string;
@@ -53,6 +63,20 @@ export default function Running({
     alive.current = true;
 
     (async () => {
+      /**
+       * How many times in a row asking for the next step has failed.
+       *
+       * A wobbly connection recovers in one or two. A step endpoint that is
+       * broken never does, and this loop used to retry it silently for as long
+       * as the tab stayed open: nothing recorded, nothing on the screen but
+       * "Running", which is exactly what somebody watched for sixteen minutes
+       * on 2026-09-16.
+       *
+       * OWASP lists network connection failures as a thing to log. This is that.
+       */
+      let refused = 0;
+      const workspaceId = new URLSearchParams(window.location.search).get("w");
+
       // A step at a time, back to back. Each returns when its step is done, so
       // there is no interval to tune and no two requests in flight at once.
       while (alive.current) {
@@ -60,9 +84,28 @@ export default function Running({
         try {
           const res = await fetch(`/api/runs/${runId}/step`, { method: "POST" });
           answer = await res.json();
-        } catch {
-          // Lost the network. Wait and ask again rather than giving up: the run
-          // itself is on the server and is not affected by this browser.
+          refused = 0;
+        } catch (e) {
+          refused += 1;
+
+          /**
+           * Once is weather. Three times in a row is a fault, and it is ours
+           * until proven otherwise.
+           *
+           * Recorded once per run rather than on every retry, so a laptop that
+           * sleeps for an hour does not fill the table with one fault.
+           */
+          if (refused === GIVE_UP_AFTER) {
+            report(e, "asking for the next step", workspaceId, "stopped");
+            setFailed(
+              "We cannot reach our own server, so this has stopped. " +
+                "Your run is safe and will carry on. Come back in a few minutes.",
+            );
+            return;
+          }
+
+          // Still plausibly the network. Wait and ask again: the run itself is
+          // on the server and is not affected by this browser.
           await new Promise((r) => setTimeout(r, 4000));
           continue;
         }

@@ -26,6 +26,7 @@ export default function GlobalError({
         digest: error.digest,
         where: window.location.pathname,
         kind: "render",
+        severity: "stopped",
       }),
     }).catch(() => {});
   }, [error]);

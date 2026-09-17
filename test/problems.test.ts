@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { fingerprint, messageOf, note, shapeOf } from "../lib/problems.ts";
 
 /**
@@ -161,4 +163,42 @@ test("nothing recorded carries our machinery into the customer's view", () => {
   // become the text on the screen: that is `plainly.ts`, and error.tsx writes
   // its own words rather than rendering any of this.
   assert.equal(messageOf(new Error("stage writing failed")), "stage writing failed");
+});
+
+// ---------------------------------------------------------------------------
+// Severity and release: OWASP's field list, the two gaps worth closing
+// ---------------------------------------------------------------------------
+
+/**
+ * Without a severity, a failed clipboard copy and a run that died looked
+ * identical in the table, and the first question anybody asks of a list of
+ * faults is which of them matter.
+ */
+test("severity is recorded, and defaults to the middle answer", async () => {
+  const { db, calls } = fakeDb();
+
+  await note(db, { error: new Error("boom"), where: "x", kind: "run", severity: "stopped" });
+  assert.equal(calls[0].p_severity, "stopped");
+
+  await note(db, { error: new Error("boom"), where: "x", kind: "client" });
+  assert.equal(calls[1].p_severity, "fault", "an unstated severity must not be the worst one");
+});
+
+test("severity is about the customer, not about us", () => {
+  // Written down because it is the thing most easily got wrong: it measures
+  // what they lost, not how alarming the error looked.
+  const body = readFileSync(
+    join(import.meta.dirname, "..", "lib", "problems.ts"),
+    "utf8",
+  );
+  const type = body.slice(body.indexOf("export type Severity"));
+  assert.match(type.slice(0, 600), /lost what they came for/);
+});
+
+test("the build is recorded, so a fix can be told from no fix", async () => {
+  // A count rising after a fix cannot be told from one that never moved unless
+  // each occurrence says which build it happened on.
+  const { db, calls } = fakeDb();
+  await note(db, { error: new Error("boom"), where: "x", kind: "run" });
+  assert.ok("p_release" in calls[0], "nothing says which build this was");
 });

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { note, type Kind } from "@/lib/problems";
+import { note, type Kind, type Severity } from "@/lib/problems";
 
 /**
  * Where a crash in the browser is reported.
@@ -15,6 +15,7 @@ import { note, type Kind } from "@/lib/problems";
  */
 
 const KINDS = new Set<Kind>(["render", "route", "action", "run", "client"]);
+const SEVERITIES = new Set<Severity>(["stopped", "fault", "noted"]);
 
 export async function POST(request: Request) {
   try {
@@ -23,16 +24,21 @@ export async function POST(request: Request) {
       digest?: unknown;
       where?: unknown;
       kind?: unknown;
+      severity?: unknown;
       workspaceId?: unknown;
     };
 
     const kind = KINDS.has(body.kind as Kind) ? (body.kind as Kind) : "client";
+    const severity = SEVERITIES.has(body.severity as Severity)
+      ? (body.severity as Severity)
+      : "fault";
     const uuid = /^[0-9a-f-]{36}$/i;
 
     await note(createAdminClient() as never, {
       error: String(body.message ?? "something went wrong in the browser"),
       where: String(body.where ?? "unknown"),
       kind,
+      severity,
       digest: typeof body.digest === "string" ? body.digest.slice(0, 120) : null,
       workspaceId:
         typeof body.workspaceId === "string" && uuid.test(body.workspaceId)

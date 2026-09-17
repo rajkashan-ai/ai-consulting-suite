@@ -17,6 +17,7 @@ export function report(
   error: unknown,
   where: string,
   workspaceId?: string | null,
+  severity: "stopped" | "fault" | "noted" = "fault",
 ): void {
   try {
     void fetch("/api/problem", {
@@ -26,6 +27,7 @@ export function report(
         message: error instanceof Error ? error.message : String(error),
         where,
         kind: "client",
+        severity,
         workspaceId: workspaceId ?? null,
       }),
       // The browser may be leaving the page. This asks it to finish anyway.

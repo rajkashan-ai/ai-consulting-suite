@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { readable } from "./messages";
+import { report } from "../report";
 
 /**
  * Two ways in, and no password in either.
@@ -55,6 +56,14 @@ export default function SignInForm() {
         setStage(back);
       }
     } catch (thrown) {
+      /**
+       * A customer who cannot sign in produced no record anywhere.
+       *
+       * OWASP lists authentication failures as a thing to log, and this is the
+       * one failure where the person affected cannot tell us: they are not in
+       * yet. `readable()` turns it into their words; this keeps ours.
+       */
+      report(thrown, "sign in", null, "stopped");
       setError(readable(thrown instanceof Error ? thrown.message : String(thrown)));
       setStage(back);
     }

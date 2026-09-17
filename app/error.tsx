@@ -35,6 +35,7 @@ export default function ErrorPage({
         digest: error.digest,
         where: window.location.pathname,
         kind: "render",
+        severity: "stopped",
         workspaceId: new URLSearchParams(window.location.search).get("w"),
       }),
     }).catch(() => {});

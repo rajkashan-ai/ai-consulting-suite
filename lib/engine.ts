@@ -447,6 +447,8 @@ async function faulted(
     error: e,
     where: `run ${(had as { stage?: string } | null)?.stage ?? "unknown"}`,
     kind: "run",
+    // They came for a comparison and are not getting one.
+    severity: "stopped",
     runId,
   });
 

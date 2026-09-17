@@ -155,3 +155,91 @@ test("the error pages write their own words, never the error's", () => {
     assert.doesNotMatch(rendered, /\{\s*error\.stack\s*\}/, `${file} shows the stack`);
   }
 });
+
+// ---------------------------------------------------------------------------
+// Check 5: the browser is not a blind spot
+// ---------------------------------------------------------------------------
+
+/**
+ * Error boundaries do not catch errors in event handlers or in async work after
+ * a render. The Next.js docs say so plainly, and that is most of what a button
+ * does. So `error.tsx` existing proves nothing about a click.
+ *
+ * The one that cost the most was the run loop: it caught a failed step, waited
+ * four seconds and retried, for as long as the tab stayed open. Nothing
+ * recorded, nothing on screen but "Running".
+ */
+test("every client component that catches an error either reports it or says why not", () => {
+  const offenders: string[] = [];
+
+  for (const { path, body } of sources) {
+    if (!/^["']use client["']/m.test(body)) continue;
+    if (!/}\s*catch/.test(body)) continue;
+
+    // Either it reports, or every catch in the file explains itself. The second
+    // is allowed: a url that will not parse is not worth a round trip.
+    const reports = /\breport\(/.test(body);
+    if (reports) continue;
+
+    const silent = body
+      .split("\n")
+      .map((line, i) => ({ line: line.trim(), i }))
+      .filter(({ line }) => /}\s*catch\s*(\(|\{)/.test(line))
+      .filter(({ i }) => {
+        const near = body.split("\n").slice(Math.max(0, i - 3), i + 5).join("\n");
+        return !/\/\/|\/\*|\*/.test(near);
+      });
+
+    if (silent.length) offenders.push(`${shortName(path)}:${silent[0].i + 1}`);
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    `Client components catching errors with no report and no explanation:\n  ` +
+      `${offenders.join("\n  ")}\nSee ERROR-HANDLING.md rule 1 and check 5.`,
+  );
+});
+
+test("a loop that retries our own server gives up and says so", () => {
+  /**
+   * Retrying forever is not resilience when the thing being retried is ours.
+   * A wobbly connection recovers in one or two attempts; a broken endpoint
+   * never does, and the customer watches a spinner until they close the tab.
+   */
+  const body = readFileSync(join(root, "app", "workspace", "[tool]", "running.tsx"), "utf8");
+
+  /**
+   * The catch itself, not the whole file.
+   *
+   * Written first as three matches against the file, which passed with the
+   * limit declared and never used: a constant can sit there looking like a
+   * guard while the loop it names retries forever. The assertions have to be
+   * about the code that runs.
+   */
+  const caught = body.slice(body.indexOf("} catch (e) {"), body.indexOf("if (!alive.current) return;"));
+  assert.ok(caught.length > 0, "the retry loop no longer catches at all");
+
+  assert.match(caught, /refused\s*\+=\s*1/, "nothing counts consecutive failures");
+  assert.match(caught, /refused\s*===\s*GIVE_UP_AFTER/, "the limit is declared but never reached");
+  assert.match(caught, /report\(/, "it gives up without recording why");
+  assert.match(caught, /setFailed\(/, "it gives up without telling anybody");
+});
+
+test("signing in is not a silent failure", () => {
+  // OWASP lists authentication failures as a thing to log, and it is the one
+  // failure where the person affected cannot tell us: they are not in yet.
+  const body = readFileSync(join(root, "app", "sign-in", "form.tsx"), "utf8");
+  assert.match(body, /report\(/, "a customer who cannot sign in leaves no trace");
+});
+
+test("severity reaches the record from every path that knows it", () => {
+  for (const [file, wanted] of [
+    ["app/error.tsx", /severity: "stopped"/],
+    ["app/global-error.tsx", /severity: "stopped"/],
+    ["lib/engine.ts", /severity: "stopped"/],
+    ["app/api/problem/route.ts", /SEVERITIES/],
+  ] as const) {
+    assert.match(readFileSync(join(root, file), "utf8"), wanted, `${file} records no severity`);
+  }
+});

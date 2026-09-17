@@ -23,11 +23,43 @@ import { redact } from "./privacy/redact.ts";
 
 export type Kind = "render" | "route" | "action" | "run" | "client";
 
+/**
+ * How much it cost the person it happened to.
+ *
+ * OWASP asks for a severity on every log event. Without one, a failed clipboard
+ * copy and a run that died looked identical in the table, and the first
+ * question anybody asks of a list of faults is which of them matter.
+ *
+ * Deliberately about the customer, not about us. "Stopped" is not a measure of
+ * how alarming the stack was, it is whether they lost the thing they came for.
+ */
+export type Severity =
+  /** They lost what they came for. A run died, a page would not load. */
+  | "stopped"
+  /** Something broke and they carried on. A copy button, a photo resize. */
+  | "fault"
+  /** We recovered and are only keeping score. */
+  | "noted";
+
+/**
+ * The build this is running.
+ *
+ * Without it, a count that rises after a fix cannot be told from one that never
+ * moved, and that is the question the table exists to answer. Null locally,
+ * which is honest: a made-up value would be worse than none.
+ */
+const release = () =>
+  process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ??
+  process.env.NEXT_PUBLIC_RELEASE ??
+  null;
+
 export type Problem = {
   error: unknown;
   /** A route path, or a tool and stage. Never a stack trace: see below. */
   where: string;
   kind: Kind;
+  /** What it cost the customer. Defaults to the middle answer. */
+  severity?: Severity;
   /** Next gives this for an error React has already processed. */
   digest?: string | null;
   workspaceId?: string | null;
@@ -116,6 +148,8 @@ export async function note(db: Notes, p: Problem): Promise<string | null> {
       p_message: message,
       p_where: where,
       p_kind: p.kind,
+      p_severity: p.severity ?? "fault",
+      p_release: release(),
       p_digest: p.digest ?? null,
       p_workspace: p.workspaceId ?? null,
       p_run: p.runId ?? null,
