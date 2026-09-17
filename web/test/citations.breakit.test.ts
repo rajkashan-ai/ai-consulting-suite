@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { advance, GRID_AREAS, type RunState } from "../tools/competitor-tracker/stages.ts";
 import { buildBody, hollow } from "../tools/competitor-tracker/document.ts";
 import { expand } from "../tools/competitor-tracker/sources.ts";
-import { aBusiness, fakeContext, type Recorded } from "./fake.ts";
+import { aBusiness, fakeContext, type Recorded , ownerAgrees} from "./fake.ts";
 
 /**
  * Written by an independent tester against the product requirement, not against
@@ -52,7 +52,7 @@ async function run(think: Record<string, unknown>, business = aBusiness()) {
   for (let i = 0; i < 30; i++) {
     const step = await advance(stage, state, business, ctx);
     stage = step.stage as never;
-    state = step.state;
+    state = ownerAgrees(step) as RunState;
     if (stage === "done" || stage === "failed") break;
   }
   return { stage, state };
@@ -240,7 +240,7 @@ test("breakit: a document stored as done covers every area asked for", async () 
   for (let i = 0; i < 30; i++) {
     const step = await advance(stage, state, aBusiness(), ctx);
     stage = step.stage as never;
-    state = step.state;
+    state = ownerAgrees(step) as RunState;
     if (stage === "done" || stage === "failed") break;
   }
 

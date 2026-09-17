@@ -344,11 +344,27 @@ export async function step(runId: string): Promise<Progress | null> {
       const settled = await Promise.allSettled(terms.map(askFor));
       const found: { term: string; results: { url: string; title: string }[] }[] = [];
       for (const [i, outcome] of settled.entries()) {
-        found.push(
-          outcome.status === "fulfilled"
-            ? outcome.value
-            : { term: terms[i] ?? "", results: [] },
-        );
+        if (outcome.status === "fulfilled") {
+          found.push(outcome.value);
+          continue;
+        }
+        /**
+         * A search that threw is not a search that found nothing.
+         *
+         * This returned an empty result set and said nothing, so on 2026-09-17
+         * two businesses failed in half a second having spent no tokens, and
+         * told their owner "we could not find any other barbers in Shrewsbury".
+         * The truth was that every call had errored. A wrong answer delivered
+         * confidently is worse than the error it replaced, and swallowing it
+         * here is the same fault the error handling work was meant to remove.
+         */
+        console.warn(`[search] "${terms[i]}" threw: ${String(outcome.reason).slice(0, 300)}`);
+        found.push({ term: terms[i] ?? "", results: [] });
+      }
+      // Every one failing is a fault, not a market with nothing in it.
+      if (terms.length && found.every((f) => !f.results.length)) {
+        const why = settled.find((o) => o.status === "rejected");
+        if (why && why.status === "rejected") throw why.reason;
       }
       return found;
     },

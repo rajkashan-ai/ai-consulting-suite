@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { advance, type RunState } from "../tools/competitor-tracker/stages.ts";
 import { notYou } from "../tools/competitor-tracker/sift.ts";
 import { normaliseName } from "../../Agents/Competitor Tracker/src/normalise.ts";
-import { aBusiness, fakeContext, type Recorded } from "./fake.ts";
+import { aBusiness, fakeContext, type Recorded , ownerAgrees} from "./fake.ts";
 
 /**
  * Written by an independent tester.
@@ -74,7 +74,7 @@ test("breakit: a barber with an Arabic trading name can finish a run", async () 
   for (let i = 0; i < 30; i++) {
     const step = await advance(stage, state, aBusiness({ name: "محل الحلاقة" }), ctx);
     stage = step.stage as never;
-    state = step.state;
+    state = ownerAgrees(step) as RunState;
     if (stage === "done" || stage === "failed") break;
   }
 

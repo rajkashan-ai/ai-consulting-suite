@@ -226,3 +226,29 @@ export const aBusiness = (p: Partial<Business> = {}): Business => ({
   knownCompetitor: null,
   ...p,
 });
+
+/**
+ * Answer the picker, the way an owner who agrees with us would.
+ *
+ * The run now stops at "picking" and waits for a person to say who they
+ * compete with. Every test that drives a run to the end has to answer it, or
+ * it is testing a parked run.
+ *
+ * Agreeing is the common path and the boring one, so it is the default here.
+ * The paths that matter more have their own tests in picker.test.ts: an owner
+ * who chooses differently, one who chooses too few, one who never answers, and
+ * a browser sending a name that was never offered.
+ *
+ * Returns the state unchanged for every other stage, so a loop can call it on
+ * every step without asking what stage it is in.
+ */
+export function ownerAgrees<S extends { stage: string; state: Record<string, unknown> }>(
+  step: S,
+): S["state"] {
+  if (step.stage !== "picking") return step.state;
+  const offered = (step.state.offered ?? []) as { name: string; ours?: boolean }[];
+  const ours = offered.filter((o) => o.ours).map((o) => o.name);
+  // If we proposed nobody, take the top of the list rather than none: a test
+  // that silently answers with an empty choice parks for ever.
+  return { ...step.state, chosen: ours.length ? ours : offered.slice(0, 5).map((o) => o.name) };
+}

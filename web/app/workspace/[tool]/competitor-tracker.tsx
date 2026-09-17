@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { decideRun, sayWhen } from "@/tools/cadence";
 import BattlecardView from "./battlecard";
 import Running from "./running";
+import Picker from "./picker";
+import type { Offer } from "@/tools/competitor-tracker/shortlist";
 
 /**
  * Show the battlecard, watch one being made, or start making one.
@@ -34,7 +36,7 @@ export default async function CompetitorTracker({
 }) {
   const supabase = await createClient();
 
-  const [{ data: document }, { data: runs }] = await Promise.all([
+  const [{ data: document }, { data: runs }, { data: business }] = await Promise.all([
     supabase
       .from("documents")
       .select("id, body, created_at")
@@ -45,11 +47,14 @@ export default async function CompetitorTracker({
       .maybeSingle(),
     supabase
       .from("runs")
-      .select("id, stage, started_at, finished_at, error")
+      .select("id, stage, started_at, finished_at, error, state")
       .eq("workspace_id", workspaceId)
       .eq("tool", "competitor-tracker")
       .order("started_at", { ascending: false })
       .limit(1),
+    // Only for the picker's own sentence. Asked for alongside the other two
+    // rather than after them, so it costs no extra wait.
+    supabase.from("workspaces").select("trade, town").eq("id", workspaceId).maybeSingle(),
   ]);
 
   const latest = runs?.[0];
@@ -68,6 +73,44 @@ export default async function CompetitorTracker({
    * than it looks: it takes the loop driving the run down with it, and
    * reloading starts a brand new run from zero.
    */
+  /**
+   * Waiting for them to say who they compete with.
+   *
+   * Before the running branch, because a run parked here is not running: the
+   * progress panel would sit saying "Working" while nothing happened and the
+   * loop asked a question whose answer cannot change until somebody clicks.
+   *
+   * Only `offered` crosses to the browser. A run's state also holds the text of
+   * pages read off other people's websites, and none of that belongs in a page
+   * source. CLAUDE.md 1.4c rule 3.
+   */
+  if (latest?.stage === "picking") {
+    const parked = (latest.state ?? {}) as { offered?: Offer[]; chosen?: string[] };
+    const offered = parked.offered ?? [];
+    /**
+     * Asked only while there is still a question.
+     *
+     * Saving their choice writes `chosen` and nothing else: the run is still
+     * sitting at this stage until a step moves it on. Keying only on the stage
+     * drew the picker again over the answer they had just given, and the one
+     * thing that advances the run is the progress panel below, which never got
+     * to mount.
+     */
+    if (offered.length && !parked.chosen?.length) {
+      return (
+        <Picker
+          key="picking"
+          runId={latest.id}
+          offered={offered}
+          trade={business?.trade ?? null}
+          town={business?.town ?? null}
+        />
+      );
+    }
+    // Parked with nothing to show is our fault, not a question for them. Let
+    // the progress panel run: the scheduled tick moves it on at the deadline.
+  }
+
   if (latest && latest.stage !== "done" && latest.stage !== "failed") {
     return (
       <Running

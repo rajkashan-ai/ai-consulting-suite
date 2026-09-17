@@ -12,7 +12,7 @@ import { advance, type RunState, type Stage } from "../tools/competitor-tracker/
 import { droppable, find, read, write } from "../tools/competitor-tracker/mend.ts";
 import { validateBattlecard } from "../../Agents/Competitor Tracker/src/guards.ts";
 import { asText } from "../tools/competitor-tracker/stages.ts";
-import { aBusiness } from "./fake.ts";
+import { aBusiness , ownerAgrees} from "./fake.ts";
 import type { ToolContext } from "../tools/types.ts";
 
 /**
@@ -87,7 +87,7 @@ async function settle(card: unknown, ctx: ToolContext) {
   for (let i = 0; i < 20; i++) {
     const step = await advance(stage, state, aBusiness(), ctx);
     stage = step.stage;
-    state = step.state;
+    state = ownerAgrees(step) as RunState;
     if (stage === "fixing") passes += 1;
     if (stage === "done" || stage === "failed") break;
   }

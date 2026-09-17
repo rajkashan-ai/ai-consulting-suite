@@ -124,6 +124,16 @@ export const WHOLE_RUN_MINUTES = WORKING_MINUTES;
 export const STILL_LIMIT = 3;
 
 /**
+ * Stages that are waiting for the customer, not working.
+ *
+ * Named here rather than in the tool, because the watchdog is what would kill
+ * them and a rule belongs where it is enforced. A tool adding a stage that
+ * waits has to say so here, which is a deliberate speed bump: a stage nobody
+ * declared is treated as work, and work that repeats is a fault.
+ */
+export const WAITING_ON_A_PERSON = new Set(["picking"]);
+
+/**
  * How many steps a stage may take before it is circling.
  *
  * These are first estimates, from one good run and from what each stage does,
@@ -248,6 +258,21 @@ export function check(
       why: `spent ${spentTokens.toLocaleString()} input tokens, past the ${TOKEN_CEILING.toLocaleString()} ceiling, at ${at.stage}`,
     };
   }
+
+  /**
+   * A stage that is waiting on a person is not a stage that is stuck.
+   *
+   * Both nets below measure repetition: the same step several times, or a stage
+   * taking more steps than it should. A run parked waiting for the owner to say
+   * who their competitors are repeats deliberately and for as long as it takes,
+   * and would be killed within three ticks by rules written for a run going
+   * round in circles.
+   *
+   * Exempted from those two only. Time and money still apply, and a waiting
+   * step spends neither, so a run cannot hide here: it makes no model call and
+   * reads no page, which is what makes waiting affordable in the first place.
+   */
+  if (WAITING_ON_A_PERSON.has(at.stage)) return null;
 
   const cap = CAPS[at.stage];
   const spent = watch.spent?.[at.stage] ?? 0;

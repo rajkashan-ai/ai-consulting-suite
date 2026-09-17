@@ -10,7 +10,7 @@ import {
   findRankClaims,
   findTrafficClaims,
 } from "../../Agents/Competitor Tracker/src/guards.ts";
-import { aBusiness, fakeContext, type Recorded } from "./fake.ts";
+import { aBusiness, fakeContext, type Recorded , ownerAgrees} from "./fake.ts";
 
 /**
  * Written by an independent tester against the product requirement.
@@ -60,7 +60,7 @@ async function run(
   for (let i = 0; i < 30; i++) {
     const step = await advance(stage, state, business, ctx);
     stage = step.stage as never;
-    state = step.state;
+    state = ownerAgrees(step) as RunState;
     last = step.progress;
     if (stage === "done" || stage === "failed") break;
   }

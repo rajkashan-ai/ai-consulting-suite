@@ -59,6 +59,7 @@ import {
 } from "./naming.ts";
 import { rank, type Found, type Scored } from "./rank.ts";
 import { notYou, oneEach, rightTrade, sift } from "./sift.ts";
+import { PICK, asChosen, offer, waitedLongEnough, type Offer } from "./shortlist.ts";
 import { areasMissing, shortfall, type Funnel } from "./shortfall.ts";
 import { enough, nextToTry, refusals, type Attempt } from "./retry.ts";
 import { displayName, normaliseName } from "../../../Agents/Competitor Tracker/src/normalise.ts";
@@ -102,6 +103,7 @@ export type Stage =
   | "searching"
   | "listings"
   | "choosing"
+  | "picking"
   | "reading"
   | "writing"
   | "checking"
@@ -165,6 +167,11 @@ export type RunState = {
   listed?: Found[];
   /** The five that were picked, and why each one. */
   picked?: Scored[];
+  /** The list put in front of the owner, and what they sent back. See
+   *  shortlist.ts for why the owner is asked at all. */
+  offered?: Offer[];
+  offeredAt?: string;
+  chosen?: string[];
   /** The comparison as a grid, one row per thing and one column per business. */
   grid?: Grid[];
   listingPages?: ReadPage[];
@@ -365,6 +372,8 @@ async function run(
       return listings(state, ctx);
     case "choosing":
       return choose(state, business);
+    case "picking":
+      return picking(state, business);
     case "reading":
       return read(state, ctx);
     case "writing":
@@ -1356,14 +1365,59 @@ async function choose(state: RunState, business: Business): Promise<Step> {
 
   if (business.website) queue.unshift({ name: "you", url: business.website });
 
+  /**
+   * Everything we would have done stays. The owner is asked first.
+   *
+   * `competitors` and `queue` are built exactly as before and become the
+   * fallback: a run nobody answers goes ahead with our five rather than
+   * producing nothing. The offer is what changes, and it is why picking exists
+   * at all. See shortlist.ts.
+   *
+   * Ours first, then everyone else who survived the filters, so agreeing costs
+   * one click and disagreeing is still possible. The ranked rows carry the
+   * distance we already worked out; the rest do not, and null is an honest
+   * answer that sorts last.
+   */
+  const key = (n: string) => n.trim().toLowerCase();
+  const byName = new Map(withMiles.map((r) => [key(r.name), r]));
+
+  /**
+   * Ours is `competitors`, not `picked`.
+   *
+   * They differ by one and it is the one that matters: a competitor the owner
+   * named themselves is injected into `competitors` and was never in the
+   * ranking, so building the offer from `picked` left them off the screen
+   * entirely and a test caught it. Anyone we have a listing row for shows their
+   * area and prices; anyone we do not shows their name, which is still enough
+   * to leave ticked.
+   */
+  const oursNames = competitors.map((c) => c.name);
+  const ours = new Set(oursNames.map(key));
+  const oursRows = oursNames.map(
+    (name) =>
+      byName.get(key(name)) ?? {
+        name,
+        area: null,
+        reviews: null,
+        rating: null,
+        reviewedDaysAgo: null,
+        price: null,
+        url: null,
+      },
+  );
+
+  const offered = offer(oursRows, withMiles.filter((r) => !ours.has(key(r.name))));
+
   return {
-    stage: "reading",
+    stage: "picking",
     state: {
       ...state,
       competitors,
       visibility,
       queue,
       picked,
+      offered,
+      offeredAt: new Date().toISOString(),
       pages: {},
       funnel: {
         ...funnel,
@@ -1375,7 +1429,90 @@ async function choose(state: RunState, business: Business): Promise<Step> {
       // reads as a finding rather than as something missing.
       shortfallSay: verdict.kind === "town" ? verdict.say : undefined,
     },
-    progress: `Found ${competitors.length} to look at. Reading their pages`,
+    progress: `Found ${offered.length} nearby. Which ${PICK} do you compete with?`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Wait for the owner to say who they compete with, then use their answer.
+ *
+ * Spends nothing. A step here makes no model call and reads no page, so a run
+ * sitting in this stage costs the same as a run nobody started. That matters:
+ * the scheduled tick picks it up every minute, which is exactly how a customer
+ * who closed their laptop comes back to a finished run.
+ *
+ * Three ways out, in order:
+ *  - they chose, so their five become the set
+ *  - nobody chose and the offer is stale, so ours stand rather than nothing
+ *  - neither, so wait
+ */
+async function picking(state: RunState, business: Business): Promise<Step> {
+  const offered = state.offered ?? [];
+
+  /**
+   * Their answer, filtered against what we actually offered.
+   *
+   * Filtered here as well as in the action that stored it. The action is the
+   * boundary and does the real check; this is the same question asked by the
+   * code that will hand these names to a fetch queue, because a name we never
+   * offered is a name whose country and trade were never established.
+   */
+  const chosen = asChosen(state.chosen, offered);
+
+  if (chosen.length) {
+    /**
+     * A competitor the owner typed in survives every run, for ever.
+     *
+     * That is what addedByCustomer has always meant, and this screen must not
+     * quietly undo it: unticking a box is a choice about our suggestions, not
+     * a retraction of a name they went and typed. Kept first, so it is never
+     * the one the cap drops.
+     */
+    const named = business.knownCompetitor;
+    const withNamed =
+      named && !chosen.some((c) => c.toLowerCase() === named.toLowerCase())
+        ? [named, ...chosen]
+        : chosen;
+
+    const rows = new Map(offered.map((o) => [o.name, o]));
+    const competitors: Competitor[] = withNamed.slice(0, PICK).map((name) => ({
+      name,
+      addedByCustomer: true,
+      claims: {},
+    }));
+
+    const queue = competitors
+      .map(({ name }) => {
+        const url = rows.get(name)?.url;
+        return url ? { name, url } : null;
+      })
+      .filter(Boolean) as { name: string; url: string }[];
+
+    if (business.website) queue.unshift({ name: "you", url: business.website });
+
+    return {
+      stage: "reading",
+      state: { ...state, competitors, queue, pages: {} },
+      progress: `Reading the ${competitors.length} you chose`,
+    };
+  }
+
+  if (waitedLongEnough(state.offeredAt, new Date())) {
+    // Ours, with the offer kept so the screen can still say what we picked and
+    // why, and so they can change it next week.
+    return {
+      stage: "reading",
+      state,
+      progress: `Found ${(state.competitors ?? []).length} to look at. Reading their pages`,
+    };
+  }
+
+  return {
+    stage: "picking",
+    state,
+    progress: `Found ${offered.length} nearby. Which ${PICK} do you compete with?`,
   };
 }
 

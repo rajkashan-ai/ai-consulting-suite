@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { advance, type RunState } from "../tools/competitor-tracker/stages.ts";
-import { aBusiness, fakeContext, type Recorded } from "./fake.ts";
+import { aBusiness, fakeContext, type Recorded , ownerAgrees} from "./fake.ts";
 
 /**
  * The comparison grid, tested without spending anything.
@@ -69,7 +69,7 @@ async function write(think: Record<string, unknown>, business = aBusiness()) {
   for (let i = 0; i < 20; i++) {
     const step = await advance(stage, state, business, ctx);
     stage = step.stage as never;
-    state = step.state;
+    state = ownerAgrees(step) as RunState;
     if (stage === "checking" || stage === "failed" || stage === "done") break;
   }
   return { stage, state };
@@ -178,7 +178,7 @@ test("the customer's own prices are put in front of the writing step", async () 
   for (let i = 0; i < 20; i++) {
     const step = await advance(stage, state, aBusiness(), ctx);
     stage = step.stage as never;
-    state = step.state;
+    state = ownerAgrees(step) as RunState;
     if (stage === "checking" || stage === "failed" || stage === "done") break;
   }
   const writing = calls.think.find((t) => t.shape === "comparison");
@@ -220,7 +220,7 @@ test("the narrative is written from the grid, not from every page again", async 
   for (let i = 0; i < 20; i++) {
     const step = await advance(stage, state, aBusiness(), ctx);
     stage = step.stage as never;
-    state = step.state;
+    state = ownerAgrees(step) as RunState;
     if (stage === "checking" || stage === "failed" || stage === "done") break;
   }
 
@@ -261,7 +261,7 @@ async function writingCalls(answers: Record<string, unknown> = {}) {
   let stage = "searching" as never;
   for (let i = 0; i < 20; i += 1) {
     const step = await advance(stage, state, aBusiness(), ctx);
-    state = step.state;
+    state = ownerAgrees(step) as RunState;
     stage = step.stage as never;
     if (stage === "checking" || stage === "failed" || stage === "done") break;
   }
@@ -319,7 +319,7 @@ test("one area failing does not lose the other three", async () => {
   let stage = "searching" as never;
   for (let i = 0; i < 20; i += 1) {
     const step = await advance(stage, state, aBusiness(), ctx);
-    state = step.state;
+    state = ownerAgrees(step) as RunState;
     stage = step.stage as never;
     if (stage === "checking" || stage === "failed" || stage === "done") break;
   }
@@ -342,7 +342,7 @@ test("every area failing stops the run rather than storing an empty table", asyn
   let stage = "searching" as never;
   for (let i = 0; i < 20; i += 1) {
     const step = await advance(stage, state, aBusiness(), ctx);
-    state = step.state;
+    state = ownerAgrees(step) as RunState;
     stage = step.stage as never;
     if (stage === "failed" || stage === "done") break;
   }

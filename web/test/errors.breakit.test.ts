@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { advance, type RunState } from "../tools/competitor-tracker/stages.ts";
-import { aBusiness, fakeContext, type Recorded } from "./fake.ts";
+import { aBusiness, fakeContext, type Recorded , ownerAgrees} from "./fake.ts";
 
 /**
  * What an owner is shown when something throws.
@@ -86,7 +86,7 @@ test("breakit: an exception inside a step does not escape as raw text", async ()
     for (let i = 0; i < 30; i++) {
       const step = await advance(stage, state, aBusiness(), ctx);
       stage = step.stage as never;
-      state = step.state;
+      state = ownerAgrees(step) as RunState;
       if (stage === "done" || stage === "failed") break;
     }
   } catch (e) {

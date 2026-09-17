@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { advance, type RunState, type Stage } from "../tools/competitor-tracker/stages.ts";
 import { competitorTracker } from "../tools/competitor-tracker/index.ts";
 import { buildBody, hollow } from "../tools/competitor-tracker/document.ts";
-import { aBusiness, fakeContext, type Recorded } from "./fake.ts";
+import { aBusiness, fakeContext, type Recorded , ownerAgrees} from "./fake.ts";
 import type { Business } from "../tools/types.ts";
 import { sourceOf } from "./tool-source.ts";
 import { ASK_FIRST } from "../tools/competitor-tracker/stages.ts";
@@ -92,7 +92,7 @@ async function runFrom(
   for (let i = 0; i < 30; i++) {
     const step = await advance(stage, state, business, ctx);
     stage = step.stage;
-    state = step.state;
+    state = ownerAgrees(step) as RunState;
     seen.push(stage);
     if (stage === stopAt || stage === "failed" || stage === "done") break;
   }
@@ -300,7 +300,7 @@ test("the verdicts survive, even when the run falls back to the crawler", ASKING
   for (let i = 0; i < 6; i++) {
     const step = await advance(stage, state, theBarber, ctx);
     stage = step.stage;
-    state = step.state;
+    state = ownerAgrees(step) as RunState;
     if (stage === "listings" || stage === "failed") break;
   }
 

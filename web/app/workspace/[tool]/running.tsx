@@ -124,6 +124,22 @@ export default function Running({
           router.refresh();
           return;
         }
+        /**
+         * It is waiting for them, so stop driving it.
+         *
+         * Refreshed rather than rendered here, so the picker is drawn by the
+         * same server code that draws it when they come back tomorrow. One
+         * path, not two, exactly as for a finished run.
+         *
+         * Without this the loop would carry on asking for the next step every
+         * second and a half, for as long as the tab stayed open, while the
+         * screen said "Working" about a run that is waiting on the person
+         * reading it.
+         */
+        if (answer.stage === "picking") {
+          router.refresh();
+          return;
+        }
         if (answer.stage === "failed") {
           setFailed(answer.reason ?? answer.progress ?? "It did not work.");
           return;

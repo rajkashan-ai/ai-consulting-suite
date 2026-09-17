@@ -212,7 +212,7 @@ test("an unparseable address does not crash the report", () => {
 // ---------------------------------------------------------------------------
 
 import { advance, type RunState } from "../tools/competitor-tracker/stages.ts";
-import { aBusiness, fakeContext, type Recorded } from "./fake.ts";
+import { aBusiness, fakeContext, type Recorded , ownerAgrees} from "./fake.ts";
 import { sourceOf } from "./tool-source.ts";
 import { resultCountry } from "../../Agents/Competitor Tracker/src/search-visibility.ts";
 
@@ -247,7 +247,7 @@ async function withRefusals(refuse: (url: string) => string | null) {
   for (let i = 0; i < 30; i += 1) {
     const step = await advance(stage, state, aBusiness(), ctx);
     stage = step.stage as never;
-    state = step.state;
+    state = ownerAgrees(step) as RunState;
     if (stage === "reading" || stage === "failed" || stage === "done") break;
   }
   return { state, stage, asked };

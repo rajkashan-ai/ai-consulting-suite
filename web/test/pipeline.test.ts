@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { advance, type RunState, type Stage } from "../tools/competitor-tracker/stages.ts";
-import { aBusiness, fakeContext, type Recorded } from "./fake.ts";
+import { aBusiness, fakeContext, type Recorded , ownerAgrees} from "./fake.ts";
 import { ASK_FIRST } from "../tools/competitor-tracker/stages.ts";
 
 const ASKING_OFF = { skip: ASK_FIRST ? false : "asking is off: see ASK_FIRST in stages.ts" };
@@ -34,7 +34,7 @@ async function runTo(
   for (let i = 0; i < 25; i++) {
     const step = await advance(stage, state, business, ctx);
     stage = step.stage;
-    state = step.state;
+    state = ownerAgrees(step) as RunState;
     seen.push(stage);
     if (stage === finish || stage === "failed" || stage === "done") break;
   }
@@ -99,7 +99,7 @@ test("when the model names competitors, the crawler never runs", ASKING_OFF, asy
   for (let i = 0; i < 25; i++) {
     const step = await advance(stage, state, aBusiness(), ctx);
     stage = step.stage;
-    state = step.state;
+    state = ownerAgrees(step) as RunState;
     seen.push(stage);
     if (stage === "choosing" || stage === "failed") break;
   }
@@ -134,7 +134,7 @@ test("a name no page confirms never reaches the customer", async () => {
   for (let i = 0; i < 25; i++) {
     const step = await advance(stage, state, aBusiness(), ctx);
     stage = step.stage;
-    state = step.state;
+    state = ownerAgrees(step) as RunState;
     if (stage === "choosing" || stage === "failed") break;
   }
 
@@ -222,7 +222,7 @@ test("nothing anywhere stops with a sentence, rather than writing about nobody",
   for (let i = 0; i < 12; i++) {
     const step = await advance(stage, state, aBusiness(), ctx);
     stage = step.stage;
-    state = step.state;
+    state = ownerAgrees(step) as RunState;
     if (stage === "failed" || stage === "done") break;
   }
 
@@ -285,7 +285,7 @@ test("a finished card is whole: five businesses, a grid and three actions", asyn
   for (let i = 0; i < 25; i++) {
     const step = await advance(stage, state, aBusiness(), ctx);
     stage = step.stage;
-    state = step.state;
+    state = ownerAgrees(step) as RunState;
     if (stage === "done" || stage === "failed") break;
   }
 

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { advance, type RunState, type Stage } from "../tools/competitor-tracker/stages.ts";
 import { competitorTracker } from "../tools/competitor-tracker/index.ts";
 import type { Playbook } from "../tools/competitor-tracker/playbook.ts";
-import { aBusiness, fakeContext, type Recorded } from "./fake.ts";
+import { aBusiness, fakeContext, type Recorded , ownerAgrees} from "./fake.ts";
 import type { Business } from "../tools/types.ts";
 
 /**
@@ -35,7 +35,7 @@ async function runTo(
   for (let i = 0; i < 25; i++) {
     const step = await advance(stage, state, business, ctx);
     stage = step.stage;
-    state = step.state;
+    state = ownerAgrees(step) as RunState;
     if (stage === finish || stage === "failed" || stage === "done") break;
   }
   return { stage, state, calls };

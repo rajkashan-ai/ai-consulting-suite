@@ -19,6 +19,16 @@ const { step } = await import("../lib/engine.ts");
 
 const workspaceId = process.argv[2];
 const tool = process.argv[3] ?? "competitor-tracker";
+/**
+ * Stop once this stage has been reached, instead of running to the end.
+ *
+ *     ... <workspace-id> competitor-tracker listings
+ *
+ * For measuring one step rather than buying a whole run to see it. The search
+ * step is the first thing a run does and costs about 68,000 input tokens; the
+ * rest of the run costs about the same again and answers a different question.
+ */
+const stopAt = process.argv[4] ?? null;
 if (!workspaceId) throw new Error("Which workspace? Pass its id.");
 
 const db = createAdminClient();
@@ -63,6 +73,10 @@ for (let n = 0; n < 60; n += 1) {
   if (!moved) { console.log("nothing to do"); break; }
   was = moved.stage;
   steps.push({ stage: spentIn, seconds });
+  if (stopAt && moved.stage === stopAt) {
+    console.log(`\nstopped at ${stopAt}, as asked`);
+    break;
+  }
   if (moved.stage === "done" || moved.stage === "failed") {
     console.log(`\n${moved.stage.toUpperCase()}: ${moved.reason ?? moved.progress}`);
     break;
