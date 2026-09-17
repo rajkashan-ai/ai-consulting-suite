@@ -164,7 +164,62 @@ export async function step(runId: string): Promise<Progress | null> {
   const spent = { input: 0, output: 0, cacheWritten: 0, cacheRead: 0 };
   let pages = 0;
 
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  /**
+   * How long one model call may take, and how many times it may be retried.
+   *
+   * WHY THESE ARE SET RATHER THAN LEFT ALONE
+   * The SDK's own defaults are 10 minutes per attempt and two retries, and its
+   * documentation says plainly that "request timeouts are retried by default,
+   * so in a worst-case scenario you may wait much longer than this timeout".
+   * Nothing here set either, so one ctx.think call could occupy half an hour,
+   * and a retry redoes the whole thing including every web search.
+   *
+   * That is what a hang looks like from outside. On 2026-09-17 the naming call
+   * sat for 11.8 minutes with nothing saved and was stopped by hand: 10 minutes
+   * of first attempt, then a retry that was still going. It is the same shape
+   * as the 20.8 minute run on 16 September and the 16 minutes Raj watched.
+   *
+   * The numbers come from measurement, not from taste. The slowest call that
+   * has ever succeeded here is the naming call at 133.5 seconds, every other
+   * call measured under 55. 180 seconds is that plus a third. One retry, so a
+   * genuine blip does not end a run, and a stuck call costs six minutes rather
+   * than thirty. Both are one measurement each and should be revisited when
+   * there are more.
+   */
+  const CALL_SECONDS = 180;
+  const RETRIES = 1;
+
+  const anthropic = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
+    timeout: CALL_SECONDS * 1000,
+    maxRetries: RETRIES,
+  });
+
+  /**
+   * Say, while it is happening, that a call has gone quiet.
+   *
+   * A hang leaves no record: the step saves nothing until the call returns, so
+   * everything we store is written by steps that finished. The only way to know
+   * where a stuck call stopped is to say so while it is stuck. Prints every
+   * thirty seconds with how many events have arrived and how long ago the last
+   * one was, so a stall is told apart from a call that is simply long.
+   */
+  const sayIfStalled = (
+    stream: { on: (e: "streamEvent", cb: () => void) => unknown },
+    label: string,
+  ) => {
+    let events = 0;
+    let last = Date.now();
+    stream.on("streamEvent", () => {
+      events += 1;
+      last = Date.now();
+    });
+    const tick = setInterval(() => {
+      const quiet = Math.round((Date.now() - last) / 1000);
+      console.warn(`[stall] ${label}: ${events} events so far, nothing for ${quiet}s`);
+    }, 30_000);
+    return () => clearInterval(tick);
+  };
 
   const ctx: ToolContext = {
     read: async (url) => {
@@ -195,52 +250,77 @@ export async function step(runId: string): Promise<Progress | null> {
      * nothing.
      */
     search: async (terms, toolConfig) => {
-      const response = await anthropic.messages.stream({
-        model: SMALL,
-        max_tokens: 8000,
-        system:
-          "Run every search below, one at a time, using the search tool. Do not " +
-          "summarise or judge what comes back. A one line acknowledgement is all " +
-          "the answer needs to be.",
-        tools: [toolConfig as never],
-        messages: [
-          {
-            role: "user",
-            content: "Search for each of these:\n\n" + terms.map((t) => `- ${t}`).join("\n"),
-          },
-        ],
-      }).finalMessage();
+      /**
+       * ONE TERM PER CALL. The whole reason this is not one call.
+       *
+       * All five terms used to go in a single request, and the model ran them
+       * one after another inside that one conversation. Every search result
+       * block stays in the conversation, and the API bills input for each turn
+       * carrying everything before it. So five searches cost one, then two,
+       * then three, then four, then five copies of the pile.
+       *
+       * Measured on 2026-09-17: that call was billed 127,351 input tokens in
+       * thirty seconds, against a 150,000 ceiling for the whole run. The run
+       * died at the next stage with 158,090 spent, having done nothing wrong
+       * except ask five questions in one breath.
+       *
+       * Separate calls carry nothing of each other, so the cost is five times
+       * one search rather than fifteen. They run at the same time, so the
+       * thirty seconds does not become two and a half minutes. max_uses is
+       * forced to 1: a config built for five terms would otherwise let a single
+       * term search five times and rebuild the same pile inside one call.
+       */
+      const justOne = { ...(toolConfig as Record<string, unknown>), max_uses: 1 };
 
-      spent.input += response.usage.input_tokens;
-      spent.output += response.usage.output_tokens;
-      countCache(spent, response.usage);
+      const askFor = async (term: string) => {
+        const running = anthropic.messages.stream({
+          model: SMALL,
+          max_tokens: 1000,
+          system:
+            "Run the search below using the search tool. Do not summarise or " +
+            "judge what comes back. A one line acknowledgement is all the answer " +
+            "needs to be.",
+          tools: [justOne as never],
+          messages: [{ role: "user", content: `Search for: ${term}` }],
+        });
+        const stopSaying = sayIfStalled(running, `search ${term}`);
+        const response = await running.finalMessage().finally(stopSaying);
 
-      type SearchBlock = {
-        type: string;
-        input?: { query?: string };
-        /** An array of results, or an error object when the search failed. */
-        content?: { type?: string; url: string; title: string }[] | unknown;
-      };
+        spent.input += response.usage.input_tokens;
+        spent.output += response.usage.output_tokens;
+        countCache(spent, response.usage);
 
-      const found: { term: string; results: { url: string; title: string }[] }[] = [];
-      let query = terms[0] ?? "";
+        type SearchBlock = {
+          type: string;
+          input?: { query?: string };
+          /** An array of results, or an error object when the search failed. */
+          content?: { type?: string; url: string; title: string }[] | unknown;
+        };
 
-      for (const block of response.content as unknown as SearchBlock[]) {
-        if (block.type === "server_tool_use") {
-          query = String((block.input as { query?: string })?.query ?? query);
-        }
-        if (block.type === "web_search_tool_result") {
+        const results: { url: string; title: string }[] = [];
+        for (const block of response.content as unknown as SearchBlock[]) {
+          if (block.type !== "web_search_tool_result") continue;
           const raw = block.content;
           if (!Array.isArray(raw)) continue;   // an error block, not results
-          const results = raw
-            .filter((r) => r?.type === "web_search_result")
-            .map((r) => ({ url: r.url, title: r.title }));
-          const already = found.find((f) => f.term === query);
-          if (already) already.results.push(...results);
-          else found.push({ term: query, results });
+          for (const r of raw) {
+            if (r?.type === "web_search_result") results.push({ url: r.url, title: r.title });
+          }
         }
-      }
+        return { term, results };
+      };
 
+      // Different searches, so there is never a reason to wait for one before
+      // asking the next. A term that fails comes back with no results rather
+      // than taking the other four with it.
+      const settled = await Promise.allSettled(terms.map(askFor));
+      const found: { term: string; results: { url: string; title: string }[] }[] = [];
+      for (const [i, outcome] of settled.entries()) {
+        found.push(
+          outcome.status === "fulfilled"
+            ? outcome.value
+            : { term: terms[i] ?? "", results: [] },
+        );
+      }
       return found;
     },
 
@@ -258,7 +338,7 @@ export async function step(runId: string): Promise<Progress | null> {
        * and hands back the same object the non-streaming call did, so nothing
        * below changes.
        */
-      const response = await anthropic.messages.stream({
+      const running = anthropic.messages.stream({
         model: hard ? BIG : SMALL,
         max_tokens: maxTokens ?? 4000,
         /**
@@ -317,7 +397,9 @@ export async function step(runId: string): Promise<Progress | null> {
               : prompt,
           },
         ],
-      }).finalMessage();
+      });
+      const stopSaying = sayIfStalled(running, shape?.name ?? "prose");
+      const response = await running.finalMessage().finally(stopSaying);
 
       /**
        * Say what this one call cost, and what it was carrying.
