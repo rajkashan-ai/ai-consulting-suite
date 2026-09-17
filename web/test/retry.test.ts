@@ -214,6 +214,7 @@ test("an unparseable address does not crash the report", () => {
 import { advance, type RunState } from "../tools/competitor-tracker/stages.ts";
 import { aBusiness, fakeContext, type Recorded } from "./fake.ts";
 import { sourceOf } from "./tool-source.ts";
+import { resultCountry } from "../../Agents/Competitor Tracker/src/search-visibility.ts";
 
 const recorded = JSON.parse(
   readFileSync(join(import.meta.dirname, "fixtures", "shrewsbury.json"), "utf8"),
@@ -355,10 +356,31 @@ test("a listing for the wrong country is never fetched, however trusted the host
     .replace(/\/\/[^\n]*/g, " ")
     .replace(/\s+/g, " ");
 
+  /**
+   * The rule is now positive, and that is the point. It was "trusted, and not
+   * obviously foreign", which is a blocklist wearing a different coat: it
+   * passed booksy.com/en-us on the first run and a Melbourne Fresha page on
+   * 2026-09-17, because neither shape was on the list. A page has to SAY it is
+   * ours.
+   */
   assert.doesNotMatch(src, /\(isOurs \|\| trusted\)/, "a trusted host bypasses the country check again");
-  // The playbook may still vouch for a page being a listing. It may never
-  // vouch for the country: clearlyNotOurs is checked whoever serves the page.
-  assert.match(src, /looksLikeAListing && ours && !clearlyNotOurs/);
-  assert.match(src, /const ours = isOurs \|\| \(trusted && !clearlyNotOurs\)/);
-  assert.match(src, /en-us/, "nothing rules out an American listing");
+  assert.doesNotMatch(
+    src,
+    /const ours = [^;]*trusted/,
+    "trust vouches for the country again: it may only vouch for a page being a listing",
+  );
+  assert.match(
+    src,
+    /const ours = says === "GB"/,
+    "the country check is no longer a positive one",
+  );
+  assert.match(src, /looksLikeAListing && ours/, "the country is not checked before fetching");
+
+  // And the function it asks knows the shapes that have actually got through.
+  assert.equal(resultCountry("https://booksy.com/en-us/s/barber-shop/28689_shrewsbury"), "US");
+  assert.equal(
+    resultCountry("https://www.fresha.com/lp/en/bt/hair-salons/in/au-melbourne/st-albans"),
+    "AU",
+  );
+  assert.equal(resultCountry("https://booksy.com/en-gb/s/hair-salon/234686_st-albans"), "GB");
 });

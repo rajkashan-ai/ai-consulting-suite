@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { rightTrade, sellsWhatYouSell, tradeFromUrl } from "../tools/competitor-tracker/sift.ts";
+import { rightTrade, servesTheSamePeople, tradeFromUrl, whoFor } from "../tools/competitor-tracker/sift.ts";
 import { fetchable } from "../tools/identity.ts";
 import { matchTrade } from "../tools/categories.ts";
 import { resultCountry } from "../../Agents/Competitor Tracker/src/search-visibility.ts";
@@ -83,32 +83,57 @@ const A_CUT_ABOVE = [
   "Cleanse & Finish (short)",
 ];
 
-test("what they sell tells a barber from a salon when the name does not", () => {
-  assert.equal(
-    sellsWhatYouSell(["Mens Cut", "Beard Trim", "Skin Fade", "Boys Cut"], A_CUT_ABOVE),
-    false,
-    "a barber is an alternative to a ladies colour",
-  );
-  assert.equal(
-    sellsWhatYouSell(["Mens Cut", "Boys Cut", "Mens Cut & Beard"], A_CUT_ABOVE),
-    false,
-    "Rob's Cuts: filed as a hairdresser, sells men and boys only",
-  );
-  assert.equal(
-    sellsWhatYouSell(["Ladies Cut and Blow Dry", "Highlights", "Restyle"], A_CUT_ABOVE),
-    true,
-  );
-  // Sells both, so a customer really could go there instead.
-  assert.equal(sellsWhatYouSell(["Mens Cut", "Ladies Cut & Finish"], A_CUT_ABOVE), true);
+/**
+ * Service names copied from what one real St Albans listing printed on
+ * 2026-09-17, not written here. The first version of this filter passed every
+ * example I invented and refused every real salon, because A Cut Above sells
+ * "Ladies Cut & Finish" and Atelier sells "Women's Haircut": the same offer
+ * with no word in common.
+ */
+test("who a price list is written for", () => {
+  assert.equal(whoFor(A_CUT_ABOVE), "women");
+  assert.equal(whoFor(["Head Shave", "Beard Trim", "Hot Towel Shave"]), "men", "Picasso");
+  assert.equal(whoFor(["Head Shave", "Beard Trim", "Men's Haircut"]), "men", "Phoenix Barber Co");
+  assert.equal(whoFor(["Women's Haircut", "Hair Weaves", "Hair Coloring"]), "women", "Atelier");
+  assert.equal(whoFor(["Balayage", "Highlights", "Blow Dry"]), "women");
+
+  // "women" contains the letters of "men" and must never read as men.
+  assert.equal(whoFor(["Women's Haircut"]), "women");
+
+  // Both, and neither, are the same answer: we cannot tell them apart.
+  assert.equal(whoFor(["Men's Haircut", "Women's Haircut"]), null, "a unisex salon");
+  assert.equal(whoFor(["Standard Cut", "Normal Haircut", "Children's Haircut"]), null);
+  assert.equal(whoFor([]), null);
 });
 
-test("silence is not evidence of no overlap", () => {
-  // Most platforms print no services. Refusing on silence would empty the
-  // comparison for all of them, which is a worse answer than a wider one.
-  assert.equal(sellsWhatYouSell([], A_CUT_ABOVE), true);
-  assert.equal(sellsWhatYouSell(undefined, A_CUT_ABOVE), true);
-  // And we cannot ask the question at all when we do not know what they sell.
-  assert.equal(sellsWhatYouSell(["Mens Cut"], []), true);
+test("a men-only price list is not an alternative to a women's salon", () => {
+  // The case Raj named: BARBONE passed every name, url and location test.
+  assert.equal(
+    servesTheSamePeople(["Skin Fade", "Beard Trim", "Haircut & Beard"], A_CUT_ABOVE),
+    false,
+    "BARBONE",
+  );
+  // And the one filed as a hairdresser that serves men and boys only.
+  assert.equal(
+    servesTheSamePeople(["Men's Haircut", "Boys Cut", "Men's Cut & Beard"], A_CUT_ABOVE),
+    false,
+    "Rob's Cuts",
+  );
+  assert.equal(
+    servesTheSamePeople(["Women's Haircut", "Hair Weaves", "Hair Coloring"], A_CUT_ABOVE),
+    true,
+    "Atelier Salon & Spa is a real competitor and was refused by the first version",
+  );
+  // Sells to both, so a customer really could go there instead.
+  assert.equal(servesTheSamePeople(["Men's Haircut", "Women's Haircut"], A_CUT_ABOVE), true);
+});
+
+test("silence keeps them, because no evidence is not evidence", () => {
+  // Most listings print no services. Refusing on silence would empty the
+  // comparison for every platform that does not publish them.
+  assert.equal(servesTheSamePeople([], A_CUT_ABOVE), true);
+  assert.equal(servesTheSamePeople(undefined, A_CUT_ABOVE), true);
+  assert.equal(servesTheSamePeople(["Men's Haircut"], []), true);
 });
 
 test("a street address is never kept as a web address", () => {

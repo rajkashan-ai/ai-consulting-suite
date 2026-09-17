@@ -825,7 +825,6 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
        * the third time a country has got in through a door we did not list.
        */
       const says = resultCountry(url);
-      const clearlyNotOurs = says !== null && says !== "GB";
 
       /**
        * What the playbook is still for, now that it cannot vouch for a country.
@@ -839,9 +838,29 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
        * It does not earn anything about the country. An address that says
        * plainly it is somewhere else is refused whoever serves it.
        */
-      const ours = isOurs || (trusted && !clearlyNotOurs);
+      /**
+       * The page has to SAY it is ours, not merely fail to say it is not.
+       *
+       * This was `isOurs || (trusted && !clearlyNotOurs)`: a platform we had
+       * used before was accepted unless its url shouted another country. That
+       * is a blocklist wearing a different coat, and it is how a Melbourne page
+       * got in. Trust earns a platform the benefit of the doubt about whether a
+       * page is a listing. It earns nothing about where in the world it is.
+       *
+       * Checked against the two pages a working run actually used:
+       *   booksy.com/en-gb/s/hair-salon/234686_st-albans            GB
+       *   fresha.com/lp/en/tt/women's-haircuts/in/gb-st-albans      GB
+       * Both say so plainly, so nothing we depend on is lost.
+       *
+       * The country is asked of the page and not of each business on it. Only
+       * 12 of 58 rows on a real UK listing carry a postcode: "160-162 London
+       * Rd" and "The Maltings" are St Albans and say nothing a machine can use.
+       * Demanding a postcode per row would have dropped 46 real competitors to
+       * catch 2 Australians. A UK page lists UK businesses; that is the rule.
+       */
+      const ours = says === "GB";
 
-      if (looksLikeAListing && ours && !clearlyNotOurs && url.includes(town)) {
+      if (looksLikeAListing && ours && url.includes(town)) {
         wanted.add(r.url);
       }
     }

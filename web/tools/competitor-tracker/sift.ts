@@ -154,54 +154,64 @@ export function sift<T extends { name: string; url?: string | null; services?: s
   // already emptied the list. Skipped when we do not know what the customer
   // sells, which is a fact about us, not a reason to refuse everybody.
   if (!opts.sells?.length) return kept;
-  return kept.filter((r) => sellsWhatYouSell(r.services, opts.sells!));
+  return kept.filter((r) => servesTheSamePeople(r.services, opts.sells!));
 }
 
 /**
- * Who is selling what you sell.
+ * Who serves the same customers.
  *
- * Names lie and categories lie. BARBONE is a barber whose Booksy url says
- * nothing about trade. Rob's Cuts is filed as a hairdresser and, by its own
- * shopfront, cuts men and boys. A Cut Above publishes twelve prices and every
- * one of them is a ladies cut, a restyle or a cleanse and finish.
+ * Raj, 2026-09-17, on two businesses that passed every name and category test:
+ * "Barbone are barbers. Evident from their website. Rob's Cuts come up as
+ * hairdressers, but only have men / boys as customers." Names lie, categories
+ * lie. What a business lists for sale does not.
  *
- * What a business lists for sale does not lie, and it is also the actual
- * question: a competitor is somebody a customer could go to instead. Somebody
- * selling only beard trims is not an alternative to a ladies colour, whatever
- * either of them is called.
+ * THE FIRST VERSION OF THIS WAS WRONG AND PICKED NOBODY
+ * It compared the words in the service names and kept anyone sharing one. That
+ * passed the cases I made up and failed every real one: A Cut Above sells
+ * "Ladies Cut & Finish" and Atelier sells "Women's Haircut", which is the same
+ * offer with no word in common, so a genuine women's salon was refused and the
+ * run produced nothing. Testing an idea against examples you wrote yourself is
+ * testing your imagination.
  *
- * Matched on the words in the service names rather than the whole string,
- * because "Ladies Cut & Finish" and "Ladies Cut and Blow Dry" are the same
- * offer written twice. Stop words go, so "and" and "the" cannot make a barber
- * look like a salon.
+ * So: not word overlap, who they serve. Built from the eighty distinct service
+ * names one real St Albans listing printed, which is a small and stable
+ * vocabulary because it is how these shops write their own price lists.
  */
-const NOISE = new Set([
-  "and", "the", "with", "for", "a", "an", "of", "or", "&", "cut", "cuts",
-  "hair", "finish", "service", "services", "appointment", "booking",
-]);
+const FOR_MEN =
+  /\b(men|mens|gents?|beard|boys|skin ?fade|skinfade|hot towel|head shave|u16s?)\b/i;
 
-const wordsIn = (services: string[] | undefined): Set<string> =>
-  new Set(
-    (services ?? [])
-      .flatMap((s) => s.toLowerCase().split(/[^a-z]+/))
-      .filter((w) => w.length > 2 && !NOISE.has(w)),
-  );
+const FOR_WOMEN =
+  /\b(women|womens|ladies|lady|bridal|balayage|highlights?|blow ?dry|weaves?|wig|extensions?|perm|keratin|locs|braiding|curly)\b/i;
 
 /**
- * Does this business sell anything the customer sells?
+ * Men, women, or null for both and for neither.
  *
- * True when the listing printed nothing for them, because no evidence is not
- * evidence of no overlap, and refusing on silence would empty the comparison
- * for every platform that does not print services.
+ * Null is the common answer and the safe one. "Standard Cut", "Normal Haircut"
+ * and "Children's Haircut" say nothing about who walks in, and a shop selling
+ * both men's and women's services is genuinely an alternative to either.
  */
-export function sellsWhatYouSell(
+export function whoFor(services: string[] | undefined): "men" | "women" | null {
+  const all = (services ?? []).join(" | ");
+  if (!all.trim()) return null;
+  const men = FOR_MEN.test(all);
+  const women = FOR_WOMEN.test(all);
+  if (men === women) return null;   // both, or neither
+  return men ? "men" : "women";
+}
+
+/**
+ * Could their customers be your customers?
+ *
+ * True unless one is plainly for men and the other plainly for women. Silence
+ * keeps them: most listings print nothing, and refusing on no evidence would
+ * empty the comparison for every platform that does not publish services.
+ */
+export function servesTheSamePeople(
   theirs: string[] | undefined,
   yours: string[],
 ): boolean {
-  const them = wordsIn(theirs);
-  if (!them.size) return true;
-  const you = wordsIn(yours);
-  if (!you.size) return true;
-  for (const word of them) if (you.has(word)) return true;
-  return false;
+  const them = whoFor(theirs);
+  const you = whoFor(yours);
+  if (!them || !you) return true;
+  return them === you;
 }
