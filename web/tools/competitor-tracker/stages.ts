@@ -1642,10 +1642,15 @@ async function finding(
    * page which robots asks us not to read, while a booking profile for another
    * of the same five read cleanly at 12,000 characters. See tierOf.
    */
+  // Their address as the listing printed it, so a page naming their village
+  // counts as the right place. See judge.
+  const knownArea = (state.offered ?? []).find((o) => o.name === next)?.area ?? null;
+
   const { found } = judge(
     { name: next, why: "chosen by the owner" },
     bestFirst(seen[0]?.results ?? []),
     profile.town,
+    knownArea,
   );
 
   /**

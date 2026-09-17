@@ -1,5 +1,6 @@
 import type { SearchResult } from "../../../Agents/Competitor Tracker/src/search-visibility.ts";
-import { townSquashed } from "../place.ts";
+import { resultCountry } from "../../../Agents/Competitor Tracker/src/search-visibility.ts";
+import { townInUrl, townSquashed } from "../place.ts";
 import { normaliseName } from "../../../Agents/Competitor Tracker/src/normalise.ts";
 
 /**
@@ -129,10 +130,33 @@ export function proves(n: Named, results: SearchResult[], town: string): Checked
  * `proves` is this with the reasoning thrown away, so the two can never drift
  * apart and disagree about the same name.
  */
+/**
+ * The villages inside a town's area, taken from an address we already hold.
+ *
+ * "19-20 High St, Redbourn, St Albans" gives "redbourn". Not a list of places:
+ * the listing told us where this business is, so a page naming that place is a
+ * page about this business.
+ *
+ * Five letters or more, which drops "high", "road", "west" and keeps Redbourn,
+ * Markyate and Colney. A four letter street word appears in half the urls on
+ * the web; a village name does not.
+ */
+const placesIn = (area: string | null, town: string): string[] => {
+  if (!area) return [];
+  const skip = new Set([townSquashed(town), ...town.toLowerCase().split(/\s+/)]);
+  return area
+    .toLowerCase()
+    .split(/[,\s]+/)
+    .map((w) => w.replace(/[^a-z]/g, ""))
+    .filter((w) => w.length >= 5 && !skip.has(w));
+};
+
 export function judge(
   n: Named,
   results: SearchResult[],
   town: string,
+  /** Their address as the listing printed it, when we have one. */
+  knownArea: string | null = null,
 ): { found: Checked | null; verdict: Verdict } {
   const want = normaliseName(n.name);
   if (!want || want.length < 3) return { found: null, verdict: "nothing found" };
@@ -140,7 +164,18 @@ export function judge(
   // The same rule the listings gate uses, with the separators taken out. It
   // was `[^a-z]`, a third private copy of a question that has one answer, and
   // the copy that mattered was the one that was wrong. See tools/place.ts.
+  /**
+   * Both spellings, because a url hyphenates and this squashed.
+   *
+   * "St. Albans" squashed is "stalbans", and a Fresha profile at
+   * fresha.com/a/atelier-st-albans-abc was refused for naming the town in the
+   * form every platform actually writes. Same fault as the listings gate had
+   * this morning, in a second place, which is what tools/place.ts exists to
+   * stop: both forms come from there.
+   */
   const here = townSquashed(town);
+  const hyphenated = townInUrl(town);
+  const alsoHere = placesIn(knownArea, town);
 
   // The closest any result got, so a refusal can say which wall it hit.
   let closest: Verdict = results.length ? "not in a title" : "nothing found";
@@ -149,7 +184,23 @@ export function judge(
     const title = normaliseName(r.title ?? "");
     const url = (r.url ?? "").toLowerCase();
 
-    // Somebody else's country, whatever the name and the town say.
+    /**
+     * Somebody else's country, whatever the name and the town say.
+     *
+     * resultCountry is the one function that knows the shapes a platform
+     * writes a country in, and this had its own weaker pair of patterns. With
+     * the town check loosened to accept a business's own village, that gap let
+     * a Melbourne url through in testing: NOT_OURS does not know
+     * fresha.com/a/...-melbourne-... and the title carried no marker.
+     *
+     * Asked of the shared rule first, then the old patterns, so this is
+     * strictly tighter than it was.
+     */
+    const says = resultCountry(url);
+    if (says !== null && says !== "GB") {
+      if (title.includes(want)) closest = "another country";
+      continue;
+    }
     if (NOT_OURS.test(url) || WRONG_COUNTRY.test(r.title ?? "")) {
       if (title.includes(want)) closest = "another country";
       continue;
@@ -170,9 +221,31 @@ export function judge(
      * title is the strong signal; a .co.uk is the weak one. Either will do,
      * because the model was asked for this town and the name already matched.
      */
+    /**
+     * The village they are actually in counts as the right place.
+     *
+     * 2026-09-17. Atelier Salon & Spa's own Fresha profile came back top of the
+     * search and was refused:
+     *
+     *   fresha.com/lvp/atelier-salon-spa-high-street-redbourn-PV1x3b
+     *
+     * because the url says Redbourn and we had searched St. Albans. The listing
+     * had already told us where she is, "19-20 High St, Redbourn, St Albans",
+     * so we knew and did not use it. We read a Yelp page instead of a profile
+     * carrying her prices and rating.
+     *
+     * Matched in the url and not the title. A platform writes the url slug;
+     * anyone writes a title. A profile url like fresha.com/a/<slug> carries no
+     * country marker at all, so resultCountry cannot place it, and the place
+     * words are the only thing standing between us and a salon of the same
+     * name somewhere else. Testing this with a Melbourne url and a Redbourn
+     * title took it, which is exactly the hole a title can open.
+     */
     const rightPlace =
       url.includes(here) ||
+      url.includes(hyphenated) ||
       title.includes(here) ||
+      alsoHere.some((p) => url.includes(p)) ||
       url.includes(".co.uk") ||
       url.includes("/en-gb/");
     if (!rightPlace) continue;

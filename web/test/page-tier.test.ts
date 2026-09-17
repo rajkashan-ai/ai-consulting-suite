@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { bestFirst, tierOf } from "../tools/competitor-tracker/where.ts";
 import { sourceOf } from "./tool-source.ts";
+import { judge } from "../tools/competitor-tracker/naming.ts";
 
 /**
  * 2026-09-17. Five competitors chosen, two readable. The lookup took a Cylex
@@ -53,4 +54,62 @@ test("the lookup ranks before it judges", () => {
   // judge takes the first result that really is this business in this town, so
   // ranking after it would change nothing.
   assert.match(sourceOf("competitor-tracker"), /bestFirst\(seen\[0\]\?\.results \?\? \[\]\)/);
+});
+
+// ---------------------------------------------------------------------------
+// Where inside the country, not which country
+// ---------------------------------------------------------------------------
+
+const ATELIER = { name: "Atelier Salon & Spa", why: "chosen by the owner" };
+const HER_ADDRESS = "19-20 High St, Redbourn, St Albans";
+const one = (url: string, title: string) => [{ url, title }];
+
+test("a business's own village counts as the right place", () => {
+  /**
+   * 2026-09-17. Her own Fresha profile came back top of the search and was
+   * refused because the url says Redbourn and we had searched St. Albans:
+   *
+   *   fresha.com/lvp/atelier-salon-spa-high-street-redbourn-PV1x3b
+   *
+   * The listing had already told us "19-20 High St, Redbourn, St Albans". We
+   * knew where she was and did not use it, and read a Yelp page instead of a
+   * profile carrying her prices and her rating.
+   */
+  const url = "https://www.fresha.com/lvp/atelier-salon-spa-high-street-redbourn-PV1x3b";
+  assert.equal(judge(ATELIER, one(url, "Atelier Salon & Spa - Redbourn"), "St. Albans").found, null);
+  assert.equal(
+    judge(ATELIER, one(url, "Atelier Salon & Spa - Redbourn"), "St. Albans", HER_ADDRESS).found?.url,
+    url,
+  );
+});
+
+test("the town is matched in both spellings a url might use", () => {
+  // "St. Albans" squashed is "stalbans" and every platform writes "st-albans".
+  // The same fault the listings gate had this morning, in a second place.
+  const url = "https://www.fresha.com/a/atelier-st-albans-abc";
+  assert.equal(judge(ATELIER, one(url, "Atelier Salon & Spa"), "St. Albans", HER_ADDRESS).found?.url, url);
+});
+
+test("loosening the town did not loosen the country", () => {
+  /**
+   * Raj: keep the country strict. Caught in testing before it ran: judge had
+   * its own weaker country patterns and never used resultCountry, so a
+   * Melbourne url with a Redbourn title was taken. The place words are matched
+   * in the url now, which a platform writes, not the title, which anyone does.
+   */
+  for (const [url, title] of [
+    ["https://www.fresha.com/a/hair-by-tay-melbourne-17-arabin-street-owt9mkgq", "Atelier Salon & Spa Redbourn"],
+    ["https://booksy.com/en-us/1_atelier_hair-salon_2_st-albans", "Atelier Salon & Spa"],
+    // The same name in another English town is not her either.
+    ["https://www.fresha.com/a/atelier-salon-spa-harrogate-xyz", "Atelier Salon & Spa"],
+  ] as const) {
+    assert.equal(judge(ATELIER, one(url, title), "St. Albans", HER_ADDRESS).found, null, url);
+  }
+});
+
+test("a street word is too common to place anybody", () => {
+  // "high", "road" and "west" appear in half the urls on the web. Five letters
+  // keeps Redbourn, Markyate and Colney and drops those.
+  const url = "https://www.fresha.com/a/someone-else-high-street-harrogate";
+  assert.equal(judge(ATELIER, one(url, "Atelier Salon & Spa"), "St. Albans", HER_ADDRESS).found, null);
 });
