@@ -4,6 +4,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { advance, type RunState, type Stage } from "../tools/competitor-tracker/stages.ts";
 import { aBusiness, fakeContext, type Recorded } from "./fake.ts";
+import { ASK_FIRST } from "../tools/competitor-tracker/stages.ts";
+
+const ASKING_OFF = { skip: ASK_FIRST ? false : "asking is off: see ASK_FIRST in stages.ts" };
 
 /**
  * The whole research pipeline, without the web or the model.
@@ -40,10 +43,13 @@ async function runTo(
 
 test("the whole thing runs end to end, in the right order", async () => {
   /**
-   * The front door is asking who competes. This fixture's model names nobody,
-   * so the run hands over to the crawler, which is why "searching" appears
-   * before "listings": that is the fallback working, not a detour.
+   * A run starts in "searching", which is the database default, so that stage
+   * is where it begins rather than somewhere it arrives. With asking off it
+   * leaves for listings in the same step, so "searching" never appears as a
+   * destination. Asserted against the canonical order rather than a fixed
+   * list, so turning asking back on does not make this red.
    */
+  const CANON = ["searching", "listings", "choosing", "reading", "writing"];
   const { seen, stage } = await runTo("writing");
 
   /**
@@ -57,14 +63,20 @@ test("the whole thing runs end to end, in the right order", async () => {
    * out of turn.
    */
   const order = seen.filter((s, i) => s !== seen[i - 1]);
+
+  // Every stage it visited is in the canonical list, in canonical order, and
+  // it got all the way to writing. A skipped stage or one out of turn fails.
+  const places = order.map((s) => CANON.indexOf(s)).filter((i) => i >= 0);
   assert.deepEqual(
-    order.slice(0, 5),
-    ["searching", "listings", "choosing", "reading", "writing"],
+    places,
+    [...places].sort((a, b) => a - b),
+    `out of order: ${order.join(" -> ")}`,
   );
+  assert.ok(order.includes("writing"), `never reached writing: ${order.join(" -> ")}`);
   assert.notEqual(stage, "failed");
 });
 
-test("when the model names competitors, the crawler never runs", async () => {
+test("when the model names competitors, the crawler never runs", ASKING_OFF, async () => {
   // The point of the whole change: discovery stops being five searches and two
   // listing pages. On 2026-09-16 that crawl took 8 minutes 41 seconds.
   const named: Recorded = {

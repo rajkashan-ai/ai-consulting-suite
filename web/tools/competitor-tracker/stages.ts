@@ -259,6 +259,30 @@ export type Step = {
 const PAGES_PER_STEP = 8;
 
 /**
+ * Ask a model who the competitors are before crawling? No.
+ *
+ * It sounds right and it was asked for, because a chat prompt answers "find me
+ * this company's competitors" in seconds. In this pipeline it has never worked
+ * once. Every competitor-tracker run on record:
+ *
+ *   77274934  confirmed n/a  crawler ran
+ *   6420cf60  confirmed n/a  crawler ran
+ *   4398d295  confirmed 1    crawler ran
+ *   bf3cc5ee  confirmed 0    crawler ran
+ *   12d723ea  confirmed 0    crawler ran
+ *
+ * It needs three confirmed names to skip the crawl and has produced at most
+ * one, so the crawl runs every time and this is a prefix rather than a fast
+ * path. What that prefix costs, same business, same input: 41.9 seconds, then
+ * 99.7, then 133.5, then 612.4, then one run that reached 19.5 minutes before
+ * it was stopped by hand. In tokens, 282 one run and 33,193 the next.
+ *
+ * It killed three runs and has never saved one. Off until something changes
+ * that, and `name()` is left in place so turning it back on is this one word.
+ */
+export const ASK_FIRST = false;
+
+/**
  * How many sentences may be mended before the card is refused.
  *
  * One per pass, so a fix cannot break something else. Five is more than any run
@@ -435,6 +459,23 @@ async function name(state: RunState, business: Business, ctx: ToolContext): Prom
    * because forcing one alongside web search stops the model searching before
    * it answers. So the names are read out of the reply instead.
    */
+  /**
+   * Straight to the crawler, without asking a model first.
+   *
+   * Everything above this line stays: the profile check, and the shortcut that
+   * skips discovery entirely when we already know who they compete with. That
+   * shortcut is the saving this tool was built around and it has nothing to do
+   * with asking.
+   *
+   * It is only the question below that is off. See ASK_FIRST.
+   */
+  if (!ASK_FIRST) {
+    // Straight into the crawler, not a step that returns to be dispatched into
+    // it. The first version handed back `stage: "searching"` and did no work,
+    // which is a whole step spent deciding not to ask.
+    return search({ ...state, profile, triedNaming: true }, business, ctx);
+  }
+
   const spoken = (await ctx.think({
     system:
       "You find the local businesses that compete with a UK small business. " +

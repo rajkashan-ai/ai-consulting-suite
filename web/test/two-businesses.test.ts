@@ -8,6 +8,9 @@ import { buildBody, hollow } from "../tools/competitor-tracker/document.ts";
 import { aBusiness, fakeContext, type Recorded } from "./fake.ts";
 import type { Business } from "../tools/types.ts";
 import { sourceOf } from "./tool-source.ts";
+import { ASK_FIRST } from "../tools/competitor-tracker/stages.ts";
+
+const ASKING_OFF = { skip: ASK_FIRST ? false : "asking is off: see ASK_FIRST in stages.ts" };
 
 /**
  * The whole change, end to end, on the two businesses it was built for.
@@ -133,7 +136,7 @@ function fakeDb(competitors: Record<string, unknown>[] = [], lastBody: unknown =
 // The barber
 // ---------------------------------------------------------------------------
 
-test("the barber: first run asks, checks the names, and produces a card", async () => {
+test("the barber: first run asks, checks the names, and produces a card", ASKING_OFF, async () => {
   const { stage, state, calls } = await runFrom(theBarber, named(REAL));
 
   assert.equal(stage, "done", `ended at ${stage}: ${state.reason ?? ""}`);
@@ -259,7 +262,7 @@ test("the first run never claims anything changed", async () => {
   assert.deepEqual(state.moved ?? [], []);
 });
 
-test("both businesses have their set written down for next time", async () => {
+test("both businesses have their set written down for next time", ASKING_OFF, async () => {
   for (const business of [theBarber, theSalon]) {
     const { state } = await runFrom(business, named(REAL));
     const { db, saved } = fakeDb();
@@ -277,7 +280,7 @@ test("both businesses have their set written down for next time", async () => {
  * crawler's searches overwrote `seen`, so by the time anybody asked why only
  * one name of eight had verified, the searches and their results were gone.
  */
-test("the verdicts survive, even when the run falls back to the crawler", async () => {
+test("the verdicts survive, even when the run falls back to the crawler", ASKING_OFF, async () => {
   // Names the recorded results cannot confirm, so it drops below the threshold
   // and hands over, which is exactly when the record used to disappear.
   const cannotVerify: Recorded = {
@@ -310,7 +313,7 @@ test("the verdicts survive, even when the run falls back to the crawler", async 
   assert.ok(state.nameChecks?.length, "the name checks were lost to the crawler's searches");
 });
 
-test("a verdict says which wall the name hit, not just that it failed", async () => {
+test("a verdict says which wall the name hit, not just that it failed", ASKING_OFF, async () => {
   // Four outcomes need four different fixes. "No such business" and "our proof
   // is too strict" look identical in a count and are not the same problem.
   const mixed: Recorded = {
@@ -341,7 +344,7 @@ test("a verdict says which wall the name hit, not just that it failed", async ()
  * that might have changed" in the search list and stable facts in the answer
  * list, and we were asking the first as though it were the second.
  */
-test("the naming call searches rather than recalling", async () => {
+test("the naming call searches rather than recalling", ASKING_OFF, async () => {
   const { ctx, calls } = fakeContext(named(REAL));
   await advance("searching", {}, theBarber, ctx);
 

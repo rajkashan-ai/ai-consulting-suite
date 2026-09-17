@@ -190,19 +190,25 @@ export async function step(runId: string): Promise<Progress | null> {
   const RETRIES = 1;
 
   /**
-   * How long a stream may say nothing before we give up on it.
+   * How long one stream may run in total before we end it.
    *
-   * The client timeout above does NOT cover this, and believing it did cost a
-   * measurement run. It guards the HTTP request; once a stream is open and
-   * bytes are flowing it does not re-arm, so a stream that goes quiet halfway
-   * hangs for ever. On 2026-09-17 the naming call took 402 events, went silent,
-   * and sat there for 19.5 minutes with `timeout: 180000` set on the client.
+   * Measured on the clock, not on silence, and the difference matters. The
+   * client `timeout` above does not cover a stream at all: it guards the HTTP
+   * request and does not re-arm once bytes are flowing, so a long stream runs
+   * as long as it likes with `timeout: 180000` set.
    *
-   * 120 seconds because the longest real gap measured between events on a call
-   * that went on to finish was 95 seconds, while a web search was running. One
-   * observation, so this is a floor with a margin, not a settled number.
+   * The first version of this ended a stream that had said nothing for 120
+   * seconds, and it was wrong. The run that prompted it looked hung and was
+   * not: the event count climbed the whole time, 38 to 146 to 261 to 316 to
+   * 402, with gaps of 154, 171, 201 and 231 seconds that each resumed. Ending
+   * it on silence would have killed a working call, and only counting the
+   * events told the two apart.
+   *
+   * 300 seconds bounds a runaway without touching anything measured. With the
+   * naming call out of the path the longest real call is the listings read at
+   * about 50 seconds.
    */
-  const QUIET_SECONDS = 120;
+  const RUN_SECONDS = 300;
 
   const anthropic = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY,
@@ -229,17 +235,17 @@ export async function step(runId: string): Promise<Progress | null> {
       events += 1;
       last = Date.now();
     });
+    const began = Date.now();
     const tick = setInterval(() => {
       const quiet = Math.round((Date.now() - last) / 1000);
-      if (quiet >= QUIET_SECONDS) {
-        // Ending it is the point. This used to only print, and printing is what
-        // it did for nineteen and a half minutes while a run sat there.
-        console.warn(`[stall] ${label}: silent for ${quiet}s after ${events} events. Ending it.`);
+      const running = Math.round((Date.now() - began) / 1000);
+      if (running >= RUN_SECONDS) {
+        console.warn(`[stall] ${label}: ${running}s and ${events} events. Ending it.`);
         clearInterval(tick);
         stream.abort();
         return;
       }
-      console.warn(`[stall] ${label}: ${events} events so far, nothing for ${quiet}s`);
+      console.warn(`[stall] ${label}: ${events} events in ${running}s, nothing for ${quiet}s`);
     }, 30_000);
     return () => clearInterval(tick);
   };
