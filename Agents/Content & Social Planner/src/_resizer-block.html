@@ -1,0 +1,24 @@
+        <h2 class="t-section">Resize a photo</h2>
+        <p class="t-doc-sm">You took the photo each post asked for. Drop it here and get it at the right size for every place it is going. It never leaves your computer.</p>
+        <div class="drop" id="rz-drop">
+          <p class="t-row"><strong>Drop a photo here</strong></p>
+          <p class="t-meta">or choose one</p>
+          <input type="file" id="rz-file" accept="image/*" />
+        </div>
+        <div class="card hide" id="rz-work"><div class="card__body">
+          <p class="t-kind">What stays in the picture</p>
+          <p class="t-doc-sm">We find what the photo is of, whether that is a face or a boiler, and keep it in. <strong>Drag the circle</strong> if we have picked the wrong thing, and every size follows it.</p>
+          <canvas class="cropper" id="rz-shot"></canvas>
+          <div class="inset hide" id="rz-tight"><p class="t-row" id="rz-tightText"></p></div>
+          <p class="t-kind">The sizes</p>
+          <div class="sizes" id="rz-formats"></div>
+          <p class="t-meta" id="rz-same"></p>
+          <div class="card__foot">
+            <p class="t-meta u-push" id="rz-where"></p>
+            <button class="btn--ghost" type="button" id="rz-cancel">Cancel</button>
+            <button class="btn" type="button" id="rz-go">Resize and save</button>
+          </div>
+          <div class="inset hide" id="rz-status"><p class="t-row" id="rz-statusText"></p></div>
+          <div class="results" id="rz-out"></div>
+        </div></div>
+

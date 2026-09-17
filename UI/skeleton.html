@@ -1,0 +1,77 @@
+<title>shrewsburybarber.co.uk &middot; Competitor Tracker</title>
+<link rel="stylesheet" href="/app.css">
+<style>
+  /* Skeleton furniture only. Deliberately not in app.css: it exists to be
+     removed the moment the data lands, and nothing in the product uses it. */
+  .sk{display:inline-block;height:1em;vertical-align:-.15em;border-radius:4px;
+      background:linear-gradient(90deg,var(--card-2) 25%,var(--line) 37%,var(--card-2) 63%);
+      background-size:400% 100%;animation:sk 1.4s ease infinite}
+  @keyframes sk{0%{background-position:100% 50%}100%{background-position:0 50%}}
+  @media (prefers-reduced-motion:reduce){.sk{animation:none}}
+  .waiting{display:flex;gap:var(--s3);align-items:baseline;flex-wrap:wrap}
+  .waiting__clock{font-variant-numeric:tabular-nums;font-weight:600}
+</style>
+<div class="app">
+  <header><span class="logo"><i></i>Suite</span><span class="t-meta">shrewsburybarber.co.uk</span></header>
+  <main><section>
+    <div class="band band--a band--first"><div class="band__in">
+      <h1 class="t-page">Competitor Tracker</h1>
+      <p class="t-lead">Reading the businesses you are up against. Nothing here is guessed, so it takes a moment.</p>
+      <div class="strip waiting" role="status" aria-live="polite">
+        <strong id="step">Starting</strong>
+        <span class="t-meta" id="detail">We are reading your website first, then your competitors.</span>
+        <span class="t-meta waiting__clock" id="clock">0s</span>
+      </div>
+      <div class="stats">
+        <div class="stat"><span class="stat__figure"><span class="sk" style="width:3ch"></span></span><span class="stat__label t-kind">Reviews about you</span></div>
+        <div class="stat"><span class="stat__figure"><span class="sk" style="width:3ch"></span></span><span class="stat__label t-kind">Searches you come up in</span></div>
+        <div class="stat"><span class="stat__figure"><span class="sk" style="width:3ch"></span></span><span class="stat__label t-kind">Your headline price</span></div>
+      </div>
+    </div></div>
+    <div class="band band--b"><div class="band__in"><div class="pair">
+      <div class="pair__col"><h3 class="t-card card__head">Where you are winning</h3>
+        <ul><li><span class="sk" style="width:80%"></span></li><li><span class="sk" style="width:65%"></span></li></ul></div>
+      <div class="pair__col"><h3 class="t-card card__head">Where they are winning</h3>
+        <ul><li><span class="sk" style="width:75%"></span></li><li><span class="sk" style="width:60%"></span></li></ul></div>
+    </div></div></div>
+    <div class="band band--a"><div class="band__in">
+      <h2 class="t-section">The five, side by side</h2>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Business</th><th>Prices published</th><th>Where</th><th>Headline</th></tr></thead>
+        <tbody><tr><td><span class="sk" style="width:9ch"></span></td><td><span class="sk" style="width:12ch"></span></td><td><span class="sk" style="width:11ch"></span></td><td><span class="sk" style="width:4ch"></span></td></tr><tr><td><span class="sk" style="width:9ch"></span></td><td><span class="sk" style="width:12ch"></span></td><td><span class="sk" style="width:11ch"></span></td><td><span class="sk" style="width:4ch"></span></td></tr><tr><td><span class="sk" style="width:9ch"></span></td><td><span class="sk" style="width:12ch"></span></td><td><span class="sk" style="width:11ch"></span></td><td><span class="sk" style="width:4ch"></span></td></tr><tr><td><span class="sk" style="width:9ch"></span></td><td><span class="sk" style="width:12ch"></span></td><td><span class="sk" style="width:11ch"></span></td><td><span class="sk" style="width:4ch"></span></td></tr><tr><td><span class="sk" style="width:9ch"></span></td><td><span class="sk" style="width:12ch"></span></td><td><span class="sk" style="width:11ch"></span></td><td><span class="sk" style="width:4ch"></span></td></tr><tr><td><span class="sk" style="width:9ch"></span></td><td><span class="sk" style="width:12ch"></span></td><td><span class="sk" style="width:11ch"></span></td><td><span class="sk" style="width:4ch"></span></td></tr>
+        </tbody></table></div>
+    </div></div>
+    <div class="band band--dark"><div class="band__in">
+      <h2 class="t-section">Three ways to get ahead</h2>
+      <div class="actions"><div class="action"><span class="action__no">1</span><h3 class="t-sub"><span class="sk" style="width:16ch"></span></h3>
+         <p class="action__why t-doc u-wide"><span class="sk" style="width:90%"></span></p></div><div class="action"><span class="action__no">2</span><h3 class="t-sub"><span class="sk" style="width:16ch"></span></h3>
+         <p class="action__why t-doc u-wide"><span class="sk" style="width:90%"></span></p></div><div class="action"><span class="action__no">3</span><h3 class="t-sub"><span class="sk" style="width:16ch"></span></h3>
+         <p class="action__why t-doc u-wide"><span class="sk" style="width:90%"></span></p></div></div>
+    </div></div>
+    <div class="band band--a band--last"><div class="band__in">
+      <h2 class="t-section">What we looked at</h2>
+      <div class="pair">
+        <div class="pair__col"><h3 class="t-card card__head">Checked</h3><ul><li><span class="sk" style="width:70%"></span></li><li><span class="sk" style="width:55%"></span></li></ul></div>
+        <div class="pair__col"><h3 class="t-card card__head">Not checked</h3><ul><li><span class="sk" style="width:66%"></span></li><li><span class="sk" style="width:50%"></span></li></ul></div>
+      </div>
+    </div></div>
+  </section></main>
+</div>
+<script>
+  var t0 = Date.now();
+  setInterval(function(){
+    var s = Math.round((Date.now() - t0) / 1000);
+    document.getElementById('clock').textContent = s < 60 ? s + 's' : Math.floor(s/60) + 'm ' + (s % 60) + 's';
+  }, 1000);
+  (function poll(){
+    fetch('/api/status?url=' + encodeURIComponent(new URLSearchParams(location.search).get('url') || ''))
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (j.state === 'ready') { location.reload(); return; }
+        if (j.step) document.getElementById('step').textContent = j.step;
+        if (j.of) document.getElementById('detail').textContent = 'Step ' + j.done + ' of ' + j.of + '.';
+        setTimeout(poll, 1000);
+      })
+      .catch(function(){ setTimeout(poll, 2000); });
+  })();
+</script>

@@ -1,0 +1,15 @@
+{
+  "note": "Real results from a live search on 2026-09-15 for the terms buildSearchTerms produced. In production the agent calls the web_search API with searchToolConfig(profile), which sets user_location so the country is right. Held here as a file so a run is reproducible and the pipeline can be proven without a live search on every run.",
+  "seen": [
+    { "term": "barber shop Shrewsbury Shropshire UK", "results": [
+      { "url": "https://www.fresha.com/lvp/the-barber-shop-shrewsbury-smithfield-road-VEy9er", "title": "The Barber Shop Shrewsbury - 37 Smithfield Rd, Shrewsbury SY1 1PW" },
+      { "url": "https://www.facebook.com/hincesuk/", "title": "Hinces | Shrewsbury | Facebook" },
+      { "url": "https://booksy.com/en-gb/s/barber/1227928_shrewsbury", "title": "Barbers near me in Shrewsbury - TOP 10 barbershops" },
+      { "url": "https://booksy.com/en-gb/42390_no-1-barbers_barber_1227928_shrewsbury", "title": "NO.1 BARBERS - Shrewsbury - Book Online - Prices, Reviews, Photos" },
+      { "url": "https://booksy.com/en-gb/12884_hinces_barber_1227928_shrewsbury", "title": "HINCES - Shrewsbury - Book Online - Prices, Reviews, Photos" },
+      { "url": "https://booksy.com/en-gb/117692_branded-barbers-shrewsbury_barber_1227928_shrewsbury", "title": "Branded Barbers Shrewsbury - Shrewsbury - Book Online" },
+      { "url": "https://booksy.com/en-us/723622_matty-ice-edgemere-barbershop_barber-shop_22487_shrewsbury", "title": "Matty Ice (Edgemere Barbershop) - Shrewsbury" },
+      { "url": "https://booksy.com/en-us/s/barber-shop/22487_shrewsbury", "title": "Barbershops Near Me in Shrewsbury: TOP 20" }
+    ]}
+  ]
+}

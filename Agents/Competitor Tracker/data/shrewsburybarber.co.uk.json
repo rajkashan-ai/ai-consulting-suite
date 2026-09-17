@@ -1,0 +1,194 @@
+{
+  "input": "https://shrewsburybarber.co.uk/",
+  "ranAt": "2026-09-15T14:15:23.547Z",
+  "run": {
+    "result": {
+      "ok": true,
+      "profile": {
+        "name": "The Barber Shop Shrewsbury",
+        "trade": "barber",
+        "town": "Shrewsbury",
+        "country": "GB",
+        "services": [
+          "Clipper Cut",
+          "Classic Cut",
+          "Beard Trim",
+          "Classic Cut & Beard Trim",
+          "Beard Sculpting"
+        ],
+        "website": "https://www.shrewsburybarber.co.uk"
+      },
+      "services": [
+        {
+          "name": "Clipper Cut",
+          "price": 8
+        },
+        {
+          "name": "Classic Cut",
+          "price": 15
+        },
+        {
+          "name": "Beard Trim",
+          "price": 8
+        },
+        {
+          "name": "Classic Cut & Beard Trim",
+          "price": 20
+        },
+        {
+          "name": "Beard Sculpting",
+          "price": 20
+        }
+      ],
+      "street": "37 Smithfield Road",
+      "postcode": "SY1 1PW",
+      "anchor": {
+        "name": "Classic Cut",
+        "price": 15
+      },
+      "anchorNote": "Classic Cut £15 — the core job for a barber",
+      "competitors": [
+        {
+          "name": "NO.1 BARBERS",
+          "url": "https://booksy.com/en-gb/42390_no-1-barbers_barber_1227928_shrewsbury",
+          "reviewCount": 607,
+          "rating": 5,
+          "match": {
+            "name": "Haircut",
+            "low": 18,
+            "high": 18,
+            "tiers": 1
+          }
+        },
+        {
+          "name": "HINCES",
+          "url": "https://booksy.com/en-gb/12884_hinces_barber_1227928_shrewsbury",
+          "reviewCount": 2461,
+          "rating": 5,
+          "match": {
+            "name": "Classic Haircut",
+            "low": 15,
+            "high": 35,
+            "tiers": 5
+          }
+        },
+        {
+          "name": "Branded Barbers Shrewsbury",
+          "url": "https://booksy.com/en-gb/117692_branded-barbers-shrewsbury_barber_1227928_shrewsbury",
+          "reviewCount": 173,
+          "rating": 5,
+          "match": {
+            "name": "Adult Cut",
+            "low": 15,
+            "high": 20,
+            "tiers": 2
+          }
+        }
+      ],
+      "plan": {
+        "shape": "platform-led",
+        "usable": [
+          {
+            "host": "booksy.com",
+            "access": "readable",
+            "checkedOn": "2026-09-15",
+            "gives": [
+              "prices",
+              "review count",
+              "rating",
+              "review dates"
+            ]
+          },
+          {
+            "host": "fresha.com",
+            "access": "readable",
+            "checkedOn": "2026-09-15",
+            "gives": [
+              "prices",
+              "listing presence"
+            ]
+          }
+        ],
+        "blocked": [],
+        "cannotProceed": null
+      },
+      "discoveryNote": "5 searches, 3 found on booksy.com and fresha.com",
+      "readOn": "2026-09-15",
+      "snapshot": {
+        "ranAt": "2026-09-15T14:15:23.546Z",
+        "ownHeadlinePrice": 15,
+        "competitors": [
+          {
+            "name": "NO.1 BARBERS",
+            "reviewCount": 607,
+            "rating": 5,
+            "headlinePrice": 18,
+            "unread": false
+          },
+          {
+            "name": "HINCES",
+            "reviewCount": 2461,
+            "rating": 5,
+            "headlinePrice": 35,
+            "unread": false
+          },
+          {
+            "name": "Branded Barbers Shrewsbury",
+            "reviewCount": 173,
+            "rating": 5,
+            "headlinePrice": 20,
+            "unread": false
+          }
+        ]
+      }
+    },
+    "snapshot": {
+      "ranAt": "2026-09-15T14:15:23.546Z",
+      "ownHeadlinePrice": 15,
+      "competitors": [
+        {
+          "name": "NO.1 BARBERS",
+          "reviewCount": 607,
+          "rating": 5,
+          "headlinePrice": 18,
+          "unread": false
+        },
+        {
+          "name": "HINCES",
+          "reviewCount": 2461,
+          "rating": 5,
+          "headlinePrice": 35,
+          "unread": false
+        },
+        {
+          "name": "Branded Barbers Shrewsbury",
+          "reviewCount": 173,
+          "rating": 5,
+          "headlinePrice": 20,
+          "unread": false
+        }
+      ]
+    },
+    "changes": [
+      {
+        "kind": "reviews",
+        "name": "NO.1 BARBERS",
+        "from": 567,
+        "to": 607,
+        "by": 40
+      },
+      {
+        "kind": "price",
+        "name": "HINCES",
+        "from": 32,
+        "to": 35,
+        "by": 3
+      },
+      {
+        "kind": "now-readable",
+        "name": "Branded Barbers Shrewsbury"
+      }
+    ],
+    "comparedTo": "2026-09-07T14:15:20.451Z"
+  }
+}

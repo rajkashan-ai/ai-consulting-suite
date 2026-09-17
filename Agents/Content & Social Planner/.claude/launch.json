@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "workspace",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8777", "--directory", "/Users/rajashan/Desktop/CLAUDE/AI Consulting for Small Businesses/UI"],
+      "port": 8777
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+<title>The Barber Shop Shrewsbury &middot; Competitor Tracker</title>
+<link rel="stylesheet" href="/app.css">
+<div class="app">
+  <!-- Bare <header>, styled by element in app.css, and no .mock banner: that
+       class is defined in the mockup's own <style> block and is documented
+       there as furniture that will never ship. A renderer that used it would
+       be carrying mockup scaffolding into the product. Found by the test
+       below that asserts every class here exists in the stylesheet. -->
+  <header><span class="logo"><i></i>Suite</span><span class="t-meta">The Barber Shop Shrewsbury</span></header>
+  <main><section>
+
+    <div class="band band--a band--first"><div class="band__in">
+      <h1 class="t-page">Competitor Tracker</h1>
+      <p class="t-lead">Where you stand against the five nearest you in Shrewsbury.</p>
+      <div class="stats">
+        <div class="stat stat--bad">
+          <span class="stat__figure">0<span class="unit"> of 3241</span></span>
+          <span class="stat__label t-kind">Reviews about you</span>
+          <span class="stat__note t-meta">counted on the platforms we can read</span>
+        </div>
+        <div class="stat">
+          <span class="stat__figure">&mdash;</span>
+          <span class="stat__label t-kind">Searches you come up in</span>
+          <span class="stat__note t-meta">Search is not built yet</span>
+        </div>
+        <div class="stat">
+          <span class="stat__figure">15</span>
+          <span class="stat__label t-kind">Your headline price</span>
+          <span class="stat__note t-meta">Median across the five is £20</span>
+        </div>
+      </div>
+      <div class="strip">
+        <strong>Checked 2026-09-15</strong>
+        <span>We look once a week, so this is the same answer you will see all week.</span>
+        <span class="t-meta">Runs once a week</span>
+      </div>
+    </div></div>
+
+    <div class="band band--b"><div class="band__in">
+      <div class="pair">
+        <div class="pair__col">
+          <h3 class="t-card card__head"><span class="t-kind kind--good kind--block">Ahead</span>Where you are winning</h3>
+          <ul><li>Nothing can be said yet<span class="note">This needs the five competitors read</span></li></ul>
+        </div>
+        <div class="pair__col">
+          <h3 class="t-card card__head"><span class="t-kind kind--bad kind--block">Behind</span>Where they are winning</h3>
+          <ul><li>Nothing can be said yet<span class="note">This needs the five competitors read</span></li></ul>
+        </div>
+      </div>
+    </div></div>
+
+    <div class="band band--a"><div class="band__in">
+      <h2 class="t-section">The five, side by side</h2>
+      <p class="t-doc-sm">Your own prices came off your price page in this run. Competitor rows are filled once discovery is built.</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Business</th><th>Prices published</th><th>Where</th><th>Headline</th></tr></thead>
+        <tbody>
+          <tr class="row-you"><td><strong>You</strong></td>
+            <td><ul class="cell-list"><li>Clipper Cut &pound;8</li><li>Classic Cut &pound;15</li><li>Beard Trim &pound;8</li><li>Classic Cut &amp; Beard Trim &pound;20</li><li>Beard Sculpting &pound;20</li></ul></td>
+            <td>A full menu on your own site<span class="note">shrewsburybarber.co.uk &middot; 2026-09-15</span></td>
+            <td>&pound;15</td></tr>
+          <tr><td><strong>NO.1 BARBERS</strong></td><td>&pound;18</td><td>607 reviews at 5<span class="note">booksy.com · 2026-09-15</span></td><td>&pound;18</td></tr>
+          <tr><td><strong>HINCES</strong></td><td>&pound;35</td><td>2,461 reviews at 5<span class="note">booksy.com · 2026-09-15</span></td><td>&pound;35</td></tr>
+          <tr><td><strong>Branded Barbers Shrewsbury</strong></td><td>&pound;20</td><td>173 reviews at 5<span class="note">booksy.com · 2026-09-15</span></td><td>&pound;20</td></tr>
+        </tbody>
+      </table></div>
+    </div></div>
+
+    <div class="band band--dark"><div class="band__in">
+      <h2 class="t-section">Three ways to get ahead</h2>
+      <p class="t-doc-sm u-wide">Ranked by impact, and every one comes from a number above rather than an opinion.</p>
+      <div class="actions"><div class="action">
+            <span class="action__no">1</span>
+            <span class="action__area t-kind">Not built yet</span>
+            <h3 class="t-sub">No action can be written yet</h3>
+            <p class="action__why t-doc u-wide">An action has to rest on a number above. None of them can be read yet.</p>
+          </div></div>
+    </div></div>
+
+    <div class="band band--a band--last"><div class="band__in">
+      <h2 class="t-section">What we looked at</h2>
+      <div class="pair">
+        <div class="pair__col">
+          <h3 class="t-card card__head">Checked, 2026-09-15</h3>
+          <ul><li>Their own website<span class="note">shrewsburybarber.co.uk — name, trade and address from schema.org</span></li><li>Their price page<span class="note">5 services with a published price</span></li><li>Where this trade lists itself<span class="note">platform-led — booksy.com, fresha.com</span></li><li>Search for competitors<span class="note">5 searches, 3 businesses found on booksy.com and fresha.com</span></li><li>What the prices compare<span class="note">Classic Cut £15 — the core job for a barber, offered by 3 of 3</span></li></ul>
+        </div>
+        <div class="pair__col">
+          <h3 class="t-card card__head">Not checked</h3>
+          <ul><li><span class="tag tag--cant">Not yet</span>Each competitor’s own page<span class="note">Found, but not yet fetched for prices and reviews</span></li><li><span class="tag tag--cant">Not yet</span>Reviews, and who they name<span class="note">No review source read</span></li><li><span class="tag tag--cant">Not yet</span>Google<span class="note">Readable but not storable, so it cannot join the weekly comparison</span></li></ul>
+        </div>
+      </div>
+    </div></div>
+
+  </section></main>
+</div>

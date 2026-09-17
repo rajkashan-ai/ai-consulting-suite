@@ -1,45 +1,36 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# The repository root moved up one level on 2026-09-17. It used to sit inside
+# web/, which left the instruction files, the six agent specs and every decision
+# record outside version control: no history, no backup, and nothing to recover
+# from if one was overwritten.
+#
+# The consequence for this file: rules that were anchored to the old root, like
+# "/node_modules", now point at the wrong place. They are unanchored here so
+# they match wherever they appear.
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+# Dependencies and build output, wherever they are.
+node_modules/
+.next/
+out/
+build/
+dist/
+.vercel/
+coverage/
 
-# testing
-/coverage
+# Secrets. Never opt in: the Anthropic key and the database keys live here.
+.env
+.env.*
+!.env.local.example
 
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
+# macOS and editor noise.
 .DS_Store
 *.pem
+*.tsbuildinfo
 
-# debug
+# Logs.
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# Local env
-.env.local
-.env*.local
+# Next writes this and it is regenerated on every build.
+web/next-env.d.ts

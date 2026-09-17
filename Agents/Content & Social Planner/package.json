@@ -1,0 +1,9 @@
+{
+  "name": "content-social-planner",
+  "private": true,
+  "type": "module",
+  "description": "Plan shape, voice memory and guard-rail logic for the Content & Social Planner, and the tests that hold it to Agents/Content & Social Planner/CLAUDE.md.",
+  "scripts": {
+    "test": "node --test tests/*.test.ts"
+  }
+}

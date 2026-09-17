@@ -1,0 +1,361 @@
+<title>Reed Plumbing Landing Page</title>
+<style>
+  :root{
+    --ink:#16233f; --ink-soft:#39445c; --muted:#5d6880;
+    --paper:#eef1f6; --card:#ffffff; --card-2:#f5f7fb;
+    --line:#dde2ec; --line-soft:#e7ebf3;
+    --coral:#d0521f; --coral-ink:#8f3415; --coral-wash:#fbeee7;
+    --teal:#0f6e56; --teal-ink:#0c5343; --teal-wash:#e7f2ee;
+    --gold:#8a6a12; --gold-wash:#f6efdd;
+    --btn-bg:#8f3415; --btn-fg:#ffffff;
+    --shadow:0 1px 2px rgba(22,35,63,.05), 0 6px 20px rgba(22,35,63,.06);
+    --r-card:14px; --r-control:10px; --r-chip:8px;
+    --ease:cubic-bezier(.25,.46,.45,.94);
+    --sys:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:#eef2fa; --ink-soft:#c3cbdc; --muted:#93a0bb;
+      --paper:#0c111d; --card:#141b2b; --card-2:#101623;
+      --line:#26314a; --line-soft:#1e273c;
+      --coral:#f0855a; --coral-ink:#f6a983; --coral-wash:#2b1a13;
+      --teal:#3fae8f; --teal-ink:#7fd0b6; --teal-wash:#122a20;
+      --gold:#c9a94e; --gold-wash:#2a2214;
+      --btn-bg:#f0855a; --btn-fg:#0c111d;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.28);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#eef2fa; --ink-soft:#c3cbdc; --muted:#93a0bb;
+    --paper:#0c111d; --card:#141b2b; --card-2:#101623;
+    --line:#26314a; --line-soft:#1e273c;
+    --coral:#f0855a; --coral-ink:#f6a983; --coral-wash:#2b1a13;
+    --teal:#3fae8f; --teal-ink:#7fd0b6; --teal-wash:#122a20;
+    --gold:#c9a94e; --gold-wash:#2a2214;
+    --btn-bg:#f0855a; --btn-fg:#0c111d;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.28);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:var(--sys);
+    font-size:17px; line-height:28px; letter-spacing:-.010em;
+    font-variant-numeric:lining-nums tabular-nums;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1064px; margin:0 auto; padding:0 24px}
+  @media (max-width:767px){ .wrap{padding:0 16px} }
+
+  a{color:var(--coral-ink); text-decoration:none}
+  a:hover{text-decoration:underline}
+  :focus-visible{outline:2px solid var(--coral); outline-offset:2px; border-radius:inherit}
+  :focus:not(:focus-visible){outline:none}
+
+  /* ---- mockup strip ---- */
+  .mock{
+    background:var(--gold-wash); border-bottom:1px solid var(--line);
+    font-size:13px; line-height:18px; color:var(--ink-soft);
+    padding:8px 0; text-align:center; letter-spacing:-.006em;
+  }
+  .mock b{color:var(--ink); font-weight:600}
+
+  /* ---- nav ---- */
+  nav{
+    border-bottom:1px solid var(--line); background:var(--card);
+  }
+  .nav-in{display:flex; align-items:center; gap:16px; height:72px}
+  .logo{display:flex; align-items:center; gap:9px; font-size:16px; font-weight:600; letter-spacing:-.014em; color:var(--ink); margin-right:auto}
+  .dot{width:20px; height:20px; border-radius:6px; background:var(--coral); flex:none}
+  .nav-link{font-size:15px; font-weight:500; color:var(--ink-soft); letter-spacing:-.012em}
+  .nav-link:hover{color:var(--ink); text-decoration:none}
+
+  /* ---- buttons ---- */
+  .btn{
+    font-family:inherit; font-size:15px; font-weight:600; letter-spacing:-.010em; line-height:1;
+    height:48px; padding:0 22px; border-radius:var(--r-control); border:0; cursor:pointer;
+    background:var(--btn-bg); color:var(--btn-fg);
+    transition:filter .16s var(--ease), transform .16s var(--ease);
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn.sm{height:40px; padding:0 16px; font-size:14px}
+  .btn:active{transform:scale(.97); filter:brightness(94%)}
+  .btn[disabled]{background:var(--line); color:var(--muted); cursor:not-allowed}
+  .btn-ghost{
+    font-family:inherit; font-size:15px; font-weight:600; letter-spacing:-.010em;
+    height:48px; padding:0 18px; border-radius:var(--r-control);
+    background:transparent; color:var(--ink); border:1px solid var(--muted); cursor:pointer;
+    transition:background-color .16s var(--ease), transform .16s var(--ease);
+  }
+  .btn-ghost:active{transform:scale(.97)}
+  @media (any-hover:hover){
+    .btn:hover{filter:brightness(112%)}
+    .btn-ghost:hover{background:var(--card-2)}
+  }
+
+  /* ---- sections ---- */
+  section{padding:96px 0}
+  section.tight{padding:72px 0}
+  @media (max-width:767px){ section{padding:64px 0} section.tight{padding:48px 0} }
+
+  .eyebrow{
+    font-size:11px; line-height:14px; font-weight:700; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--coral-ink);
+  }
+  h1{
+    font-size:clamp(32px,5.2vw,48px); line-height:1.08; font-weight:600; letter-spacing:-.024em;
+    margin:0; text-wrap:balance; max-width:16ch;
+  }
+  h2{font-size:28px; line-height:32px; font-weight:600; letter-spacing:-.018em; margin:0; text-wrap:balance}
+  h3{font-size:17px; line-height:22px; font-weight:600; letter-spacing:-.012em; margin:0}
+  .lead{font-size:19px; line-height:30px; letter-spacing:-.012em; color:var(--ink-soft); margin:0; max-width:34ch}
+  .meta{font-size:13px; line-height:18px; letter-spacing:-.006em; color:var(--muted)}
+  .kind{font-size:11px; line-height:14px; font-weight:700; letter-spacing:.06em; text-transform:uppercase}
+
+  /* ---- hero ---- */
+  .hero{display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:start; padding:80px 0 88px}
+  @media (max-width:900px){ .hero{grid-template-columns:1fr; gap:40px; padding:56px 0 64px} }
+  .hero-copy{display:flex; flex-direction:column; gap:20px}
+  .proof{display:flex; flex-direction:column; gap:10px; margin-top:4px}
+  .proof div{display:flex; gap:10px; align-items:flex-start; font-size:15px; line-height:22px; letter-spacing:-.012em; color:var(--ink-soft)}
+  .tick{width:18px; height:18px; flex:none; margin-top:2px; color:var(--teal)}
+
+  /* ---- widget ---- */
+  .widget{background:var(--card); border:1px solid var(--line); border-radius:var(--r-card); box-shadow:var(--shadow); overflow:hidden}
+  .widget-top{height:4px; background:var(--coral)}
+  .widget-in{padding:28px}
+  @media (max-width:767px){ .widget-in{padding:20px} }
+  label.fld{display:block; font-size:15px; line-height:20px; font-weight:600; letter-spacing:-.012em; margin-bottom:8px}
+  input[type=url], input[type=email]{
+    font-family:inherit; font-size:15px; line-height:20px; color:var(--ink);
+    width:100%; height:48px; padding:0 12px;
+    background:var(--card); border:1px solid var(--muted); border-radius:var(--r-control);
+    transition:border-color .16s var(--ease);
+  }
+  input::placeholder{color:var(--muted)}
+  input:focus{border-color:var(--coral)}
+  .hint{font-size:13px; line-height:18px; color:var(--muted); margin-top:6px}
+
+  /* progress */
+  .steps{display:flex; flex-direction:column; gap:10px; margin-top:4px}
+  .step{display:flex; gap:10px; align-items:center; font-size:15px; line-height:20px; letter-spacing:-.012em; color:var(--muted)}
+  .step.done{color:var(--ink)}
+  .step .mk{width:16px; height:16px; flex:none; display:grid; place-items:center; font-size:13px; font-weight:700}
+  .step.run .mk{color:var(--coral); animation:pulse 1.1s var(--ease) infinite}
+  .step.done .mk{color:var(--teal)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+  /* result */
+  .res{display:flex; flex-direction:column; gap:0}
+  .res-head{padding-bottom:16px; border-bottom:1px solid var(--line)}
+  .row{display:grid; grid-template-columns:1fr auto; gap:12px; padding:14px 0; border-bottom:1px solid var(--line); align-items:baseline}
+  .row:last-of-type{border-bottom:0}
+  .row .who{font-size:15px; line-height:20px; font-weight:500; letter-spacing:-.012em}
+  .row .src{font-size:13px; line-height:18px; color:var(--muted); white-space:nowrap}
+  .price{font-weight:600}
+  .you{background:var(--coral-wash); margin:0 -12px; padding:14px 12px; border-radius:var(--r-chip); border-bottom:0}
+  .finding{background:var(--card-2); border-radius:var(--r-chip); padding:16px; margin-top:20px}
+  .finding p{margin:8px 0 0; font-size:15px; line-height:24px; letter-spacing:-.006em; color:var(--ink-soft)}
+  .chip{
+    display:inline-block; font-size:11px; line-height:14px; font-weight:700; letter-spacing:.06em;
+    text-transform:uppercase; padding:4px 8px; border-radius:var(--r-chip);
+    background:var(--gold-wash); color:var(--gold);
+  }
+  .chip.ok{background:var(--teal-wash); color:var(--teal-ink)}
+
+  /* ---- jobs grid ---- */
+  .jobs{display:grid; grid-template-columns:repeat(3,1fr); gap:2px; background:var(--line); border:1px solid var(--line); border-radius:var(--r-card); overflow:hidden; margin-top:40px}
+  @media (max-width:900px){ .jobs{grid-template-columns:repeat(2,1fr)} }
+  @media (max-width:560px){ .jobs{grid-template-columns:1fr} }
+  .job{background:var(--card); padding:24px; display:flex; flex-direction:column; gap:8px}
+  .job .said{font-size:15px; line-height:24px; letter-spacing:-.006em; color:var(--ink-soft); font-style:italic}
+  .job .does{font-size:15px; line-height:22px; letter-spacing:-.012em; color:var(--ink)}
+
+  /* ---- price ---- */
+  .pricecard{background:var(--card); border:1px solid var(--line); border-radius:var(--r-card); box-shadow:var(--shadow); padding:32px; max-width:480px; margin:40px auto 0; text-align:center}
+  .big{font-size:48px; line-height:52px; font-weight:600; letter-spacing:-.022em}
+  .incl{text-align:left; display:flex; flex-direction:column; gap:10px; margin:24px 0 28px}
+  .incl div{display:flex; gap:10px; font-size:15px; line-height:22px; letter-spacing:-.012em; color:var(--ink-soft)}
+
+  /* ---- signup ---- */
+  .signup{display:flex; gap:8px; max-width:440px; margin:24px auto 0}
+  @media (max-width:560px){ .signup{flex-direction:column} }
+  .signup input{flex:1}
+
+  /* ---- footer ---- */
+  footer{border-top:1px solid var(--line); padding:40px 0 64px; background:var(--card)}
+  .honest{max-width:640px; font-size:15px; line-height:24px; letter-spacing:-.006em; color:var(--muted)}
+
+  .center{text-align:center}
+  .stack{display:flex; flex-direction:column; gap:16px}
+  .stack-lg{display:flex; flex-direction:column; gap:24px}
+  .hide{display:none !important}
+
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:.01ms !important; transition-duration:.01ms !important}
+  }
+</style>
+
+<div class="mock">Mockup for review. The audit below runs on <b>sample data for Reed Plumbing</b>, not a live scan.</div>
+
+<nav>
+  <div class="wrap nav-in">
+    <span class="logo"><span class="dot"></span>Suite</span>
+    <a class="nav-link" href="#price">What it costs</a>
+    <a class="nav-link" href="#signin">Sign in</a>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="hero">
+    <div class="hero-copy">
+      <span class="eyebrow">For firms with 2 to 15 people</span>
+      <h1>The business advice you can't normally afford.</h1>
+      <p class="lead">Six tools that watch your rivals, set your prices and write your quotes. No consultant, no day rate.</p>
+      <div class="proof">
+        <div><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg><span>Every fact we give you shows where it came from and when.</span></div>
+        <div><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg><span>Set up in about twenty seconds. Three questions.</span></div>
+        <div><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg><span>One price. Cancel from the account page, no phone call.</span></div>
+      </div>
+    </div>
+
+    <div class="widget">
+      <div class="widget-top"></div>
+      <div class="widget-in">
+
+        <div id="ask" class="stack">
+          <div>
+            <h3 style="margin-bottom:6px">See what your rivals charge</h3>
+            <p class="meta">Put in your website. We'll find three firms near you and show you their prices next to yours. Free, and we don't ask who you are.</p>
+          </div>
+          <form id="f" novalidate>
+            <label class="fld" for="site">Your website</label>
+            <input id="site" type="url" value="reedplumbing.co.uk" autocomplete="url" spellcheck="false">
+            <p class="hint">No website? A Facebook or Instagram page works.</p>
+            <button class="btn" type="submit" style="width:100%; margin-top:20px">Show me</button>
+            <p class="hint center" style="margin-top:12px">Takes about thirty seconds. No email needed.</p>
+          </form>
+        </div>
+
+        <div id="work" class="stack hide" aria-live="polite">
+          <h3>Having a look at reedplumbing.co.uk</h3>
+          <div class="steps">
+            <div class="step run" data-s="1"><span class="mk">●</span><span>Reading your website</span></div>
+            <div class="step" data-s="2"><span class="mk">●</span><span>Finding plumbers near Shrewsbury</span></div>
+            <div class="step" data-s="3"><span class="mk">●</span><span>Checking what they charge</span></div>
+          </div>
+        </div>
+
+        <div id="out" class="res hide">
+          <div class="res-head">
+            <span class="kind" style="color:var(--muted)">Call-out fee</span>
+            <h3 style="margin-top:6px">Three plumbers within 20 miles of you</h3>
+          </div>
+          <div class="row"><span class="who">Kemp &amp; Sons</span><span class="src"><span class="price">£70</span> &middot; kempandsons.co.uk, 12 Sep</span></div>
+          <div class="row"><span class="who">Hanley Heating</span><span class="src"><span class="price">£65</span> &middot; hanleyheating.co.uk, 12 Sep</span></div>
+          <div class="row"><span class="who">Drayton Plumbing</span><span class="src"><span class="price">£60</span> &middot; drayton.co.uk, 12 Sep</span></div>
+          <div class="row you"><span class="who">You</span><span class="src"><span class="price">£55</span> &middot; your prices page, today</span></div>
+
+          <div class="finding">
+            <span class="chip">Our read</span>
+            <p>You are the cheapest of the four. Going to £65 would put you in the middle and add about <strong>£1,800 a year</strong> on 180 call-outs. We have not checked whether your work is worth more than theirs, only what they charge.</p>
+          </div>
+
+          <div style="margin-top:24px">
+            <button class="btn" type="button" style="width:100%">Get the other five tools free for 14 days</button>
+            <p class="hint center" style="margin-top:12px">No card. One email address, nothing else.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<section style="background:var(--card); border-top:1px solid var(--line); border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <div class="center stack" style="align-items:center">
+      <h2>Six jobs, not six dashboards</h2>
+      <p class="lead" style="max-width:46ch; text-align:center">Each one starts from what you told us once, so you never type it again.</p>
+    </div>
+    <div class="jobs">
+      <div class="job"><p class="said">"Am I losing work to someone and why?"</p><p class="does">Watch rivals</p></div>
+      <div class="job"><p class="said">"I'm charging by the hour and I'm too cheap."</p><p class="does">Set your prices</p></div>
+      <div class="job"><p class="said">"I need to send this quote tonight."</p><p class="does">Write a quote</p></div>
+      <div class="job"><p class="said">"I've gone quiet online and don't know what to post."</p><p class="does">Plan content</p></div>
+      <div class="job"><p class="said">"People visit the site and nobody calls."</p><p class="does">Win more enquiries</p></div>
+      <div class="job"><p class="said">"Everything still goes through me."</p><p class="does">Hand work over</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="price" class="tight">
+  <div class="wrap">
+    <div class="center stack" style="align-items:center">
+      <span class="eyebrow">What it costs</span>
+      <h2>One price. Everything in it.</h2>
+    </div>
+    <div class="pricecard">
+      <div class="big">£39</div>
+      <p class="meta" style="margin-top:4px">a month, including VAT</p>
+      <div class="incl">
+        <div><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg><span>All six tools, no limits on quotes, prices, content or handovers</span></div>
+        <div><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg><span>Your rivals re-checked every Monday, with only what changed</span></div>
+        <div><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg><span>Everything you make is yours to export, any time</span></div>
+      </div>
+      <div id="signin">
+        <p style="font-size:15px; line-height:22px; font-weight:600">Try it for 14 days</p>
+        <form class="signup" onsubmit="return false">
+          <input type="email" placeholder="you@yourbusiness.co.uk" aria-label="Your email address" autocomplete="email">
+          <button class="btn" type="submit">Start</button>
+        </form>
+        <p class="hint" style="margin-top:12px">No card. We'll email you a link, there's no password to invent.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap stack-lg">
+    <div>
+      <span class="kind" style="color:var(--muted)">What we can't do</span>
+      <p class="honest" style="margin:8px 0 0">We can't see how much traffic a rival's website gets. Nobody can, without buying panel data, and we haven't. If a tool tells you a competitor's visitor numbers, it is guessing. We would rather tell you what we actually found, with the page and the date we found it on.</p>
+    </div>
+    <p class="meta">Suite is made by High Intent Labs.</p>
+  </div>
+</footer>
+
+<script>
+  (function(){
+    var f=document.getElementById('f'), ask=document.getElementById('ask'),
+        work=document.getElementById('work'), out=document.getElementById('out'),
+        site=document.getElementById('site');
+
+    f.addEventListener('submit', function(e){
+      e.preventDefault();
+      if(!site.value.trim()) { site.focus(); return; }
+      work.querySelector('h3').textContent = 'Having a look at ' + site.value.trim().replace(/^https?:\/\//,'');
+      ask.classList.add('hide');
+      work.classList.remove('hide');
+
+      var steps = work.querySelectorAll('.step');
+      var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var gap = reduce ? 200 : 900;
+
+      steps.forEach(function(s,i){
+        setTimeout(function(){
+          s.classList.remove('run'); s.classList.add('done');
+          s.querySelector('.mk').textContent='✓';
+          var next = steps[i+1];
+          if(next) next.classList.add('run');
+        }, gap*(i+1));
+      });
+
+      setTimeout(function(){
+        work.classList.add('hide');
+        out.classList.remove('hide');
+        out.scrollIntoView({behavior: reduce ? 'auto' : 'smooth', block:'nearest'});
+      }, gap*3 + 400);
+    });
+  })();
+</script>

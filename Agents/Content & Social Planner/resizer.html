@@ -1,0 +1,386 @@
+<title>Resize one photo</title>
+<style>
+:root{
+  --ink:#1c2b40; --ink-soft:#3c4657; --muted:#5a6472; --paper:#fafaf8; --card:#fff;
+  --card-2:#f0efec; --line:#d3d7dd; --line-soft:#e4e5e6; --brand:#a61e4d;
+  --btn-bg:#a61e4d; --btn-fg:#fff; --good:#087443; --warn:#8f5700; --warn-wash:#fdf5e6;
+  --bad:#b42318; --bad-wash:#fdecea;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s7:32px; --s9:48px;
+  --r-card:14px; --r-control:10px; --r-chip:8px; --r-pill:999px;
+  --sys:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,Helvetica,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ink:#f2f1ee; --ink-soft:#c6cbd4; --muted:#8e97a5; --paper:#11151c; --card:#1b2130;
+  --card-2:#161b26; --line:#2b3241; --line-soft:#232936; --brand:#c9376a; --btn-bg:#c9376a;
+  --good:#4cc38a; --warn:#e0a33c; --warn-wash:#241a09; --bad:#f2867c; --bad-wash:#2a1513;}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sys);
+  font-size:15px;line-height:20px;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font:inherit;color:inherit;margin:0;font-weight:inherit}
+p{margin:0} ul{margin:0;padding:0;list-style:none} strong,b{font-weight:600}
+button,input,label{font:inherit;color:inherit;margin:0}
+button:not(:disabled){cursor:pointer} button:disabled{opacity:.5;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.wrap{max-width:820px;margin:0 auto;padding:var(--s9) var(--s6) 96px}
+.t-page{font-size:28px;line-height:32px;font-weight:600;letter-spacing:-.02em}
+.t-lead{font-size:19px;line-height:30px;letter-spacing:-.011em;max-width:64ch}
+.t-section{font-size:20px;line-height:26px;font-weight:600;letter-spacing:-.015em;margin-top:var(--s7)}
+.t-doc-sm{font-size:15px;line-height:24px;letter-spacing:-.006em;max-width:64ch;color:var(--ink-soft)}
+.t-row{font-size:15px;line-height:20px} .t-meta{font-size:13px;line-height:18px;color:var(--muted)}
+.t-kind{font-size:11px;line-height:14px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.t-page+.t-lead{margin-top:var(--s2)} .t-section+*{margin-top:var(--s4)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden}
+.drop{border:2px dashed var(--muted);border-radius:var(--r-card);padding:var(--s9) var(--s6);
+  text-align:center;background:var(--card);margin-top:var(--s4)}
+.drop.over{border-color:var(--brand);background:var(--card-2)}
+.drop input{display:block;margin:var(--s4) auto 0}
+.fmt{display:flex;align-items:flex-start;gap:var(--s3);padding:var(--s3) var(--s4);
+  border-bottom:1px solid var(--line-soft);cursor:pointer}
+.fmt:last-child{border-bottom:0}
+.fmt input{width:18px;height:18px;flex:none;margin-top:2px;accent-color:var(--ink)}
+.fmt .n{flex:1} .fmt .d{display:block;margin-top:var(--s1)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--s2);height:44px;
+  padding:0 var(--s6);border:0;border-radius:var(--r-pill);background:var(--btn-bg);color:var(--btn-fg);
+  font-weight:600;letter-spacing:-.006em}
+.btn--ghost{height:40px;padding:0 var(--s4);background:var(--card);color:var(--ink);
+  border:1px solid var(--muted);border-radius:var(--r-pill);font-size:13px;line-height:18px;font-weight:400}
+.bar{display:flex;flex-wrap:wrap;gap:var(--s3);align-items:center;margin-top:var(--s5)}
+.bar p{flex:1;min-width:240px}
+.note{padding:var(--s3) var(--s4);background:var(--card-2);border-radius:var(--r-chip);margin-top:var(--s4)}
+.note--warn{background:var(--warn-wash);color:var(--warn)}
+.note--bad{background:var(--bad-wash);color:var(--bad)}
+.out{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:var(--s3);margin-top:var(--s4)}
+.out figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:var(--r-chip);
+  padding:var(--s3);text-align:center}
+.out img{max-width:100%;height:auto;border-radius:var(--r-chip);background:var(--card-2)}
+.out figcaption{margin-top:var(--s2)}
+.done{color:var(--good);font-weight:600;margin-top:var(--s4)}
+@media (any-hover:hover){
+  .btn:hover{filter:brightness(1.08)} .btn--ghost:hover{background:var(--card-2)} .fmt:hover{background:var(--card-2)}}
+@media (max-width:640px){.wrap{padding:var(--s7) var(--s4) 64px}}
+</style>
+
+<div class="wrap">
+  <h1 class="t-page">Resize one photo</h1>
+  <p class="t-lead">One photo in, every size you need out. The photo stays on your computer: nothing is uploaded anywhere.</p>
+
+  <h2 class="t-section">The photo</h2>
+  <div class="drop" id="drop">
+    <p class="t-row"><strong>Drop a photo here</strong></p>
+    <p class="t-meta">or choose one</p>
+    <input type="file" id="file" accept="image/*" />
+  </div>
+  <div id="loaded" hidden class="note"><p class="t-row" id="loadedText"></p></div>
+
+  <div id="focalWrap" hidden>
+    <h2 class="t-section">What stays in the picture</h2>
+    <p class="t-doc-sm">We find what the photo is of, whether that is a face or a boiler, and keep it in. <strong>Drag the circle</strong> if we have picked the wrong thing, and every size follows it.</p>
+    <div class="card" style="padding:var(--s4)"><canvas id="preview" style="width:100%;height:auto;display:block;border-radius:var(--r-chip);cursor:grab;touch-action:none"></canvas></div>
+    <div class="note" id="tight" hidden><p class="t-row" id="tightText"></p></div>
+  </div>
+
+  <h2 class="t-section">The sizes</h2>
+  <p class="t-doc-sm">Checked 15 September 2026. Every photo is cropped from the centre to fill the shape, never squashed.</p>
+  <div class="card" id="formats"></div>
+  <div class="note note--warn" id="sameNote" hidden>
+    <p class="t-row"><strong>Reel and Story are the same size.</strong> Both are 1080 &times; 1920. What differs is where the buttons and caption sit, not the picture, so you get one file that works for both rather than two identical ones.</p>
+  </div>
+
+  <div class="bar">
+    <p class="t-meta" id="where"></p>
+    <button class="btn" id="go" disabled>Resize and save</button>
+  </div>
+  <div id="status" hidden class="note"><p class="t-row" id="statusText"></p></div>
+  <div class="out" id="out"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+/* Sizes: Agents/Content & Social Planner/image-sizes.md, checked 15 Sep 2026.
+   Reel and Story deliberately share one entry: same canvas, different safe
+   zone, so two ticks would write the same file twice under two names. */
+var FORMATS = [
+  {id:'square',  name:'Square feed',   w:1080, h:1080, who:'Instagram and Facebook feed', on:true},
+  {id:'vertical',name:'Vertical feed', w:1080, h:1350, who:'Instagram and Facebook feed, takes more of the screen', on:true},
+  {id:'full',    name:'Full screen',   w:1080, h:1920, who:'Instagram Story and Reel, Facebook Story, TikTok, YouTube Shorts', on:true},
+  {id:'link',    name:'Link preview',  w:1200, h:630,  who:'Facebook and LinkedIn shared links'},
+  {id:'lifeed',  name:'LinkedIn feed', w:1200, h:1200, who:'LinkedIn image post'},
+  {id:'amzsq',   name:'Amazon square', w:1200, h:1200, who:'Amazon ad, the square placement'},
+  {id:'amztall', name:'Amazon tall',   w:900,  h:1600, who:'Amazon ad, the tall placement'},
+  {id:'amzwide', name:'Amazon wide',   w:1200, h:628,  who:'Amazon ad, the wide placement'}
+];
+
+var img = null, imgName = '', focal = {x:0.5, y:0.5};
+var $ = function(id){ return document.getElementById(id); };
+
+/* ---- the format list ---------------------------------------------------- */
+FORMATS.forEach(function(f){
+  var l = document.createElement('label');
+  l.className = 'fmt';
+  l.innerHTML = '<input type="checkbox" data-id="' + f.id + '"' + (f.on ? ' checked' : '') + '>' +
+    '<span class="n"><span class="t-row"><strong>' + f.name + '</strong> &nbsp;' + f.w + ' &times; ' + f.h + '</span>' +
+    '<span class="d t-meta">' + f.who + '</span></span>';
+  $('formats').appendChild(l);
+});
+$('formats').addEventListener('change', refresh);
+$('sameNote').hidden = false;
+
+/* ---- loading a photo ---------------------------------------------------- */
+function load(file){
+  if (!file || !/^image\//.test(file.type)) { say('That is not an image file.', 'bad'); return; }
+  imgName = file.name.replace(/\.[^.]+$/, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'photo';
+  var r = new FileReader();
+  r.onload = function(){
+    var i = new Image();
+    i.onload = function(){
+      img = i;
+      focal = findFocalPoint(i);
+      $('focalWrap').hidden = false;
+      $('loaded').hidden = false;
+      $('loadedText').innerHTML = '<strong>' + file.name + '</strong> &nbsp; ' + i.naturalWidth + ' &times; ' + i.naturalHeight;
+      refresh();
+    };
+    i.onerror = function(){ say('That image could not be opened.', 'bad'); };
+    i.src = r.result;
+  };
+  r.readAsDataURL(file);
+}
+$('file').addEventListener('change', function(e){ load(e.target.files[0]); });
+['dragenter','dragover'].forEach(function(t){ $('drop').addEventListener(t, function(e){ e.preventDefault(); $('drop').classList.add('over'); }); });
+['dragleave','drop'].forEach(function(t){ $('drop').addEventListener(t, function(e){ e.preventDefault(); $('drop').classList.remove('over'); }); });
+$('drop').addEventListener('drop', function(e){ load(e.dataTransfer.files[0]); });
+
+/* ---- what will happen when they press it -------------------------------- */
+var CAN_PICK = typeof window.showDirectoryPicker === 'function';
+function chosen(){ return [].slice.call(document.querySelectorAll('#formats input:checked')).map(function(c){ return c.dataset.id; }); }
+function refresh(){
+  var n = chosen().length;
+  $('go').disabled = !img || n === 0;
+  drawPreview();
+  $('where').textContent = !img ? 'Choose a photo to start.'
+    : n === 0 ? 'Tick at least one size.'
+    : CAN_PICK ? n + ' file' + (n>1?'s':'') + '. You pick the folder, we make one inside it and save them there.'
+    : n + ' file' + (n>1?'s':'') + '. Your browser cannot save into a folder, so they arrive as one zip in Downloads.';
+}
+refresh();
+
+/* ---- where the important part of the photo is ---------------------------- */
+/* THE SUBJECT IS OFTEN NOT A FACE. A boiler, a finished bathroom, a plate, a
+   haircut from behind. So this scores four signals and lets them argue, rather
+   than looking for one kind of thing:
+
+     detail        the subject is sharper and busier than the background, which
+                   is the strongest general signal there is and the one that
+                   survives depth of field
+     distinctness  how far a pixel is from the colour of the border, which is
+                   usually the wall, the sky or the worktop
+     skin          one vote among four now, not the boss. It used to outweigh a
+                   strong edge, so a hand in shot beat the thing being held
+     centre        a gentle prior, because people point cameras at things. It
+                   breaks ties and stops the point drifting onto a textured wall
+
+   EVERY SIGNAL IS NORMALISED TO 0..1 BEFORE IT IS WEIGHTED. Adding a raw edge
+   magnitude to a 0-or-90 flag was how skin quietly dominated: the weights said
+   one thing and the numbers did another.
+
+   The drag handle is the guarantee. This only has to be a good first guess. */
+function findFocalPoint(src){
+  var W = 64, H = Math.max(1, Math.round(W * src.naturalHeight / src.naturalWidth));
+  var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  cv.getContext('2d').drawImage(src, 0, 0, W, H);
+  var px = cv.getContext('2d').getImageData(0, 0, W, H).data, N = W * H;
+
+  var lum = new Float32Array(N), R = new Float32Array(N), G = new Float32Array(N), B = new Float32Array(N);
+  var skin = new Float32Array(N);
+  for (var i = 0; i < N; i++) {
+    var r = px[i*4], g = px[i*4+1], b = px[i*4+2];
+    R[i] = r; G[i] = g; B[i] = b;
+    lum[i] = 0.299*r + 0.587*g + 0.114*b;
+    var cb = 128 - 0.169*r - 0.331*g + 0.5*b, cr = 128 + 0.5*r - 0.419*g - 0.081*b;
+    skin[i] = (cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173) ? 1 : 0;
+  }
+
+  /* The border is the best guess at background: wall, sky, worktop, table. */
+  var br = 0, bg = 0, bb = 0, n = 0;
+  for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
+    if (x > 1 && x < W-2 && y > 1 && y < H-2) continue;
+    br += R[y*W+x]; bg += G[y*W+x]; bb += B[y*W+x]; n++;
+  }
+  br /= n; bg /= n; bb /= n;
+
+  var detail = new Float32Array(N), distinct = new Float32Array(N);
+  var dMax = 0, cMax = 0;
+  for (var y2 = 1; y2 < H-1; y2++) for (var x2 = 1; x2 < W-1; x2++) {
+    var i2 = y2*W + x2;
+    /* Laplacian: high-frequency energy, so a blurred background scores low even
+       when it is busy. That is what separates the subject from the bokeh. */
+    var lap = Math.abs(4*lum[i2] - lum[i2-1] - lum[i2+1] - lum[i2-W] - lum[i2+W]);
+    detail[i2] = lap; if (lap > dMax) dMax = lap;
+    var dc = Math.abs(R[i2]-br) + Math.abs(G[i2]-bg) + Math.abs(B[i2]-bb);
+    distinct[i2] = dc; if (dc > cMax) cMax = dc;
+  }
+  if (!dMax) dMax = 1; if (!cMax) cMax = 1;
+
+  var score = new Float32Array(N), best = 0;
+  for (var y3 = 1; y3 < H-1; y3++) for (var x3 = 1; x3 < W-1; x3++) {
+    var i3 = y3*W + x3;
+    var s = 0.45*(detail[i3]/dMax) + 0.35*(distinct[i3]/cMax) + 0.20*skin[i3];
+    var dx = (x3/(W-1) - 0.5) * 2, dy = (y3/(H-1) - 0.5) * 2;
+    var rad = Math.min(1, Math.sqrt(dx*dx + dy*dy) / 1.414);
+    s *= (1 - 0.35*rad);
+    score[i3] = s; if (s > best) best = s;
+  }
+
+  /* Centroid of the strongest fifth only. Averaging everything drags the point
+     back to the middle of the frame whatever is in the picture. */
+  var cut = best * 0.55, sx = 0, sy = 0, sw = 0;
+  for (var y4 = 1; y4 < H-1; y4++) for (var x4 = 1; x4 < W-1; x4++) {
+    var i4 = y4*W + x4, s4 = score[i4];
+    if (s4 < cut) continue;
+    var wgt = s4 * s4;
+    sx += x4 * wgt; sy += y4 * wgt; sw += wgt;
+  }
+  if (!sw) return { x: 0.5, y: 0.5 };
+  return { x: Math.min(1, Math.max(0, (sx/sw)/(W-1))), y: Math.min(1, Math.max(0, (sy/sw)/(H-1))) };
+}
+
+/* Where a crop of this shape sits, given the focal point, kept inside the photo. */
+function cropBox(sw, sh, w, h){
+  var scale = Math.max(w / sw, h / sh);
+  var cw = Math.min(sw, Math.round(w / scale)), ch = Math.min(sh, Math.round(h / scale));
+  var x = Math.round(focal.x * sw - cw / 2), y = Math.round(focal.y * sh - ch / 2);
+  return { x: Math.max(0, Math.min(sw - cw, x)), y: Math.max(0, Math.min(sh - ch, y)), w: cw, h: ch };
+}
+
+/* ---- the preview -------------------------------------------------------- */
+var PV = 520;
+function drawPreview(){
+  if (!img) return;
+  var cv = $('preview'), sw = img.naturalWidth, sh = img.naturalHeight;
+  var s = PV / sw;
+  cv.width = PV; cv.height = Math.round(sh * s);
+  var x = cv.getContext('2d');
+  x.drawImage(img, 0, 0, cv.width, cv.height);
+  x.fillStyle = 'rgba(0,0,0,.45)'; x.fillRect(0, 0, cv.width, cv.height);
+
+  var picked = FORMATS.filter(function(f){ return chosen().indexOf(f.id) !== -1; });
+  /* The tightest selected crop is the one that decides whether anything is
+     lost, so that is the window we clear and outline. */
+  var tightest = null, keptFraction = 1;
+  picked.forEach(function(f){
+    var b = cropBox(sw, sh, f.w, f.h);
+    var frac = (b.w * b.h) / (sw * sh);
+    if (frac < keptFraction) { keptFraction = frac; tightest = b; }
+  });
+  if (tightest) {
+    var b = tightest;
+    x.save(); x.beginPath();
+    x.rect(b.x * s, b.y * s, b.w * s, b.h * s); x.clip();
+    x.drawImage(img, 0, 0, cv.width, cv.height); x.restore();
+    x.strokeStyle = '#fff'; x.lineWidth = 2;
+    x.strokeRect(b.x * s, b.y * s, b.w * s, b.h * s);
+  }
+  x.beginPath(); x.arc(focal.x * cv.width, focal.y * cv.height, 11, 0, 7);
+  x.fillStyle = 'rgba(255,255,255,.9)'; x.fill();
+  x.strokeStyle = '#a61e4d'; x.lineWidth = 3; x.stroke();
+
+  var lost = Math.round((1 - keptFraction) * 100);
+  $('tight').hidden = lost < 55;
+  $('tight').className = 'note note--warn';
+  $('tightText').innerHTML = '<strong>The tallest size keeps ' + Math.round(keptFraction * 100) +
+    '% of this photo.</strong> If there is someone at the edge they will be cut out. Drag the circle onto whoever matters most, or take a less wide photo next time.';
+}
+function pointAt(e){
+  var cv = $('preview'), r = cv.getBoundingClientRect();
+  focal.x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+  focal.y = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+  drawPreview();
+}
+var dragging = false;
+$('preview').addEventListener('pointerdown', function(e){ dragging = true; $('preview').setPointerCapture(e.pointerId); pointAt(e); });
+$('preview').addEventListener('pointermove', function(e){ if (dragging) pointAt(e); });
+$('preview').addEventListener('pointerup', function(){ dragging = false; });
+
+/* ---- the resize itself -------------------------------------------------- */
+/* Centre crop to fill, stepped down by halves so a big photo does not alias. */
+function resize(src, w, h){
+  var sw = src.naturalWidth, sh = src.naturalHeight;
+  var b = cropBox(sw, sh, w, h);
+  var cw = b.w, ch = b.h, sx = b.x, sy = b.y;
+
+  var cur = document.createElement('canvas');
+  cur.width = cw; cur.height = ch;
+  cur.getContext('2d').drawImage(src, sx, sy, cw, ch, 0, 0, cw, ch);
+  while (cur.width > w * 2 && cur.height > h * 2) {
+    var half = document.createElement('canvas');
+    half.width = Math.max(w, Math.round(cur.width / 2));
+    half.height = Math.max(h, Math.round(cur.height / 2));
+    var hx = half.getContext('2d'); hx.imageSmoothingQuality = 'high';
+    hx.drawImage(cur, 0, 0, half.width, half.height);
+    cur = half;
+  }
+  var out = document.createElement('canvas');
+  out.width = w; out.height = h;
+  var ctx = out.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(cur, 0, 0, w, h);
+  return out;
+}
+function blobOf(canvas){ return new Promise(function(res){ canvas.toBlob(res, 'image/jpeg', 0.9); }); }
+
+function say(text, kind){
+  $('status').hidden = false;
+  $('status').className = 'note' + (kind ? ' note--' + kind : '');
+  $('statusText').innerHTML = text;
+}
+
+/* ---- save --------------------------------------------------------------- */
+$('go').addEventListener('click', async function(){
+  var picked = FORMATS.filter(function(f){ return chosen().indexOf(f.id) !== -1; });
+  var folder = imgName + '-social-sizes';
+  $('out').innerHTML = '';
+  $('go').disabled = true;
+  say('Resizing ' + picked.length + '&hellip;');
+
+  var files = [];
+  for (var i = 0; i < picked.length; i++) {
+    var f = picked[i];
+    var canvas = resize(img, f.w, f.h);
+    var blob = await blobOf(canvas);
+    files.push({ name: imgName + '-' + f.id + '-' + f.w + 'x' + f.h + '.jpg', blob: blob });
+    var fig = document.createElement('figure');
+    fig.innerHTML = '<img alt="' + f.name + '" src="' + canvas.toDataURL('image/jpeg', 0.6) + '">' +
+      '<figcaption class="t-kind">' + f.name + '</figcaption><span class="t-meta">' + f.w + ' &times; ' + f.h + '</span>';
+    $('out').appendChild(fig);
+  }
+
+  try {
+    if (CAN_PICK) {
+      /* They pick the folder. We never choose a location for them: a page
+         cannot write to a path it was not given, and that is the whole reason
+         this is safe rather than a thing to be nervous about. */
+      var root = await window.showDirectoryPicker({ mode: 'readwrite', startIn: 'desktop' });
+      var dir = await root.getDirectoryHandle(folder, { create: true });
+      for (var j = 0; j < files.length; j++) {
+        var fh = await dir.getFileHandle(files[j].name, { create: true });
+        var w = await fh.createWritable();
+        await w.write(files[j].blob); await w.close();
+      }
+      say('<strong>Saved.</strong> ' + files.length + ' file' + (files.length>1?'s':'') +
+          ' in a folder called <strong>' + folder + '</strong>, where you chose.', null);
+    } else {
+      var zip = new JSZip(), fld = zip.folder(folder);
+      files.forEach(function(f){ fld.file(f.name, f.blob); });
+      var out = await zip.generateAsync({ type: 'blob' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(out); a.download = folder + '.zip';
+      document.body.appendChild(a); a.click(); a.remove();
+      say('<strong>Downloaded</strong> as <strong>' + folder + '.zip</strong>. Your browser cannot save into a folder you choose, so it is in Downloads.', null);
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') say('No folder chosen, so nothing was saved. The resized photos are still below.');
+    else say('<strong>Could not save.</strong> ' + (e && e.message ? e.message : e) + ' The resized photos are still below, and you can right-click to save any of them.', 'bad');
+  }
+  $('go').disabled = false;
+});
+</script>

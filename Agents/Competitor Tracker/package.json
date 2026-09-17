@@ -1,0 +1,9 @@
+{
+  "name": "competitor-tracker",
+  "private": true,
+  "type": "module",
+  "description": "Guard-rail logic for the Competitor Tracker, and the tests that hold it to Agents/Competitor Tracker/CLAUDE.md.",
+  "scripts": {
+    "test": "node --test tests/*.test.ts"
+  }
+}

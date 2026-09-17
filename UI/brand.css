@@ -1,0 +1,205 @@
+/* =============================================================================
+   brand.css — High Intent Labs design tokens
+   The single source of truth for colour, type, spacing and motion.
+
+   WHERE THESE CAME FROM
+   Extracted 2026-09-14 from "High Intent Labs slide template.pptx" by counting
+   how often each colour is actually used across its slides and layouts. The
+   theme block inside that file is untouched Microsoft Office default
+   (#4472c4 and friends) and must be ignored — it is not the brand.
+
+   Usage counts, for the record:
+     358  #1c2b40   ink
+     180  #a61e4d   the accent
+     124  #fafaf8   ground
+      96  #5a6472   muted
+      26  #f0efec   second surface
+      26  #d3d7dd   lines
+
+   THE ACCENT IS CALLED BERRY, NOT CRIMSON.
+   #a61e4d is hue 339deg, saturation 69%, lightness 38%. CSS crimson is 348deg
+   and nine points lighter, which reads brighter and redder. Call it berry, or
+   raspberry if you want to be specific. Getting this wrong once already cost a
+   round of review.
+
+   SUPERSEDES: the coral (#d0521f) and cool blue-grey palette in
+   "HIL Practice/HIL-Service-Model.html". That file disagrees with the deck.
+   The deck wins. Do not reintroduce coral.
+
+   KEEPING COPIES IN SYNC
+   Published artifacts and single-file mockups cannot link an external
+   stylesheet, so UI/landing-page.html carries an inline copy of the :root
+   blocks below. When you change a token here, change it there too.
+   ============================================================================= */
+
+:root {
+  /* ---- Colour, light ---------------------------------------------------- */
+  --ink:        #1c2b40;   /* headings, body, row titles.  14.30:1 on card */
+  --ink-soft:   #3c4657;   /* secondary prose */
+  --muted:      #5a6472;   /* meta, timestamps, labels, and control borders.  6.00:1 on card */
+  --paper:      #fafaf8;   /* the page ground. Warm, not grey */
+  --card:       #ffffff;   /* every content surface */
+  --card-2:     #f0efec;   /* row hover, input fill, quiet cards */
+  --line:       #d3d7dd;   /* separators between things already visible */
+  --line-soft:  #e4e5e6;   /* table inner rules */
+
+  --brand:      #a61e4d;   /* berry. The one accent */
+  --brand-ink:  #a61e4d;   /* berry as text.  7.21:1 on white */
+  --brand-wash: #fbecf1;   /* selected fill, chip fill */
+
+  --btn-bg:     #a61e4d;   /* primary button.  white on it is 7.21:1 */
+  --btn-fg:     #ffffff;
+
+  /* ---- Status. Meaning, not decoration. See the rules at the foot of this file ---- */
+  --good:       #087443;   /* ahead, done, verified.  5.85:1 on card */
+  --good-wash:  #e6f4ec;
+  --warn:       #8f5700;   /* watch this, stale, unverified.  5.95:1 on card */
+  --warn-wash:  #fdf5e6;
+  --bad:        #b42318;   /* behind, failing, destructive.  6.57:1 on card */
+  --bad-wash:   #fdecea;
+  --info:       #175cd3;   /* neutral, informational.  5.99:1 on card */
+  --info-wash:  #e9f0fd;
+
+  --shadow: 0 1px 2px rgba(28,43,64,.05), 0 6px 20px rgba(28,43,64,.06);
+
+  /* ---- Radius ----------------------------------------------------------- */
+  --r-card:    14px;   /* cards, drawers, sheets, modals */
+  --r-control: 10px;   /* buttons, inputs, selects, option rows */
+  --r-chip:     8px;   /* chips, badges, small tiles */
+  --r-pill:   999px;   /* avatars, count badges */
+
+  /* ---- Type ------------------------------------------------------------- */
+  /* Arial is the template's face. It sits behind the platform UI font so the
+     product looks native and still falls back to the brand face. */
+  --sys: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, Helvetica, sans-serif;
+
+  /* Reading sizes: documents, explanations, anything read end to end */
+  --t-lead:    19px;  --t-lead-lh:   30px;   /* one line under a page title */
+  --t-doc:     17px;  --t-doc-lh:    28px;   /* default body */
+  --t-doc-sm:  15px;  --t-doc-sm-lh: 24px;   /* helper text, footnotes */
+
+  /* Glancing sizes: nav, rows, tables, chips, meta */
+  --t-row:     15px;  --t-row-lh:    20px;
+  --t-meta:    13px;  --t-meta-lh:   18px;
+  --t-micro:   12px;  --t-micro-lh:  16px;
+  --t-kind:    11px;  --t-kind-lh:   14px;   /* uppercase, .06em */
+  --t-eyebrow: 11px;                          /* uppercase, .14em, one per screen */
+
+  /* Headings follow size + 4px line height */
+  --t-h1: 28px; --t-h1-lh: 32px;
+  --t-h2: 20px; --t-h2-lh: 26px;
+  --t-h3: 17px; --t-h3-lh: 22px;
+  --t-h4: 15px; --t-h4-lh: 20px;
+
+  --measure: 640px;   /* prose column cap, about 75 characters at 17px */
+
+  /* ---- Spacing: a strict 4px step. Nothing between values --------------- */
+  --s1:  4px;  --s2:  8px;  --s3: 12px;  --s4: 16px;
+  --s5: 20px;  --s6: 24px;  --s7: 32px;  --s8: 40px;
+  --s9: 48px; --s10: 64px; --s11: 80px; --s12: 96px;
+
+  /* ---- Motion ----------------------------------------------------------- */
+  --ease:      cubic-bezier(.25, .46, .45, .94);
+  --dur-fast:  120ms;   /* colour and opacity only */
+  --dur:       160ms;   /* the default */
+  --dur-panel: 200ms;   /* drawers and sheets */
+}
+
+/* Dark follows the OS unless the reader has explicitly chosen light. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink:        #f2f1ee;   /* 14.23:1 on card */
+    --ink-soft:   #c6cbd4;   /*  9.87:1 on card */
+    --muted:      #8e97a5;   /*  5.45:1 on card */
+    --paper:      #11151c;
+    --card:       #1b2130;
+    --card-2:     #161b26;
+    --line:       #2b3241;
+    --line-soft:  #232936;
+
+    --brand:      #c9376a;   /* lifted so it separates from the dark ground: 3.24:1 */
+    --brand-ink:  #e2648b;   /* berry as text on dark: 4.92:1 */
+    --brand-wash: #2a1620;
+
+    --btn-bg:     #c9376a;   /* white on it is 4.96:1 */
+    --btn-fg:     #ffffff;
+
+    --good:      #4cc38a;   /* 7.25:1 on card */
+    --good-wash: #10241a;
+    --warn:      #e0a33c;   /* 7.25:1 */
+    --warn-wash: #241a09;
+    --bad:       #f2867c;   /* 6.49:1 */
+    --bad-wash:  #2a1513;
+    --info:      #7fa9f5;   /* 6.81:1 */
+    --info-wash: #111d33;
+
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.28);
+  }
+}
+
+/* And the toggle wins in the other direction too. */
+:root[data-theme="dark"] {
+  --ink:#f2f1ee; --ink-soft:#c6cbd4; --muted:#8e97a5;
+  --paper:#11151c; --card:#1b2130; --card-2:#161b26;
+  --line:#2b3241; --line-soft:#232936;
+  --brand:#c9376a; --brand-ink:#e2648b; --brand-wash:#2a1620;
+  --btn-bg:#c9376a; --btn-fg:#ffffff;
+  --good:#4cc38a; --good-wash:#10241a; --warn:#e0a33c; --warn-wash:#241a09;
+  --bad:#f2867c; --bad-wash:#2a1513; --info:#7fa9f5; --info-wash:#111d33;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.28);
+}
+
+/* =============================================================================
+   RULES THAT GO WITH THE TOKENS
+
+   1. One accent, spent sparingly. No more than three berry elements visible at
+      once. Everything else is navy and grey. If a fourth wants to be berry,
+      one of the other three is not earning it.
+
+   2. STATUS COLOUR IS NOT BRAND COLOUR, and the two never swap jobs.
+      Amended 2026-09-14. The earlier rule said there is no green and no gold
+      here and not to invent them. That was right for decoration and wrong for
+      meaning: a screen full of navy tells a reader nothing about what is going
+      well and what is not. Green, amber, red and blue now exist, they carry
+      meaning only, and they are listed in the token block above.
+        --good  ahead, done, verified
+        --warn  watch this, stale, unverified, assumed
+        --bad   behind, failing, destructive
+        --info  neutral, informational
+      Berry is brand and action. It is NEVER a status. If berry also meant
+      "bad", a red button and a berry button would be the same button.
+      Every status colour still carries a word. Nobody should have to know
+      what green means to read the screen.
+      At most one status colour per row. A row lit in three colours says
+      nothing.
+
+   3. Colour is never the only signal. Every coloured state also carries a word,
+      a tick, a border weight, or a position.
+
+   4. --line is 1.3:1 and is decorative. It must never be the boundary of a
+      control. Inputs, selects and unselected option rows take --muted, which is
+      6.00:1, because WCAG 1.4.11 needs 3:1 where the border identifies a control.
+
+   5. One filled primary button per screen.
+
+   6. Focus is never removed:
+        :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px }
+        :focus:not(:focus-visible) { outline: none }
+
+   7. Transitions are allowed on background-color, border-color, color,
+      box-shadow, opacity, filter and transform. Never on a layout property.
+
+   8. Wrap every hover rule in @media (any-hover:hover), or a tap on a phone
+      leaves a stuck hover state.
+
+   9. Honour prefers-reduced-motion. Blinking cursors go solid, shimmers go
+      static, nothing slides.
+   ============================================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
