@@ -13,7 +13,8 @@
     "typecheck": "rm -rf .next && tsc --noEmit",
     "check": "npm run typecheck && npm test",
     "db": "node db.mjs",
-    "playbook-sources": "npx tsx scripts/playbook-sources.ts"
+    "playbook-sources": "npx tsx scripts/playbook-sources.ts",
+    "smoke": "node --test --experimental-strip-types smoke/*.smoke.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",

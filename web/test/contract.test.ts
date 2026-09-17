@@ -181,3 +181,54 @@ test("no test pins itself to a tool's filename", () => {
       `"somewhere in this tool", and a declaration moving between files is not a rule breaking.`,
   );
 });
+
+/**
+ * `npm test` never costs money and never reaches the internet.
+ *
+ * The moment one file in test/ is neither, the suite stops being something
+ * anybody runs on every commit, and a suite nobody runs is worse than none
+ * because it still looks like cover. Anything that talks to a real service
+ * lives in smoke/ and runs only when asked.
+ */
+test("no test in the free suite reaches a real service", () => {
+  const dir = join(here, "..", "test");
+  const offenders: string[] = [];
+
+  for (const file of readdirSync(dir).filter((f) => f.endsWith(".test.ts"))) {
+    const body = readFileSync(join(dir, file), "utf8");
+    const src = body.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
+
+    /**
+     * Imports and calls, not mentions.
+     *
+     * Written as plain word matches first, and it flagged two files that read
+     * source text looking for those very words, including itself. A test that
+     * inspects a file for "createAdminClient" is not connecting to anything;
+     * one that imports it is.
+     */
+    const imports = src.match(/^import .*$/gm)?.join("\n") ?? "";
+
+    for (const [what, sign, where] of [
+      ["the Anthropic SDK", /@anthropic-ai\/sdk/, imports],
+      ["the database", /supabase\/(admin|server|client)/, imports],
+      ["a live fetch", /\bfetch\(\s*["'`]https?:/, src],
+      ["the API key", /process\.env\.ANTHROPIC_API_KEY/, src],
+    ] as const) {
+      if (sign.test(where)) offenders.push(`${file} reaches ${what}`);
+    }
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    `${offenders.join("\n  ")}\nPut it in smoke/ and run it with npm run smoke.`,
+  );
+});
+
+test("the smoke suite is gated out of the free one", () => {
+  const pkg = JSON.parse(readFileSync(join(here, "..", "package.json"), "utf8"));
+
+  assert.match(pkg.scripts.test, /test\/\*\.test\.ts/, "npm test must name only test/");
+  assert.doesNotMatch(pkg.scripts.test, /smoke/, "npm test would spend money");
+  assert.ok(pkg.scripts.smoke, "there is no way to run the smoke tests deliberately");
+});

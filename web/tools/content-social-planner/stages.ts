@@ -21,6 +21,7 @@ import { shapeMonth } from "./shape.ts";
 import { belowTheBar, sayBar } from "./bar.ts";
 import { houseStyle, keep, unDash, unTag, unsafe } from "./scrub.ts";
 import { POST_RULES, VOICE_RULES } from "./prompts.ts";
+import { fetchable } from "../identity.ts";
 
 /**
  * A month of posts, a step at a time.
@@ -227,7 +228,18 @@ async function reading(state: RunState, business: Business, ctx: ToolContext): P
       return fail(state, "We could not open your website, so there is nothing to write from yet.");
     }
     const first = asRead(home);
-    const queue = await worthReading(new URL(first.url).origin, first, ctx);
+
+    /**
+     * Guarded. `new URL()` throws on an address with no protocol, and on
+     * 2026-09-17 five Tracker runs died on exactly that: the address had been
+     * stored as a comparison key rather than as something fetchable. Found here
+     * by the test that was written after, before it had a chance to bite.
+     */
+    const site = fetchable(first.url);
+    if (!site) {
+      return fail(state, "We could not open your website, so there is nothing to write from yet.");
+    }
+    const queue = await worthReading(new URL(site).origin, first, ctx);
     ctx.progress("Read your home page");
     return {
       stage: "reading",
@@ -383,7 +395,11 @@ export async function worthReading(
 
   return [...once.values()]
     .filter((u) => {
-      const path = new URL(u).pathname;
+      // One unparseable link on their page should cost that link, not the run.
+      const usable = fetchable(u);
+      if (!usable) return false;
+
+      const path = new URL(usable).pathname;
       return path.replace(/\/+$/, "") !== "" && !SKIP.test(path) && WORTH.test(path);
     })
     .sort((a, b) => Number(/price|cost|rate|menu/i.test(b)) - Number(/price|cost|rate|menu/i.test(a)))

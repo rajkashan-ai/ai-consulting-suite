@@ -22,6 +22,7 @@ import { isProfile, profileFor } from "./profile.ts";
 import { confidence, exhausted, isDeadEnd, type Playbook } from "./playbook.ts";
 import { whereToLook } from "./where.ts";
 import { ageOf, enoughToUse, type Kept } from "./remember.ts";
+import { fetchable } from "../identity.ts";
 import { dropBad, sayDropped, stillWrong, worthShowing } from "./dropActions.ts";
 import { sayMoved, sayStill, whatMoved, type Move } from "./changed.ts";
 import { BATTLECARD_RULES, MEND_RULES, REPAIR_RULES } from "./prompts.ts";
@@ -439,7 +440,19 @@ async function name(state: RunState, business: Business, ctx: ToolContext): Prom
       "line, no commentary, no directories, no listing sites.",
     prompt: askFor(profile),
     tools: [searchToolConfig(profile, 4) as never],
-    maxTokens: 1_500,
+    /**
+     * Enough room to search out loud and then answer.
+     *
+     * Was 1,500, chosen when this call answered from memory in one short list.
+     * With the search tool it narrates what it is looking for between searches,
+     * and on 2026-09-17 it produced 4,859 tokens and was cut off, which the
+     * engine treats as no answer at all and rightly so.
+     *
+     * A smoke test run twenty minutes earlier did not catch it, because it ran
+     * on Haiku and Haiku wrote 469. Testing a cheaper model is testing a
+     * different model.
+     */
+    maxTokens: 8_000,
   })) as unknown as string;
 
   const answered = { competitors: namesFrom(String(spoken ?? ""), profile.name) };
@@ -1564,8 +1577,19 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
    * prices came from. The real Shrewsbury page is appointment only, opening
    * hours and a phone number, with no prices on it at all.
    */
-  if (business.website && business.services.length) {
-    const own = [...textOf.keys()].find((u) => u.includes(new URL(business.website).hostname));
+  /**
+   * Their own page, found by hostname rather than by parsing what was stored.
+   *
+   * This was `new URL(business.website).hostname`, which throws on an address
+   * with no protocol. On 2026-09-17 every workspace created after a change to
+   * how the address was stored held one, and five runs died here having got all
+   * the way through reading and writing. `fetchable` returns null instead of
+   * throwing, so a bad address costs this one enrichment and not the run.
+   */
+  const ownSite = fetchable(business.website);
+  if (ownSite && business.services.length) {
+    const host = new URL(ownSite).hostname.replace(/^www\./, "");
+    const own = [...textOf.keys()].find((u) => u.includes(host));
     const list = business.services.map((x) => `${x.name} ${x.price ?? ""}`).join("\n");
     if (own) textOf.set(own, `${textOf.get(own) ?? ""}\n${list}`);
   }

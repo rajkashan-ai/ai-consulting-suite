@@ -6,6 +6,17 @@ import { EMPTY, learn as fold, type Playbook } from "./playbook.ts";
 import { playbookKey } from "./where.ts";
 import { enoughToUse, rowsFor, type Kept } from "./remember.ts";
 
+/** The hostname, or "" for anything that will not parse. Never throws. */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    // A url we were handed that is not one. Expected, and dropping the entry is
+    // the right answer. ERROR-HANDLING.md rule 1, fourth case.
+    return "";
+  }
+}
+
 /**
  * The Competitor Tracker, as the engine sees it.
  *
@@ -177,7 +188,10 @@ export const competitorTracker: ToolRun<RunState> = {
       publishes: [],
       deadEnds: (state.listingPages ?? [])
         .filter((p) => !p.ok)
-        .map((p) => ({ host: new URL(p.url).hostname.replace(/^www\./, ""), why: p.note })),
+        // Guarded, because this runs on the way past every step: a single
+        // unparseable url here would fail a run that had otherwise finished.
+        .map((p) => ({ host: hostOf(p.url), why: p.note }))
+        .filter((d) => d.host),
       evidence: (state.listingPages ?? [])
         .filter((p) => p.ok)
         .map((p) => ({ url: p.url, on: p.fetchedOn, what: "listed this trade in a town" })),

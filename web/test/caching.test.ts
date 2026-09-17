@@ -119,3 +119,25 @@ test("the short prompts are not pretending to be cached", () => {
   const search = engine.slice(engine.indexOf("search: async"), engine.indexOf("think: async"));
   assert.doesNotMatch(search, /cache_control/, "the search call's 58 token system prompt cannot be cached");
 });
+
+/**
+ * The naming call has room to search out loud and then answer.
+ *
+ * Its cap was 1,500, set when it answered from memory in one short list. With
+ * the search tool it narrates between searches, and on 2026-09-17 it produced
+ * 4,859 tokens and was cut off. The engine treats a truncated answer as no
+ * answer, rightly, so the run died having spent the searches.
+ *
+ * A smoke test twenty minutes earlier missed it because it ran on Haiku, which
+ * wrote 469. Testing a cheaper model is testing a different model.
+ */
+test("the searching call can afford the answer it now produces", () => {
+  const tool = sourceOf("competitor-tracker");
+  const call = tool.slice(tool.indexOf("searchToolConfig(profile, 4)"));
+  const cap = Number(/maxTokens:\s*([\d_]+)/.exec(call)?.[1]?.replace(/_/g, "") ?? 0);
+
+  assert.ok(
+    cap >= 6_000,
+    `the naming call's cap is ${cap}. It produced 4,859 tokens on a real run and was cut off.`,
+  );
+});

@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { sameSite } from "@/tools/identity";
+import { asAddress, sameSite } from "@/tools/identity";
 import { detectBusiness } from "@/lib/research/detect";
 import { assertNoContactDetails, redact } from "@/lib/privacy/redact";
 
@@ -30,14 +30,17 @@ export async function detect(
   if (!typed) return { stage: "start", error: "Put your web address in first." };
 
   /**
-   * Stored the same way however it was typed.
+   * Stored as something we can fetch, compared as something we can match.
    *
-   * On 2026-09-16 the same salon was entered as "https://acutabovestalbans.co.uk"
-   * and as "acutabovestalbans.co.uk" and became two businesses. Both then read
-   * the same website, so the same four pages were fetched and paid for twice,
-   * and whatever each one learns is invisible to the other.
+   * Two different jobs, and the first version of this did them with one
+   * function. It stored the comparison key, which has no protocol, so
+   * `new URL()` threw on it and five of the next eleven runs died with "one of
+   * the addresses we were given could not be read".
    */
-  const website = sameSite(typed);
+  const website = asAddress(typed);
+  if (!website) {
+    return { stage: "start", error: "That does not look like a web address. Check it and try again." };
+  }
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -49,13 +52,20 @@ export async function detect(
    * Someone entering the same address twice means "show me that one", not
    * "make me another". Scoped to this owner, so two customers with the same
    * website are still two businesses.
+   *
+   * Matched on the key, not on the stored text. What is stored is a full url,
+   * and "acutabovestalbans.co.uk" and "https://www.acutabovestalbans.co.uk/"
+   * are one business. Compared in code rather than in SQL, because an owner has
+   * a handful of businesses and a database function would put the matching rule
+   * in a second place where it can drift.
    */
-  const { data: had } = await supabase
+  const { data: mine } = await supabase
     .from("workspaces")
-    .select("id")
-    .eq("owner_id", user.id)
-    .eq("website", website)
-    .maybeSingle();
+    .select("id, website")
+    .eq("owner_id", user.id);
+
+  const key = sameSite(typed);
+  const had = (mine ?? []).find((w) => sameSite(w.website) === key);
 
   // Open it, rather than putting them through setup for a business they have.
   if (had?.id) redirect(`/workspace?w=${had.id}`);

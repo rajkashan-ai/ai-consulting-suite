@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { fetchPage, type Fetched } from "./fetch";
 import { pagesFrom } from "./sitemap";
 import { forPrompt, matchTrade } from "@/tools/categories";
+import { fetchable } from "@/tools/identity";
 
 /**
  * Read a business's own website and work out what they are.
@@ -117,7 +118,13 @@ export async function detectBusiness(website: string): Promise<Detected> {
    *
    * The guesses stay as a fallback for the sites with no sitemap.
    */
-  const origin = new URL(home.url).origin;
+  /**
+   * Guarded, because this is the first thing that touches whatever somebody
+   * typed into the form. `new URL()` throws on "example.co.uk", and five runs
+   * died on exactly that elsewhere on 2026-09-17.
+   */
+  const origin = fetchable(home.url) ? new URL(fetchable(home.url)!).origin : "";
+  if (!origin) return { pages: [], read: [] } as never;
   const fromSitemap = await pagesFrom(origin, async (u) => {
     const got = await fetchPage(u);
     return { ok: got.ok, text: got.text };
@@ -197,7 +204,9 @@ function str(v: unknown): string | null {
 function guessedLinks(home: Fetched): string[] {
   const wanted = /price|pricing|service|treatment|menu|rate|about|contact|find/i;
   const found = new Set<string>();
-  const base = new URL(home.url);
+  const usable = fetchable(home.url);
+  if (!usable) return [];
+  const base = new URL(usable);
 
   for (const m of home.text.matchAll(/\bhttps?:\/\/\S+/g)) {
     try {
@@ -211,7 +220,12 @@ function guessedLinks(home: Fetched): string[] {
   // Ordinary site paths, which is how most small sites are built.
   for (const path of ["/prices", "/pricing", "/services", "/about", "/contact"]) {
     if (found.size >= 3) break;
-    found.add(new URL(path, base.origin).href);
+    try {
+      found.add(new URL(path, base.origin).href);
+    } catch {
+      // A link on their page that is not a path. Expected: pages carry broken
+      // hrefs, and skipping one is right. ERROR-HANDLING.md rule 1, case four.
+    }
   }
 
   return [...found].slice(0, 3);

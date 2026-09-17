@@ -60,3 +60,43 @@ export function addTown(towns: string[], town: string): string[] {
   if (!town.trim() || townKnown(towns, town)) return towns;
   return [...towns, town];
 }
+
+
+/**
+ * A web address we can actually fetch.
+ *
+ * `sameSite` is a key for comparing, the way `sameTown` is, and that file says
+ * so about towns in as many words. On 2026-09-17 I used the site key as the
+ * stored value, so every workspace created after that held
+ * "acutabovestalbans.co.uk" with no protocol. `new URL()` throws on that, and
+ * five of the next eleven runs died with "one of the addresses we were given
+ * could not be read". The bakery, created before the change, kept working.
+ *
+ * So: one function decides what two addresses mean the same thing, and a
+ * different one decides what we store and fetch. Confusing the two cost a day
+ * of runs.
+ *
+ * Returns "" when it cannot be made into a url, which is a caller's problem to
+ * handle and not a reason to throw from inside a helper.
+ */
+export function asAddress(raw: string | null | undefined): string {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed) return "";
+
+  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+
+  try {
+    const url = new URL(withScheme);
+    // A host with no dot is not a domain: "localhost", or somebody's typo.
+    if (!url.hostname.includes(".")) return "";
+    return url.href.replace(/\/$/, "");
+  } catch {
+    // Not a web address. Expected: this is whatever a person typed into a box.
+    // ERROR-HANDLING.md rule 1, fourth case.
+    return "";
+  }
+}
+
+/** The address as something to fetch, or null when it cannot be one. */
+export const fetchable = (raw: string | null | undefined): string | null =>
+  asAddress(raw) || null;

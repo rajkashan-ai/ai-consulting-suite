@@ -24,6 +24,10 @@ function everySource(dir: string, found: { path: string; body: string }[] = []) 
 }
 
 const sources = ["app", "lib", "tools"].flatMap((d) => everySource(join(root, d)));
+
+/** Comments stripped, so a rule cannot be flagged by a comment explaining it. */
+const code = (body: string) =>
+  body.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
 const shortName = (p: string) => p.slice(root.length + 1);
 
 // ---------------------------------------------------------------------------
@@ -262,4 +266,53 @@ test("a render that threw is recorded as stopping the customer", () => {
   );
   assert.match(body, /action:/, "nothing says what was being attempted");
   assert.match(body, /outcome:/, "nothing says whether it worked");
+});
+
+/**
+ * No `new URL()` in a run's path without a guard.
+ *
+ * It throws on anything that is not a url, including a perfectly reasonable
+ * "example.co.uk". Five of eleven substantive run failures on 2026-09-16 and
+ * 17 were one unguarded call in the writing stage, reached only after the run
+ * had searched, read four pages and written a card. A whole run's work, lost to
+ * a missing protocol.
+ *
+ * Use `fetchable` from tools/identity.ts, or wrap it.
+ */
+test("every new URL in a run's path is guarded", () => {
+  const offenders: string[] = [];
+
+  for (const { path, body } of sources) {
+    const short = shortName(path);
+
+    /**
+     * The run path only. A screen that throws is caught by an error boundary
+     * and shows a page; a stage that throws kills the run and everything it
+     * has paid for.
+     */
+    if (!/^(tools|lib)\//.test(short)) continue;
+
+    // Comments stripped, or a comment explaining this very rule is flagged by
+    // it, which is what happened the first time this ran.
+    const lines = code(body).split("\n");
+
+    lines.forEach((line, i) => {
+      if (!/\bnew URL\(/.test(line)) return;
+
+      // Guarded when a try opens in the few lines above, or when the value came
+      // from something that has already refused to hand over a bad one.
+      const above = lines.slice(Math.max(0, i - 6), i).join("\n");
+      if (/\btry\s*\{/.test(above)) return;
+      if (/fetchable\(|asAddress\(/.test(`${above}\n${line}`)) return;
+
+      offenders.push(`${short}:${i + 1}  ${line.trim().slice(0, 60)}`);
+    });
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    `Unguarded new URL in a run's path:\n  ${offenders.join("\n  ")}\n` +
+      `It throws on "example.co.uk". Use fetchable() from tools/identity.ts, or wrap it.`,
+  );
 });
