@@ -21,7 +21,6 @@ import { sourceOf } from "./tool-source.ts";
  */
 
 const here = import.meta.dirname;
-const tool = (f: string) => readFileSync(join(here, "..", "tools", "content-social-planner", f), "utf8");
 const screen = (f: string) => readFileSync(join(here, "..", "app", "workspace", "[tool]", f), "utf8");
 
 /**
@@ -141,7 +140,10 @@ test("the voice note is capped in the shape and told not to mark their writing",
    * own copy, with six quotes in it. Raj, 2026-09-16: a summary, more generic,
    * never rude. A length asked for in prose drifts, so the cap is in the schema.
    */
-  const stages = tool("stages.ts");
+  // The tool, not the file. The planner's stages.ts is 850 lines and the
+  // tracker's was split the same week; this checks a cap in a schema and two
+  // refusals in a prompt, all of which are true of the tool wherever they sit.
+  const stages = sourceOf("content-social-planner");
   assert.match(stages, /words: \{ type: "string", minLength: 40, maxLength: 260, pattern: NO_DASH \}/);
   assert.match(stages, /never marking/i, "nothing stops it grading their copy");
   assert.match(stages, /Never call it plain, basic, functional/i, "the words it reached for are not refused");
