@@ -50,54 +50,9 @@ onboarding promise avoids. §2a gets the same result from what they have already
 
 ## 2b. What the recommendation may rest on
 
-**Say the number, then what it costs.** "Two a week. That is 9 posts and 9 photographs between now
-and 13 October, across Instagram and Facebook." Every reason is a fact we hold: our own arithmetic,
-their answer about their time, which channels are quiet, and from month two the only measured
-evidence in the feature, how much of last month they actually posted.
-
-**We can read it and we may not. Corrected twice, 2026-09-16 and again 2026-09-17.**
-
-The original text said "we cannot count what they post now". I corrected that to "we can", having
-checked that a public Instagram profile loads without signing in and that every post's creation
-date is encoded in its own shortcode. Measured on a real Hertfordshire bakery: last posted one day
-ago, 6 posts in 30 days, 2.4 days between them.
-
-That correction was right about the technology and wrong about the decision, which is worse, because
-it reads as permission. Instagram's robots.txt is:
-
-    User-agent: *
-    Disallow: /
-
-Every agent, every path. `CLAUDE.md` 1.5 rule 1 says robots is the gate and a block is never worked
-around, so reading it is out, whatever a shortcode encodes. "Cannot" was false and "may not" is
-true, and I fixed the wrong half.
-
-**So this tool does not count what they post.** The code never did: `detectChannels` reads platform
-names off the business's own website and fetches nothing from any platform. That is the position to
-keep.
-
-**What that costs, said plainly.** The cadence recommendation is a judgement against their answer
-about their own time, not a comparison against a measured rate. "Step up" and "step down" mean less
-than they would with a number behind them. That is the honest trade and the alternative is breaking
-a rule with legal weight.
-
-**If this is ever wanted properly**, the route is the owner telling us, or Instagram's own Graph API
-with their consent, which is what it is for. Not a fetch we are asked not to make.
-
-**What is still true:** there is no industry benchmark worth quoting, and counts can be inflated by
-someone who wants to. So we say what we counted and when we counted it, the same as every other
-claim in the suite, and we never compare them to an invented average.
-
-**And it is still theirs to confirm.** Read it, show it back, let them correct it. What is allowed,
-and the step-down case: `recommendation.md`.
-
-Method: the profile is public, `lib/research/fetch.ts` rules apply, and nothing signs in to
-anything. Decoding a shortcode is base64 over `A-Za-z0-9-_` to a media id, then
-`(id >> 23) + 1314220021721` milliseconds.
-
-**The step up is cost and coverage, never results.** "Three a week would let your beard work have
-its own thread instead of one post a month" is ours to say. "Three a week will get you more
-enquiries" is not, in any phrasing. `findPromisedResults` refuses it.
+Their own answer about their time, and from month two what they told us went out. Never a rate
+counted off a platform. Why, and the correction that was itself corrected, in
+`references/cadence-evidence.md`.
 
 ## 2a. The voice note: what they told us about how they write
 
@@ -149,48 +104,9 @@ due. A plan that reproaches them is the thing this tool exists to avoid.
    scrolled past. On a week, the amber marks it and the count says how many.
 
 ## What we did not write
-   Every gap with its reason beside it. Never a gap on its own.
-```
 
-**That list is the exported document**, which leaves the app and goes to their
-customers. `tests/contract.test.ts` asserts the export carries exactly it, in
-order, because a section can otherwise vanish and no test notices, which happened
-to this export before anything checked.
-
-### The screen is a different list, and it is also a contract
-
-    What you have posted
-    How often we suggest you post
-    What you sound like
-    This week
-    Resize a photo
-    The rest of the month
-    What we did not write
-
-The screen holds two things the document does not, and neither belongs in a file
-sent to a customer: what has gone out so far, and the resizer.
-
-**The resizer was on neither list until 2026-09-16 and was therefore dropped**,
-silently, when the screen was rebuilt for the app. It had been built, tested and
-on the mockup, and the contract that was supposed to protect it had never been
-told it existed. A section on no list is a section nobody is keeping.
-
-**This list is the contract**, and `tests/contract.test.ts` asserts the export carries exactly it,
-in order. A section can otherwise vanish and no test notices, which happened to the screen on
-15 September and to this export before anything checked.
-
-**Finished posts, not hooks.** Each entry is the actual caption, long enough to paste straight in.
-A theme and an opening line is still a blank page, and the blank page is the whole problem.
-
-**Every post carries a shot instruction.** One line, plain: "a photo of the boiler before and
-after, taken on your phone in daylight". We write the words, they supply the proof.
-
-**We do not generate images.** A photo of a tradesperson who is not them, on a job that never
-happened, is the same fabrication as an invented case study.
-
-**Each post is written for its channel**, not written once and pasted three times. LinkedIn runs
-long and takes a view, Instagram leads with the image, a Google Business Profile post is an offer
-or an update. Word targets and character caps are in `src/types.ts`.
+Deliberate omissions, each with its reason, in `references/not-written.md`. Read it before
+adding something that looks missing: most of it was left out on purpose.
 
 ## 3a. The mix, and what stops it repeating
 
@@ -277,78 +193,13 @@ and a mood is not. Free text sits underneath and goes into the voice note in the
 
 ## 6c. The bar, and who sets it (added 2026-09-16 by Raj)
 
-**Nothing here rests on this tool's taste.** Raj: whoever sets the bar sets it for
-everything we write, and it is not our judgement.
-
-**There is no single Cagan for content, and inventing one would be the fabrication
-this product exists to avoid.** Product management is one discipline with one
-canonical voice. Content splits into three questions and each has a different
-best answer, so three people set the bar, one per question.
-
-| The question | Who answers it | The bar |
-|---|---|---|
-| Is this post worth posting at all? | **Jay Baer, _Youtility_** | Useful enough that someone would pay for it, and useful to a reader who never buys. Help, do not sell |
-| Is it written like a person? | **Ann Handley, _Everybody Writes_** | Clear, concrete, in their own voice. Already named in `base-prompt.md` |
-| Is the month shaped right for the channel? | **Gary Vaynerchuk, _Jab, Jab, Jab, Right Hook_** | Give repeatedly, then ask once. Written for the platform, never written once and pasted |
-
-**What each one already governs, and what now checks it:** `bar.ts`.
-
-### The order of authority
-
-1. **Measured evidence about this business** beats everything. What they actually
-   posted, what they changed about our wording, and what the numbers said.
-   `learning.ts` holds it, with its evidence, and a solid learning is never given
-   twice.
-2. **The three above**, where there is no evidence yet, which is every business on
-   day one.
-3. **This tool's judgement.** Never. If a rule is not one of the first two, it is
-   not a rule, and a check that encodes our taste is worse than no check because
-   it is invisible.
-
-**Evidence replaces the default, it does not argue with it.** When the numbers say
-something for this business, the number wins and carries its date and its source.
-Until then the named bar applies and says whose it is.
-
-### Honest about what is checkable
-
-A rule that cannot be checked mechanically is a rule that holds until somebody is
-in a hurry, so each is written as a check or admitted as unchecked:
-
-- **Vaynerchuk's ratio and platform fit are fully checked**, in `MIX` and in the
-  per-channel word targets and mediums. They were before anyone named him.
-- **Baer is partly checked.** A post can be tested for whether it carries a fact a
-  reader could use without buying. It cannot be tested for whether that fact is
-  worth paying for.
-- **Handley is partly checked.** Sentence length, jargon and the house style are
-  mechanical. Whether a sentence sings is not, and no guard should pretend.
-
-The unchecked remainder is the case for `build-notes.md`'s standing instruction to
-read a full `most days` plan end to end, by hand.
+Raj sets it, not the model and not me. The rules and the worked examples are in
+`references/the-bar.md`.
 
 ## 6b. House style, enforced rather than asked for
 
-**A dash is mechanical, a word is not, so they are handled differently.**
-
-An em dash or an en dash between words is punctuation, and swapping it for what a
-person would have typed changes nothing else in the sentence. So it is repaired,
-silently and deterministically: a comma, or a full stop where the dash was doing
-a full stop's work. Dropping a finished post over a typographic mark would cost
-the owner a post to fix a keystroke.
-
-**AI speak is a word choice and there is no safe swap**, so a post carrying one
-is refused the same way an invented claim is, and the reason says which word.
-"Leverage" is not a worse way of saying something true; it is the sentence a
-person would not have written, and rewriting it here would be us guessing what
-they meant.
-
-**Asked for in the schema as well as the prompt.** A length or a ban asked for
-politely drifts (`CLAUDE.md` 1.4a). The schema pattern refuses a dash outright,
-so the model usually cannot return one in the first place, and the check
-afterwards exists because a schema is the model's constraint and not a promise.
-
-The list is `HOUSE` in `web/tools/content-social-planner/scrub.ts`, beside the
-guards it runs with. It is the root `CLAUDE.md` §10 list plus the words that
-turn up in social copy.
+Enforced by tests rather than asked for in a prompt, which is what stops it drifting. The rules
+are in `references/house-style.md`.
 
 ## 6a. Tracking what went out
 

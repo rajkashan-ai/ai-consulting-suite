@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 /**
@@ -22,4 +22,30 @@ export function sourceOf(tool: string): string {
     .sort()
     .map((f) => readFileSync(join(dir, f), "utf8"))
     .join("\n");
+}
+
+
+/**
+ * A tool's spec: its CLAUDE.md and everything in its references folder.
+ *
+ * The third time this lesson has been paid for in two days. A test pinned to
+ * one filename breaks when a section moves, not because anything is wrong but
+ * because it was checking the wrong thing: what it means is "the spec says X",
+ * and the spec is a folder now.
+ *
+ * Long specs get split, because Anthropic's guidance is to target under 200
+ * lines and a longer file reduces adherence to itself. Splitting one should not
+ * be a change every test has to follow.
+ */
+export function specOf(tool: string): string {
+  const dir = join(import.meta.dirname, "..", "..", "Agents", tool);
+  const parts = [readFileSync(join(dir, "CLAUDE.md"), "utf8")];
+
+  const refs = join(dir, "references");
+  if (existsSync(refs)) {
+    for (const f of readdirSync(refs).filter((n) => n.endsWith(".md")).sort()) {
+      parts.push(readFileSync(join(refs, f), "utf8"));
+    }
+  }
+  return parts.join("\n");
 }

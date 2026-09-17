@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { belowTheBar, givesSomethingAway, longestSentence, sayBar, LONGEST_SENTENCE } from "../tools/content-social-planner/bar.ts";
 import type { KnownFacts } from "../../Agents/Content & Social Planner/src/types.ts";
+import { specOf } from "./tool-source.ts";
 
 /**
  * The bar is somebody else's, and it is checked.
@@ -100,10 +101,7 @@ test("what the owner is told names no book, no person and no rule of ours", () =
 
 /* ── the mandate, and what actually holds it ──────────────────────────────── */
 
-const spec = readFileSync(
-  join(import.meta.dirname, "..", "..", "Agents", "Content & Social Planner", "CLAUDE.md"),
-  "utf8",
-);
+const spec = specOf("Content & Social Planner");
 
 test("the spec says who sets the bar, by name", () => {
   for (const who of ["Jay Baer", "Ann Handley", "Gary Vaynerchuk"]) {

@@ -8,7 +8,7 @@ import { progressFor, type RunState, type Stage } from "../tools/content-social-
 import { PLAN_DAYS } from "../../Agents/Content & Social Planner/src/plan-shape.ts";
 import { ANGLES, CADENCES, CADENCE_LABEL, CRITIQUES } from "../../Agents/Content & Social Planner/src/types.ts";
 import { recommendCadence } from "../../Agents/Content & Social Planner/src/recommend.ts";
-import { sourceOf } from "./tool-source.ts";
+import { sourceOf, specOf } from "./tool-source.ts";
 
 /**
  * One test per thing that broke, so it cannot break again quietly.
@@ -180,10 +180,7 @@ function contract(): string[] {
    * customers. The screen holds two things the document does not, what has gone
    * out and the resizer, and neither belongs in an export.
    */
-  const spec = readFileSync(
-    join(here, "..", "..", "Agents", "Content & Social Planner", "CLAUDE.md"),
-    "utf8",
-  );
+  const spec = specOf("Content & Social Planner");
   const heading = "### The screen is a different list, and it is also a contract";
   const from = spec.indexOf(heading);
   assert.ok(from > -1, "the spec no longer says what the screen holds");

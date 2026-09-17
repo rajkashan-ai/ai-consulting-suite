@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { hasDash, houseStyle, unDash } from "../tools/content-social-planner/scrub.ts";
+import { specOf } from "./tool-source.ts";
 
 /**
  * No em dash, and no words nobody says out loud, in anything they post.
@@ -81,10 +82,7 @@ test("ordinary trade words are not caught", () => {
 });
 
 test("the rule is written down where the tool's rules live", () => {
-  const spec = readFileSync(
-    join(import.meta.dirname, "..", "..", "Agents", "Content & Social Planner", "CLAUDE.md"),
-    "utf8",
-  );
+  const spec = specOf("Content & Social Planner");
   assert.match(spec, /Never an em dash, and never AI speak/i, "the rule is enforced but not recorded");
 });
 
