@@ -767,7 +767,31 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
   const { profile, seen } = state;
   if (!profile || !seen) return stop(state, "Lost the search results. Run it again.");
 
-  const town = profile.town.toLowerCase().replace(/\s+/g, "-");
+  /**
+   * The town as a platform writes it into a url.
+   *
+   * This replaced whitespace and nothing else, so a full stop survived. On
+   * 2026-09-17 a salon whose town is recorded as "St. Albans" produced the key
+   * "st.-albans", and the consequences were exactly backwards:
+   *
+   *   booksy.com/en-gb/s/hair-salon/234686_st-albans          REFUSED
+   *   fresha.com/lp/en/tt/women's-haircuts/in/gb-st-albans    REFUSED
+   *   fresha.com/lp/en/bt/hair-salons/in/us-new-york/st.-albans  ACCEPTED
+   *
+   * Every UK listing was turned away and the American one was let in, because
+   * Fresha's US path happens to write the stop and ours do not. That is why the
+   * owner was offered five salons in Queens, and why the next run found four
+   * page titles instead of the fifty eight businesses the same town yields when
+   * it is spelled without the stop.
+   *
+   * Anything that is not a letter or a digit becomes a hyphen now, which is
+   * what every platform does: "St. Albans" and "St Albans" both become
+   * "st-albans", and "Stoke-on-Trent" stays itself.
+   */
+  const town = profile.town
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
   const wanted = new Set<string>();
 
   /**

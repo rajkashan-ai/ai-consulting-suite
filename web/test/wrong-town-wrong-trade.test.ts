@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { rightTrade, servesTheSamePeople, tradeFromUrl, whoFor } from "../tools/competitor-tracker/sift.ts";
 import { fetchable } from "../tools/identity.ts";
+import { sourceOf } from "./tool-source.ts";
 import { matchTrade } from "../tools/categories.ts";
 import { resultCountry } from "../../Agents/Competitor Tracker/src/search-visibility.ts";
 
@@ -146,4 +147,48 @@ test("a street address is never kept as a web address", () => {
   assert.equal(fetchable("33 High St, St Albans AL3 4EH, United Kingdom"), null);
   assert.equal(fetchable("301 High St, London Colney, St Albans AL2 1EJ"), null);
   assert.equal(fetchable("https://booksy.com/en-gb/54777_picasso"), "https://booksy.com/en-gb/54777_picasso");
+});
+
+test("a full stop in the town does not turn every UK listing away", () => {
+  /**
+   * 2026-09-17, and the cause of everything above it.
+   *
+   * The listings gate built its town key with `.replace(/\s+/g, "-")`, which
+   * takes out whitespace and leaves punctuation. A salon recorded as
+   * "St. Albans" produced "st.-albans", and the effect was exactly backwards:
+   *
+   *   booksy.com/en-gb/s/hair-salon/234686_st-albans            refused
+   *   fresha.com/lp/en/tt/womens-haircuts/in/gb-st-albans       refused
+   *   fresha.com/lp/en/bt/hair-salons/in/us-new-york/st.-albans accepted
+   *
+   * Every UK listing turned away, the American one let in, because Fresha's US
+   * path writes the stop and ours do not. That workspace could only ever find
+   * New York, and the next run after the country fix found four page titles
+   * where the same town without the stop yields fifty eight businesses.
+   *
+   * Asserted against the source, because the key is built inside the listings
+   * step and nothing else can reach it.
+   */
+  const src = sourceOf("competitor-tracker")
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/\s+/g, " ");
+
+  assert.doesNotMatch(
+    src,
+    /const town = profile\.town \.toLowerCase\(\) \.replace\(\/\\s\+\/g, "-"\);/,
+    "the town key leaves punctuation in again",
+  );
+  assert.match(
+    src,
+    /const town = profile\.town \.toLowerCase\(\) \.replace\(\/\[\^a-z0-9\]\+\/g, "-"\)/,
+    "the town key no longer strips everything that is not a letter or a digit",
+  );
+
+  // And the rule itself, on the towns that break it.
+  const key = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  assert.equal(key("St. Albans"), "st-albans");
+  assert.equal(key("St Albans"), "st-albans", "both spellings must reach the same listings");
+  assert.equal(key("Stoke-on-Trent"), "stoke-on-trent");
+  assert.equal(key("Weston-super-Mare"), "weston-super-mare");
+  assert.equal(key("Bury St Edmunds"), "bury-st-edmunds");
 });
