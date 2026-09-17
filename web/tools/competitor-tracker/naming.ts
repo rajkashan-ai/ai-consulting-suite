@@ -1,4 +1,5 @@
 import type { SearchResult } from "../../../Agents/Competitor Tracker/src/search-visibility.ts";
+import { townSquashed } from "../place.ts";
 import { normaliseName } from "../../../Agents/Competitor Tracker/src/normalise.ts";
 
 /**
@@ -136,7 +137,10 @@ export function judge(
   const want = normaliseName(n.name);
   if (!want || want.length < 3) return { found: null, verdict: "nothing found" };
 
-  const here = town.toLowerCase().replace(/[^a-z]/g, "");
+  // The same rule the listings gate uses, with the separators taken out. It
+  // was `[^a-z]`, a third private copy of a question that has one answer, and
+  // the copy that mattered was the one that was wrong. See tools/place.ts.
+  const here = townSquashed(town);
 
   // The closest any result got, so a refusal can say which wall it hit.
   let closest: Verdict = results.length ? "not in a title" : "nothing found";

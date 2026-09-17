@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { rightTrade, servesTheSamePeople, tradeFromUrl, whoFor } from "../tools/competitor-tracker/sift.ts";
 import { fetchable } from "../tools/identity.ts";
 import { sourceOf } from "./tool-source.ts";
+import { townInUrl, townSquashed } from "../tools/place.ts";
 import { matchTrade } from "../tools/categories.ts";
 import { resultCountry } from "../../Agents/Competitor Tracker/src/search-visibility.ts";
 
@@ -149,7 +150,7 @@ test("a street address is never kept as a web address", () => {
   assert.equal(fetchable("https://booksy.com/en-gb/54777_picasso"), "https://booksy.com/en-gb/54777_picasso");
 });
 
-test("a full stop in the town does not turn every UK listing away", () => {
+test("a town reaches the listings however it is punctuated", () => {
   /**
    * 2026-09-17, and the cause of everything above it.
    *
@@ -161,34 +162,58 @@ test("a full stop in the town does not turn every UK listing away", () => {
    *   fresha.com/lp/en/tt/womens-haircuts/in/gb-st-albans       refused
    *   fresha.com/lp/en/bt/hair-salons/in/us-new-york/st.-albans accepted
    *
-   * Every UK listing turned away, the American one let in, because Fresha's US
-   * path writes the stop and ours do not. That workspace could only ever find
-   * New York, and the next run after the country fix found four page titles
-   * where the same town without the stop yields fifty eight businesses.
+   * Every UK listing turned away and the American one let in, because Fresha's
+   * US path writes the stop and ours do not.
    *
-   * Asserted against the source, because the key is built inside the listings
-   * step and nothing else can reach it.
+   * Replacing that with "hyphenate anything that is not a letter or a digit"
+   * fixed St Albans and still failed four of these ten. An apostrophe
+   * disappears, it does not become a separator.
    */
+  const towns: [string, string][] = [
+    ["St. Albans", "st-albans"],
+    ["St Albans", "st-albans"],
+    ["Stoke-on-Trent", "stoke-on-trent"],
+    ["Weston-super-Mare", "weston-super-mare"],
+    ["Bishop's Stortford", "bishops-stortford"],
+    ["Bishop\u2019s Stortford", "bishops-stortford"],
+    ["King's Lynn", "kings-lynn"],
+    ["Ynys M\u00f4n", "ynys-mon"],
+    ["Barrow-in-Furness", "barrow-in-furness"],
+    ["Newcastle upon Tyne", "newcastle-upon-tyne"],
+    ["  Leeds  ", "leeds"],
+  ];
+
+  for (const [town, want] of towns) assert.equal(townInUrl(town), want, town);
+
+  // Both spellings of the same town must reach the same listings, which is the
+  // whole failure in one line.
+  assert.equal(townInUrl("St. Albans"), townInUrl("St Albans"));
+
+  // The squashed form is derived from the url form rather than written again,
+  // so the two can never drift apart.
+  assert.equal(townSquashed("King's Lynn"), "kingslynn");
+  assert.equal(townSquashed("St. Albans"), townSquashed("St Albans"));
+
+  assert.equal(townInUrl(null), "");
+  assert.equal(townInUrl(""), "");
+});
+
+test("nobody writes their own town rule", () => {
+  /**
+   * There were three, in three files, for one question, and the one that
+   * mattered was the one that was wrong. A fourth written tomorrow would be a
+   * fourth chance to get it wrong in a fourth way.
+   */
+  // sourceOf gives the whole tool, which is the right scope: the question is
+  // "does anything in here normalise a town itself", not "does this file".
   const src = sourceOf("competitor-tracker")
     .replace(/\/\*[\s\S]*?\*\//g, " ")
-    .replace(/\s+/g, " ");
+    .replace(/\/\/[^\n]*/g, " ");
 
-  assert.doesNotMatch(
-    src,
-    /const town = profile\.town \.toLowerCase\(\) \.replace\(\/\\s\+\/g, "-"\);/,
-    "the town key leaves punctuation in again",
+  const own = src.match(/town[^;\n]{0,40}\.replace\(/g) ?? [];
+  assert.deepEqual(
+    own,
+    [],
+    `this normalises a town itself instead of using place.ts: ${own.join(", ")}`,
   );
-  assert.match(
-    src,
-    /const town = profile\.town \.toLowerCase\(\) \.replace\(\/\[\^a-z0-9\]\+\/g, "-"\)/,
-    "the town key no longer strips everything that is not a letter or a digit",
-  );
-
-  // And the rule itself, on the towns that break it.
-  const key = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  assert.equal(key("St. Albans"), "st-albans");
-  assert.equal(key("St Albans"), "st-albans", "both spellings must reach the same listings");
-  assert.equal(key("Stoke-on-Trent"), "stoke-on-trent");
-  assert.equal(key("Weston-super-Mare"), "weston-super-mare");
-  assert.equal(key("Bury St Edmunds"), "bury-st-edmunds");
 });
