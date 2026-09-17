@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { sourceOf } from "./tool-source.ts";
 import {
   CONVERTS,
   INTENTS,
@@ -232,4 +233,38 @@ test("every class the made list uses exists", () => {
   );
   const missing = [...used].filter((c) => !css.includes(`.${c}`));
   assert.deepEqual(missing, [], `classes with no stylesheet behind them: ${missing}`);
+});
+
+test("a post is asked for in the shape cite understands", () => {
+  /**
+   * 2026-09-17, and it is why the first live attempt produced nothing.
+   *
+   * cite() walks what the model returns and turns a key called `from` into a
+   * `source` carrying the url and the date we read it. It looks for that one
+   * key. The action asked for `source: { page: 2 }` instead, so cite walked
+   * past it, the post reached `unsafe` with no url behind it, and every
+   * attempt was refused with "nothing on your own site backs it up".
+   *
+   * Two halves of one question disagreeing, for the second time today: the
+   * monthly writer has always asked for `from`.
+   */
+  /* Comments stripped. The action explains the fault, and the explanation
+     quotes the wrong shape, so a test reading the prose fires on the note
+     saying not to do it. Third time today. */
+  const action = read("make-actions.ts")
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/\/\/[^\n]*/g, " ");
+  const schema = action.slice(action.indexOf("input_schema"), action.indexOf("tool_choice"));
+
+  assert.match(schema, /from: \{ type: "integer"/, "the model is not asked for a page number as `from`");
+  assert.match(schema, /required: \[[^\]]*"from"\]/, "the page number is optional, so a post can arrive unsourced");
+  assert.doesNotMatch(schema, /source: \{/, "it asks for a `source` shape cite does not expand");
+
+  // And the word matches the one cite actually looks for, rather than a word
+  // this test also made up.
+  assert.match(
+    sourceOf("content-social-planner"),
+    /if \("from" in record\)/,
+    "cite looks for a different key now",
+  );
 });

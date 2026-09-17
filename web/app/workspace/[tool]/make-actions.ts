@@ -128,7 +128,7 @@ export async function makePost(
     : `WHAT THIS POST IS FOR\n${intentAsks(intent as Intent)}\n\n` +
       `Write one post that does that, about something on their pages below.\n\n`;
 
-  let answer: { words?: string; shot?: string; why?: string; source?: unknown; intent?: string };
+  let answer: { words?: string; shot?: string; why?: string; from?: unknown; intent?: string };
   try {
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
@@ -168,13 +168,23 @@ export async function makePost(
                   type: "string",
                   enum: ["educate", "inspire", "entertain", "inform", "connect", "prove", "promote", "engage"],
                 },
-                source: {
-                  type: "object",
-                  properties: { page: { type: "integer", description: "The numbered page this comes from." } },
-                  required: ["page"],
-                },
+                /**
+                 * `from`, and it has to be that word.
+                 *
+                 * cite() walks what the model returns and turns a key called
+                 * `from` into a `source` carrying the url and the date we read
+                 * it. It looks for that one key. I asked for `source: {page}`
+                 * instead, so cite walked straight past it, the post reached
+                 * `unsafe` with no url behind it, and every attempt was
+                 * refused with "nothing on your own site backs it up".
+                 *
+                 * The monthly writer has always asked for `from`. Inventing a
+                 * second shape for the same idea is how the two halves of one
+                 * question end up disagreeing, which is the second time today.
+                 */
+                from: { type: "integer", description: "The page its facts came off." },
               },
-              required: ["words", "shot", "why", "intent", "source"],
+              required: ["words", "shot", "why", "intent", "from"],
             },
           } as never,
         ],
