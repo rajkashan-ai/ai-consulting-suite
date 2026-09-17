@@ -73,6 +73,12 @@ for (let n = 0; n < 60; n += 1) {
   if (!moved) { console.log("nothing to do"); break; }
   was = moved.stage;
   steps.push({ stage: spentIn, seconds });
+  if (moved.stage === "picking") {
+    // Waiting for a person. Each spin costs nothing, but sixty of them in the
+    // log say nothing either.
+    console.log(`\nWAITING: ${moved.progress}`);
+    break;
+  }
   if (stopAt && moved.stage === stopAt) {
     console.log(`\nstopped at ${stopAt}, as asked`);
     break;

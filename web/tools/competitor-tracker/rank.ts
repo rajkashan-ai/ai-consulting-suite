@@ -190,6 +190,42 @@ export function sameArea(
         .split(/\s+/)
         .filter((w) => w.length > 2 && !skip.has(w)),
     );
+  /**
+   * A village named in their address, when it is not in ours, ends it.
+   *
+   * On 2026-09-17 this pre-ticked four villages for a salon in the middle of
+   * St Albans:
+   *
+   *   customer  19 High Street, St. Albans, AL3 4EH
+   *   ticked    19-20 High St, Redbourn      (about 5 miles)
+   *             48A High St, Markyate        (about 7 miles)
+   *             301 High St, London Colney   (about 4 miles)
+   *
+   * The shared word every time was "high", the commonest street name in the
+   * country, and the reason shown to the owner said "near you", which was not
+   * true. Meanwhile Chequer St and Hatfield Rd, actually in the town, scored
+   * nothing.
+   *
+   * A British address written by a booking platform is "street, locality,
+   * town". Two parts and there is no locality, only a street. Three or more and
+   * the middle names a place, and a place ours does not mention is somewhere
+   * else, whatever street name they happen to share.
+   *
+   * Structural rather than a list of common street names. A list only ever
+   * catches what somebody already thought of, which is how a Melbourne listing
+   * got in this morning.
+   */
+  const parts = theirs.split(",").map((x) => x.trim()).filter(Boolean);
+  if (parts.length >= 3) {
+    const localities = parts.slice(1, -1);
+    const oursSaid = yours.toLowerCase();
+    const elsewhere = localities.some((place) => {
+      const w = [...words(place)];
+      return w.length > 0 && !w.some((x) => oursSaid.includes(x));
+    });
+    if (elsewhere) return false;
+  }
+
   const a = words(theirs);
   const b = words(yours);
   for (const w of a) if (b.has(w)) return true;

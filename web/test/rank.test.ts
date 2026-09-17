@@ -153,3 +153,40 @@ test("a national business ignores miles entirely", () => {
   const out = rank(all, { area: null, town: null, price: null, proximityWeight: 0 });
   assert.equal(out[0].name, "real rival");
 });
+
+test("a shop on a High Street in the next village is not near you", () => {
+  /**
+   * Measured on 2026-09-17. A salon at "19 High Street, St. Albans, AL3 4EH"
+   * had four of its five suggested competitors pre-ticked on the strength of
+   * one shared word, "high", the commonest street name in the country:
+   *
+   *   19-20 High St, Redbourn        about 5 miles
+   *   48A High St, Markyate          about 7 miles
+   *   301 High St, London Colney     about 4 miles
+   *
+   * while Chequer St and Hatfield Rd, actually in the town, scored nothing.
+   * The reason shown to the owner said "near you", which was untrue.
+   */
+  const you = "19 High Street, St. Albans, AL3 4EH";
+  const town = ["st albans", "st. albans"];
+
+  for (const village of [
+    "19-20 High St, Redbourn, St Albans",
+    "48A High St, Markyate, St Albans",
+    "301 High St, London Colney, St Albans",
+  ]) {
+    assert.equal(sameArea(village, you, town), false, village);
+  }
+
+  // Same town, no other locality named, so a shared street word still counts.
+  assert.equal(sameArea("22 High Oaks, St Albans", you, town), true);
+  assert.equal(sameArea("19 High Street, St Albans, AL3 4EH", you, town), true);
+});
+
+test("a street with no locality after it is still the same street", () => {
+  // The rule is about a village named in their address, not about how many
+  // words two addresses share. "Smithfield Road" and "37 Smithfield Road" are
+  // the same street and an earlier version of this fix broke that.
+  assert.equal(sameArea("Smithfield Road", "37 Smithfield Road"), true);
+  assert.equal(sameArea("Business Park", "37 Smithfield Road"), false);
+});
