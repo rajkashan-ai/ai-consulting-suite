@@ -297,7 +297,6 @@ header{height:var(--header-h); display:flex; align-items:center; gap:var(--s3);
 /* The first of exactly three berry elements on any screen. Named so that
    nobody spends a fourth without noticing. */
 .logo__mark{width:18px; height:18px; border-radius:5px; background:#e2648b; flex:none}
-.acct{font-size:13px; line-height:18px; color:#c3c9d2}   /* 8.58:1 on navy */
 
 /* Navigation. 40px tall at 13px with an 8px gap is Linear's size-medium button.
    Their horizontal padding is 14px; ours is 16px, because our own rule says a

@@ -17,7 +17,14 @@ export default function Nav({ workspaceId }: { workspaceId: string }) {
 
   const items = [
     { href: `/workspace${q}`, name: "Home", exact: true },
-    ...TOOLS.map((t) => ({
+    /**
+     * Hidden tools are not in the navigation.
+     *
+     * An unbuilt tool in the header is a promise. Six headings where four lead
+     * to "not built yet" reads as a product that mostly does not work, so the
+     * ones furthest from being real are kept out until they are.
+     */
+    ...TOOLS.filter((t) => !t.hidden).map((t) => ({
       href: `/workspace/${t.slug}${q}`,
       name: t.name,
       exact: false,

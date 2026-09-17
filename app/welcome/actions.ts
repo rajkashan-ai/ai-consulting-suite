@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { sameSite } from "@/tools/identity";
 import { detectBusiness } from "@/lib/research/detect";
 import { assertNoContactDetails, redact } from "@/lib/privacy/redact";
 
@@ -25,12 +26,39 @@ export async function detect(
   _previous: WelcomeState,
   form: FormData,
 ): Promise<WelcomeState> {
-  const website = String(form.get("website") ?? "").trim();
-  if (!website) return { stage: "start", error: "Put your web address in first." };
+  const typed = String(form.get("website") ?? "").trim();
+  if (!typed) return { stage: "start", error: "Put your web address in first." };
+
+  /**
+   * Stored the same way however it was typed.
+   *
+   * On 2026-09-16 the same salon was entered as "https://acutabovestalbans.co.uk"
+   * and as "acutabovestalbans.co.uk" and became two businesses. Both then read
+   * the same website, so the same four pages were fetched and paid for twice,
+   * and whatever each one learns is invisible to the other.
+   */
+  const website = sameSite(typed);
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/sign-in");
+
+  /**
+   * Already here? Open it rather than making a second.
+   *
+   * Someone entering the same address twice means "show me that one", not
+   * "make me another". Scoped to this owner, so two customers with the same
+   * website are still two businesses.
+   */
+  const { data: had } = await supabase
+    .from("workspaces")
+    .select("id")
+    .eq("owner_id", user.id)
+    .eq("website", website)
+    .maybeSingle();
+
+  // Open it, rather than putting them through setup for a business they have.
+  if (had?.id) redirect(`/workspace?w=${had.id}`);
 
   // The workspace exists from this moment, unconfirmed. confirmed_at stays null
   // until they have looked at what we found and agreed, so everything on this
@@ -51,7 +79,7 @@ export async function detect(
     .select("id")
     .single();
 
-  const found = await detectBusiness(website);
+  const found = await detectBusiness(typed);
 
   // Rule 7: every page we read is stored with its URL and the date, whether it
   // worked or not. A page that refused us is a fact about the research too.

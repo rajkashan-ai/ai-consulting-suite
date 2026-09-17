@@ -84,8 +84,6 @@
 
 /* The sign out control is a real button in a form, because signing out changes
    something and so cannot be a link. It is dressed as the account text. */
-.acct--button{background:none; border:0; padding:0; cursor:pointer}
-@media (any-hover:hover){ .acct--button:hover{color:#fff} }
 
 .kv{display:grid; grid-template-columns:auto 1fr; gap:var(--s2) var(--s5); margin:0}
 .kv dt{align-self:baseline}

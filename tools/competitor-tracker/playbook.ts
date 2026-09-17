@@ -13,6 +13,8 @@
  * searches that return Shrewsbury Pennsylvania.
  */
 
+import { addTown } from "../identity.ts";
+
 export type Platform = {
   /** booksy.com, fresha.com, checkatrade.com */
   host: string;
@@ -148,7 +150,14 @@ export function learn(
     evidence: [...learned.evidence, ...before.evidence].slice(0, 30),
     timesUsed: before.timesUsed + 1,
     builtFrom: before.builtFrom ?? learned.town,
-    towns: [...new Set([...(before.towns ?? []), learned.town].filter(Boolean))],
+    /**
+     * One town, however it was spelled last time.
+     *
+     * A plain Set counted "St Albans" and "St. Albans" as two, so a playbook
+     * built entirely in one town could call itself confirmed across three,
+     * which is the exact claim the three-town rule exists to prevent.
+     */
+    towns: addTown(before.towns ?? [], learned.town),
     nothingIn: learned.foundNothing
       ? [...new Set([...(before.nothingIn ?? []), learned.town])]
       : (before.nothingIn ?? []),

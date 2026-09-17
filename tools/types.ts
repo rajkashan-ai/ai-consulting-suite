@@ -135,5 +135,14 @@ export type Tool = {
   does: string;
   /** False until somebody writes run(). The workspace says so plainly. */
   built: boolean;
+  /**
+   * Kept out of the navigation, without being deleted.
+   *
+   * An unbuilt tool in the header is a promise, and six headings with four of
+   * them leading to "not built yet" reads as a product that mostly does not
+   * work. Hiding is not the same as removing: the spec, the folder and the
+   * agent all stay, and turning one back on is deleting this line.
+   */
+  hidden?: boolean;
   run?: (business: Business, context: ToolContext) => Promise<ToolResult>;
 };

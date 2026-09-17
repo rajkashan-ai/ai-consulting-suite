@@ -54,8 +54,29 @@ export default async function ContentSocialPlanner({
 
   const latest = runs?.[0];
 
+  /**
+   * Keys, so React swaps these rather than reconciling them.
+   *
+   * Every branch below returns a different component into the same slot. When a
+   * run finished, the page re-rendered and React treated the finished plan as
+   * the same element as the live progress panel: the progress panel has hooks
+   * and the plan has none, so React threw "Rendered fewer hooks than expected"
+   * onto the customer's screen. It happened for real on the Tracker on
+   * 2026-09-16, and this screen was copied from it.
+   *
+   * A crash here is worse than it looks: the progress panel is what drives the
+   * run, one step per request, so crashing it stops the run, and reloading
+   * starts a brand new one from zero.
+   */
   if (latest && latest.stage !== "done" && latest.stage !== "failed") {
-    return <Running runId={latest.id} startedAt={latest.started_at} opening={OPENING} />;
+    return (
+      <Running
+        key="running"
+        runId={latest.id}
+        startedAt={latest.started_at}
+        opening={OPENING}
+      />
+    );
   }
 
   const decision = decidePlan(document?.created_at ?? null, new Date());
@@ -188,21 +209,30 @@ export default async function ContentSocialPlanner({
 
   if (error || !started) {
     return (
-      <div className="panel">
+      <div className="panel" key="already">
         <h2 className="t-sub">Already writing.</h2>
         <p className="t-doc">Give it a moment and refresh.</p>
       </div>
     );
   }
 
-  if (latest?.stage === "failed" && latest.error) {
+  if (latest?.stage === "failed") {
+    /**
+     * That last attempt did not finish, said plainly and quietly.
+     *
+     * This printed the run's own error onto the page in the red used for
+     * something going wrong now. The text is written for us, and a salon owner
+     * can do nothing with it; and a live, healthy run was framed in alarm
+     * colours because of something that happened before it started. The real
+     * reason stays on the run, where we can read it.
+     */
     return (
-      <>
-        <p className="auth__error t-doc-sm">Last time: {latest.error} Trying again now.</p>
+      <div key="retrying">
+        <p className="note t-doc-sm">Last time this did not finish. Trying again now.</p>
         <Running runId={started.id} startedAt={started.started_at} opening={OPENING} />
-      </>
+      </div>
     );
   }
 
-  return <Running runId={started.id} startedAt={started.started_at} opening={OPENING} />;
+  return <Running key="fresh" runId={started.id} startedAt={started.started_at} opening={OPENING} />;
 }

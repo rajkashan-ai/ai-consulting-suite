@@ -49,12 +49,18 @@ export default function Chrome({
         </a>
       )}
 
-      <a className="acct" href="/account">
+      {/* One style for the lot.
+          These were three: a ghost button for "Test another", a plain tinted
+          link for "Account", and a button dressed as that link for "Sign out".
+          Three treatments for four controls that sit together and do the same
+          kind of job, which reads as unfinished however carefully each one is
+          drawn. Every one of them goes somewhere real, so nothing is removed. */}
+      <a className="btn--sm btn--ghost" href="/account">
         Account
       </a>
 
       <form action="/auth/sign-out" method="post">
-        <button className="acct acct--button" type="submit">
+        <button className="btn--sm btn--ghost" type="submit">
           Sign out
         </button>
       </form>

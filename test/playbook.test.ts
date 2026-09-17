@@ -197,3 +197,21 @@ test("wording seen in three towns is flagged as a trade we are missing", () => {
   assert.deepEqual(flagged.map((f) => f.words), ["mobile welding"]);
   assert.equal(flagged[0].towns.length, 3);
 });
+
+/**
+ * A plain Set counted "St Albans" and "St. Albans" as two, so a playbook built
+ * entirely in one town could call itself confirmed across three, which is the
+ * exact claim the three-town rule exists to prevent.
+ */
+test("one town spelled two ways never becomes two towns", () => {
+  let p = base;
+  for (const town of ["St Albans", "St. Albans", "ST ALBANS"]) {
+    p = learn(p, {
+      platforms: [{ host: "booksy.com", example: "x", named: 70 }],
+      publishes: [], deadEnds: [], evidence: [], town,
+    });
+  }
+
+  assert.deepEqual(p.towns, ["St Albans"], "the same town was counted more than once");
+  assert.equal(confidence(p).level, "one town", "three runs in one town read as confirmed");
+});

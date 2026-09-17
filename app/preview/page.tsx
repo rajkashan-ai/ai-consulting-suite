@@ -274,8 +274,10 @@ function Bar() {
         <span className="btn--sm btn--ghost">Open</span>
       </span>
       <span className="btn--sm btn--ghost">Test another</span>
-      <span className="acct">Account</span>
-      <span className="acct">Sign out</span>
+      {/* One style for the lot, as in the real header. A preview that draws
+          these differently is a preview that lies about the product. */}
+      <span className="btn--sm btn--ghost">Account</span>
+      <span className="btn--sm btn--ghost">Sign out</span>
     </header>
   );
 }

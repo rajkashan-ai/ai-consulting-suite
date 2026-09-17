@@ -54,8 +54,29 @@ export default async function CompetitorTracker({
 
   const latest = runs?.[0];
 
+  /**
+   * Keys, so React swaps these rather than reconciling them.
+   *
+   * Every branch below returns a different component into the same slot. When a
+   * run finished, `router.refresh()` re-rendered this and React treated the
+   * finished card as the same element as the live progress panel: the progress
+   * panel has five hooks and the card has none, and React threw "Rendered fewer
+   * hooks than expected" onto the customer's screen mid-run.
+   *
+   * A distinct key per branch tells React these are different things, so one
+   * unmounts and the other mounts with its own state. A crash here is worse
+   * than it looks: it takes the loop driving the run down with it, and
+   * reloading starts a brand new run from zero.
+   */
   if (latest && latest.stage !== "done" && latest.stage !== "failed") {
-    return <Running runId={latest.id} startedAt={latest.started_at} opening={OPENING} />;
+    return (
+      <Running
+        key="running"
+        runId={latest.id}
+        startedAt={latest.started_at}
+        opening={OPENING}
+      />
+    );
   }
 
   const decision = decideRun(document?.created_at ?? null, new Date());
@@ -63,6 +84,7 @@ export default async function CompetitorTracker({
   if (document && !decision.allowed) {
     return (
       <BattlecardView
+        key="card"
         card={document.body as never}
         nextCheck={sayWhen(decision).replace(/^.*Next check/, "Next check")}
         workspaceId={workspaceId}
@@ -74,7 +96,7 @@ export default async function CompetitorTracker({
 
   if (!ready) {
     return (
-      <div className="panel">
+      <div className="panel" key="not-ready">
         <h2 className="t-sub">We need to know what this business does first.</h2>
         <p className="t-doc">
           Everything here turns on the trade and the town: a barber and a plumber
@@ -97,23 +119,34 @@ export default async function CompetitorTracker({
     // Almost always the unique index doing its job on a double load. Say
     // something true and harmless rather than an error nobody can act on.
     return (
-      <div className="panel">
+      <div className="panel" key="already">
         <h2 className="t-sub">Already looking.</h2>
         <p className="t-doc">Give it a moment and refresh.</p>
       </div>
     );
   }
 
-  if (latest?.stage === "failed" && latest.error) {
+  if (latest?.stage === "failed") {
+    /**
+     * That last attempt did not finish, said plainly and quietly.
+     *
+     * This printed `latest.error` straight onto the page, in the red used for
+     * something going wrong now. Two faults in one line. The text is ours:
+     * "an action was not supported by its evidence" is a sentence about our
+     * own checks, and a salon owner can do nothing with it. And a live, healthy
+     * run was framed in alarm colours because of something that happened
+     * before it started.
+     *
+     * The real reason is still on the run, where we can read it. What the
+     * owner needs is that we know it did not work and are going again.
+     */
     return (
-      <>
-        <p className="auth__error t-doc-sm">
-          Last time: {latest.error} Trying again now.
-        </p>
+      <div key="retrying">
+        <p className="note t-doc-sm">Last time this did not finish. Trying again now.</p>
         <Running runId={started.id} startedAt={started.started_at} opening={OPENING} />
-      </>
+      </div>
     );
   }
 
-  return <Running runId={started.id} startedAt={started.started_at} opening={OPENING} />;
+  return <Running key="fresh" runId={started.id} startedAt={started.started_at} opening={OPENING} />;
 }

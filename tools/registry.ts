@@ -38,12 +38,16 @@ export const TOOLS: Tool[] = [
   },
   {
     slug: "pricing-package-builder",
+    // Hidden from the header while the first two are still being proven.
+    hidden: true,
     name: "Pricing & Package Builder",
     does: "What to charge, and how to package it so people choose.",
     built: false,
   },
   {
     slug: "process-sop-builder",
+    // Hidden from the header while the first two are still being proven.
+    hidden: true,
     name: "Process & SOP Builder",
     does: "Write down how you do things, so someone else can do them.",
     built: false,
