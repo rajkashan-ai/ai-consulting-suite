@@ -243,3 +243,23 @@ test("severity reaches the record from every path that knows it", () => {
     assert.match(readFileSync(join(root, file), "utf8"), wanted, `${file} records no severity`);
   }
 });
+
+/**
+ * A page that threw was recorded as an ordinary fault.
+ *
+ * Found on 2026-09-17 by causing a real render crash rather than handing the
+ * recorder an error: everything through `onRequestError` defaulted to the
+ * middle severity, and a blank page is not the middle answer. The customer
+ * lost what they came for.
+ */
+test("a render that threw is recorded as stopping the customer", () => {
+  const body = readFileSync(join(root, "instrumentation.ts"), "utf8");
+
+  assert.match(
+    body,
+    /severity:\s*context\.routeType === "render" \? "stopped"/,
+    "a page that would not load is filed as an ordinary fault",
+  );
+  assert.match(body, /action:/, "nothing says what was being attempted");
+  assert.match(body, /outcome:/, "nothing says whether it worked");
+});

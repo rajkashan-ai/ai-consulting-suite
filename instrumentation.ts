@@ -41,6 +41,18 @@ export const onRequestError: Instrumentation.onRequestError = async (
           : context.routeType === "action"
             ? "action"
             : "route",
+      /**
+       * A render that threw means the page did not load, so they lost what they
+       * came for. Found by causing a real crash on 2026-09-17 and seeing it
+       * recorded as an ordinary fault: everything through this hook defaulted
+       * to the middle answer, and a blank page is not the middle answer.
+       *
+       * A route handler or an action that throws usually leaves the page
+       * standing, so it stays "fault" unless a caller knows better.
+       */
+      severity: context.routeType === "render" ? "stopped" : "fault",
+      action: `${context.routeType} ${context.routePath}`.trim(),
+      outcome: "failed",
       digest,
     });
   } catch {
