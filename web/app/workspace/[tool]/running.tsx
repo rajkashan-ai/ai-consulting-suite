@@ -141,19 +141,6 @@ export default function Running({
     };
   }, [runId, router]);
 
-  if (failed) {
-    return (
-      <div className="panel">
-        <h2 className="t-sub">It stopped.</h2>
-        <p className="t-doc">{failed}</p>
-        <p className="t-meta">
-          Nothing was saved. Your business details are on Your business if
-          something there needs correcting.
-        </p>
-      </div>
-    );
-  }
-
   /**
    * The clock is read on the client only, and never during the first render.
    *
@@ -172,6 +159,33 @@ export default function Running({
     const tick = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(tick);
   }, []);
+
+  /**
+   * Every hook above this line, and nothing below it.
+   *
+   * These two used to sit after the `if (failed)` return. A normal render ran
+   * seven hooks and a failed one returned after five, so the moment a run
+   * failed React threw "Rendered fewer hooks than expected" onto the customer's
+   * screen. It happened on a real run on 2026-09-17 and took down the loop that
+   * drives the run with it.
+   *
+   * I looked at this file, read the comment above explaining why the clock is
+   * where it is, and did not notice it was after a return. The error message
+   * names the cause in its own second sentence.
+   */
+  if (failed) {
+    return (
+      <div className="panel">
+        <h2 className="t-sub">It stopped.</h2>
+        <p className="t-doc">{failed}</p>
+        <p className="t-meta">
+          Nothing was saved. Your business details are on Your business if
+          something there needs correcting.
+        </p>
+      </div>
+    );
+  }
+
 
   const since = now === null ? 0 : Math.round((now - new Date(startedAt).getTime()) / 1000);
 

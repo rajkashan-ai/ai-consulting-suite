@@ -118,8 +118,16 @@ cannot be cached between the two, because they run in parallel and neither has f
 a cache when the other starts. That is a real trade: parallelism was bought deliberately to halve
 wall clock, and it costs the cache.
 
-**What is not an estimate:** we currently pay 1.0x for content the documentation says can be paid
-for at 0.1x, and nothing in the code has ever tried.
+**Measured on 2026-09-17, which settles it.** Only one of our system prompts clears the minimum:
+
+| System prompt | Tokens | Cacheable |
+|---|---|---|
+| search call | 58 | no |
+| listings call | 244 | no |
+| battlecard rules | 1,727 | **yes**, and it is sent three times in the writing stage |
+
+So caching helps the writing stage and nothing else, and a run that fails before writing shows two
+zeros, correctly. A first attempt at reading those zeros called the wiring broken; it was not.
 
 ### What to measure before believing any of this
 
@@ -201,7 +209,7 @@ Each of these is absent, not merely thin, and each was found by looking rather t
 |---|---|
 | **A resume** | A stopped run starts from zero. 434,000 tokens were discarded on 2026-09-16 and immediately re-spent |
 | **Cache token accounting** | `cache_read_input_tokens` is never recorded, so section 2 cannot be verified after it is built |
-| **Cost accounting that adds up** | A stage killed mid-step never folds its cost back: 205,576 recorded against 434,033 actually spent, an undercount of 53% |
+| ~~Cost accounting that adds up~~ | **Fixed 2026-09-17.** A step that threw wrote the watch from before it, so its tokens reached the run row and never the record the spend ceiling reads. A run charged 205,450 with 60,647 recorded never tripped a 150,000 ceiling |
 | **A remote** | `git remote -v` is empty. One disk, no backup |
 | **Retention on `problems`** | It grows forever. Other tables have a retention rule; this one was not included |
 | **Authorisation logging beyond refusals** | OWASP lists twelve categories, we cover three. See `ERROR-HANDLING.md` |

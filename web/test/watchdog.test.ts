@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   CAPS,
   STILL_LIMIT,
@@ -293,4 +295,51 @@ test("spend is summed across stages, not judged one at a time", () => {
     check(spread, { stage: "checking", startedAt: new Date() }),
     "four affordable stages added up to an unaffordable run and nothing noticed",
   );
+});
+
+/**
+ * A step that threw still spent the money.
+ *
+ * The engine folded the spend into `watch.cost` when a step succeeded and not
+ * when it threw. The tokens reached the run row either way, so the two records
+ * disagreed, and `watch.cost` is the one the spend ceiling reads.
+ *
+ * On 2026-09-17 a run was charged 205,450 input tokens with 60,647 recorded
+ * against a ceiling of 150,000. It never fired, because the number it reads was
+ * 70 per cent short. A limit that cannot see the spend is not a limit.
+ *
+ * Read as source: the engine imports server-only and cannot be loaded here.
+ */
+test("a step that threw has its spend counted, or the ceiling is blind", () => {
+  const engine = readFileSync(
+    join(import.meta.dirname, "..", "lib", "engine.ts"),
+    "utf8",
+  );
+
+  const faulted = engine.slice(engine.indexOf("async function faulted"));
+
+  assert.match(
+    faulted.slice(0, 2_000),
+    /note\(watch,/,
+    "the failure path does not fold the step's spend into the record",
+  );
+  assert.doesNotMatch(
+    faulted.slice(0, 2_500),
+    /watch: \{ \.\.\.watch, stopped/,
+    "the failure path writes the watch from before the step, losing its cost",
+  );
+  assert.match(
+    faulted.slice(0, 2_500),
+    /watch: \{ \.\.\.counted, stopped/,
+    "the failure path must write the watch that counted this step",
+  );
+});
+
+test("the failure path counts the cache as well as the tokens", () => {
+  // Both, or the cache columns go quiet on exactly the runs worth studying.
+  const engine = readFileSync(join(import.meta.dirname, "..", "lib", "engine.ts"), "utf8");
+  const faulted = engine.slice(engine.indexOf("async function faulted"), engine.indexOf("async function fail"));
+
+  assert.match(faulted, /cacheWritten/);
+  assert.match(faulted, /cacheRead/);
 });

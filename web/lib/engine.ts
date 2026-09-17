@@ -324,7 +324,10 @@ export async function step(runId: string): Promise<Progress | null> {
   try {
     result = await tool.advance(run.stage, state as never, business, ctx);
   } catch (e) {
-    return faulted(db, runId, run.state, watch, e, spent, pages);
+    return faulted(db, runId, run.state, watch, e, spent, pages, {
+      stage: run.stage,
+      seconds: (Date.now() - startedStep) / 1000,
+    });
   }
 
   /**
@@ -463,10 +466,32 @@ async function faulted(
   had: unknown,
   watch: Watch,
   e: unknown,
-  spent: { input: number; output: number },
+  spent: { input: number; output: number; cacheWritten?: number; cacheRead?: number },
   pages: number,
+  step: { stage: string; seconds: number },
 ): Promise<Progress> {
   const plain = plainly(e);
+
+  /**
+   * A step that threw still spent the money.
+   *
+   * This wrote the watch it was handed, so a failed step's tokens reached the
+   * run row and never reached `watch.cost`. The two then disagreed, and one of
+   * them is what the spend ceiling reads.
+   *
+   * On 2026-09-17 a run was charged 205,450 input tokens with 60,647 recorded.
+   * The ceiling is 150,000 and never fired, because the number it reads was 70
+   * per cent short. A limit that cannot see the spend is not a limit, it is a
+   * decoration, and it looked like protection for a day.
+   */
+  const counted = note(watch, step.stage, plain.say, {
+    seconds: step.seconds,
+    input: spent.input,
+    output: spent.output,
+    cacheWritten: spent.cacheWritten ?? 0,
+    cacheRead: spent.cacheRead ?? 0,
+    pages,
+  });
 
   /**
    * A thrown run is a fault, not an outcome.
@@ -489,7 +514,7 @@ async function faulted(
   await db
     .from("runs")
     .update({
-      state: { ...((had ?? {}) as object), watch: { ...watch, stopped: plain.why } } as never,
+      state: { ...((had ?? {}) as object), watch: { ...counted, stopped: plain.why } } as never,
     })
     .eq("id", runId);
   return fail(db, runId, plain.say, spent, pages);

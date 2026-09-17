@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { sourceOf } from "./tool-source.ts";
 
 /**
  * Prompt caching, as it is wired rather than as it is hoped for.
@@ -67,4 +68,54 @@ test("both model call sites count the cache, not just one", () => {
   // the other would produce a number that looks measured and is half missing.
   const counts = engine.match(/countCache\(/g) ?? [];
   assert.ok(counts.length >= 3, `countCache appears ${counts.length} times, expected its definition plus both call sites`);
+});
+
+/**
+ * Which calls can actually use the cache, measured rather than assumed.
+ *
+ * On 2026-09-17 a run came back with cacheRead and cacheWritten both zero and I
+ * reported caching as broken. It was not. The minimum cacheable prefix is 1,024
+ * tokens on Sonnet and 512 on Opus, and below that nothing is cached and no
+ * error is raised. Measured against our own prompts that day:
+ *
+ *     search call system        58 tokens   never cacheable
+ *     listings call system     244 tokens   never cacheable
+ *     battlecard rules       1,727 tokens   cacheable
+ *
+ * The run had failed at choosing and never reached the one stage that can use
+ * it. So the zeros were correct and the wiring was right.
+ *
+ * This guards the only prompt that clears the bar. Trim it below and caching
+ * stops silently, which is exactly the failure that cost an afternoon.
+ */
+test("the one cacheable prompt stays long enough to be cached", () => {
+  // The whole tool, and the definition rather than the first mention, since an
+  // import names it too.
+  const tool = sourceOf("competitor-tracker");
+  const from = tool.indexOf("export const BATTLECARD_RULES = `");
+  assert.ok(from >= 0, "BATTLECARD_RULES is gone");
+
+  const rules = tool.slice(from, tool.indexOf("`;", from));
+
+  /**
+   * The floor, from the measurement rather than from a rule of thumb.
+   *
+   * 4,688 characters measured as 1,727 tokens on 2026-09-17, so roughly 2.7
+   * characters to a token, not the four I first assumed. The minimum cacheable
+   * prefix on Sonnet is 1,024 tokens, about 2,800 characters. 3,500 sits above
+   * that with room to edit, and well below where it is today.
+   */
+  assert.ok(
+    rules.length > 3_500,
+    `BATTLECARD_RULES is ${rules.length} characters. Below about 2,800 it stops being ` +
+      `cacheable and nothing says so: no error is raised for a prefix under the minimum.`,
+  );
+});
+
+test("the short prompts are not pretending to be cached", () => {
+  // Adding a breakpoint to a 58 token prompt costs a write and never reads.
+  // Recorded so nobody adds one thinking it was an oversight.
+  const engine = readFileSync(join(import.meta.dirname, "..", "lib", "engine.ts"), "utf8");
+  const search = engine.slice(engine.indexOf("search: async"), engine.indexOf("think: async"));
+  assert.doesNotMatch(search, /cache_control/, "the search call's 58 token system prompt cannot be cached");
 });
