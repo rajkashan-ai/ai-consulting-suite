@@ -21,7 +21,7 @@ import type {
 import type { Business, ToolContext } from "../types.ts";
 import { isProfile, profileFor } from "./profile.ts";
 import { confidence, exhausted, isDeadEnd, type Playbook } from "./playbook.ts";
-import { whereToLook } from "./where.ts";
+import { bestFirst, whereToLook } from "./where.ts";
 import { ageOf, enoughToUse, type Kept } from "./remember.ts";
 import { fetchable } from "../identity.ts";
 import { townInUrl } from "../place.ts";
@@ -1632,9 +1632,19 @@ async function finding(
    */
   const term = searchFor({ name: next, why: "chosen by the owner" }, profile.town, profile.trade);
   const seen = await ctx.search([term], searchToolConfig(profile, 1));
+
+  /**
+   * Best page first, then let judge pick the first that verifies.
+   *
+   * judge takes the first result that really is this business in this town, so
+   * whatever the search happened to rank first won. For Atelier that was a
+   * Cylex directory page which refused us, and for Jenna-lou Lashes a Facebook
+   * page which robots asks us not to read, while a booking profile for another
+   * of the same five read cleanly at 12,000 characters. See tierOf.
+   */
   const { found } = judge(
     { name: next, why: "chosen by the owner" },
-    seen[0]?.results ?? [],
+    bestFirst(seen[0]?.results ?? []),
     profile.town,
   );
 

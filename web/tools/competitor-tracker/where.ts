@@ -1,4 +1,4 @@
-import { EVERY, blockedHosts, sourcesFor } from "../sources/uk-directories.ts";
+import { EVERY, GENERAL, SPECIALIST, blockedHosts, sourcesFor } from "../sources/uk-directories.ts";
 import type { Business } from "../types.ts";
 import { startWith, type Playbook } from "./playbook.ts";
 
@@ -149,3 +149,57 @@ export function playbookKey(business: Business): string | null {
 
 /** An unmatched business, filed under its own words rather than a trade. */
 export const isUnmatched = (key: string | null) => !!key?.startsWith("other:");
+
+/**
+ * Which page to read about a business, when a search offers several.
+ *
+ * 2026-09-17. Five competitors were chosen and two were readable. For Atelier
+ * Salon & Spa the lookup took a Cylex directory page, which refused us and gave
+ * nothing; for Jenna-lou Lashes it took a Facebook page, which robots.txt asks
+ * us not to read. Meanwhile the listing had already handed us
+ * fresha.com/a/a-j-studio-... for another of the five, and that read cleanly at
+ * 12,000 characters with prices and a rating on it.
+ *
+ * Three tiers, and the first two come from the source registry rather than a
+ * list written here, so a platform that starts carrying prices is promoted by
+ * editing the fact rather than this function:
+ *
+ *   1  a booking platform's own profile, which carries prices and ratings
+ *   2  the business's own site, which is anything the registry does not know
+ *   3  a directory or a social page, last resort
+ *
+ * A ranking, not a gate: tier 3 is still used when nothing better verifies. So
+ * a host we have misjudged costs a worse page, never a missing competitor,
+ * which is the failure direction to prefer.
+ */
+const SOCIAL = ["facebook.com", "instagram.com", "twitter.com", "x.com", "tiktok.com"];
+
+export function tierOf(url: string): 1 | 2 | 3 {
+  let host = "";
+  try {
+    host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    return 3; // not a url we can place, so never preferred
+  }
+
+  if (SOCIAL.some((s) => host.endsWith(s))) return 3;
+
+  const known = [...GENERAL, ...SPECIALIST].find(
+    (d) => host === d.host.toLowerCase().replace(/^www\./, "") ||
+      host.endsWith(`.${d.host.toLowerCase().replace(/^www\./, "")}`),
+  );
+
+  // Not a source we know: their own site.
+  if (!known) return 2;
+
+  // A platform that publishes what a comparison needs, and that we can reach.
+  const rich = known.carries.includes("prices") || known.carries.includes("ratings");
+  if (rich && known.reachable.state !== "blocked") return 1;
+
+  return 3;
+}
+
+/** The same results, best page first. Stable, so equal tiers keep search order. */
+export const bestFirst = <T extends { url: string }>(results: T[]): T[] =>
+  results.map((r, i) => ({ r, i })).sort((a, b) => tierOf(a.r.url) - tierOf(b.r.url) || a.i - b.i)
+    .map(({ r }) => r);
