@@ -55,22 +55,34 @@ and 13 October, across Instagram and Facebook." Every reason is a fact we hold: 
 their answer about their time, which channels are quiet, and from month two the only measured
 evidence in the feature, how much of last month they actually posted.
 
-**We CAN count what they post now. Corrected 2026-09-16, the old text was wrong.**
+**We can read it and we may not. Corrected twice, 2026-09-16 and again 2026-09-17.**
 
-It said "we cannot count what they post now, and there is no benchmark. Both closed, both easy to
-fake." The first half is false and it was never tested. A public Instagram profile loads without
-signing in, and every post's creation date is encoded in its own shortcode, so the rate is
-arithmetic on data anybody can see.
+The original text said "we cannot count what they post now". I corrected that to "we can", having
+checked that a public Instagram profile loads without signing in and that every post's creation
+date is encoded in its own shortcode. Measured on a real Hertfordshire bakery: last posted one day
+ago, 6 posts in 30 days, 2.4 days between them.
 
-Measured on a real Hertfordshire bakery the same day, in about a minute:
+That correction was right about the technology and wrong about the decision, which is worse, because
+it reads as permission. Instagram's robots.txt is:
 
-    last posted      15 September, one day ago
-    last 30 days     6 posts
-    average gap      2.4 days
+    User-agent: *
+    Disallow: /
 
-That is their current cadence, read rather than asked for. It changes the recommendation from a
-guess against nothing into a comparison against what they already do, which is the whole point of
-"step up" and "step down" meaning anything.
+Every agent, every path. `CLAUDE.md` 1.5 rule 1 says robots is the gate and a block is never worked
+around, so reading it is out, whatever a shortcode encodes. "Cannot" was false and "may not" is
+true, and I fixed the wrong half.
+
+**So this tool does not count what they post.** The code never did: `detectChannels` reads platform
+names off the business's own website and fetches nothing from any platform. That is the position to
+keep.
+
+**What that costs, said plainly.** The cadence recommendation is a judgement against their answer
+about their own time, not a comparison against a measured rate. "Step up" and "step down" mean less
+than they would with a number behind them. That is the honest trade and the alternative is breaking
+a rule with legal weight.
+
+**If this is ever wanted properly**, the route is the owner telling us, or Instagram's own Graph API
+with their consent, which is what it is for. Not a fetch we are asked not to make.
 
 **What is still true:** there is no industry benchmark worth quoting, and counts can be inflated by
 someone who wants to. So we say what we counted and when we counted it, the same as every other

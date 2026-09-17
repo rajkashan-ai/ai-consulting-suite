@@ -110,16 +110,20 @@ first and report what you ran and what came back. Three such claims were made in
 three were false. A limit sounds like honesty so nobody argues with it, which is exactly why it
 needs evidence. It also silently decides what the customer is never offered.
 
-## One correction to the spec, made 2026-09-16, read it before you build
+## A correction, and then a correction to the correction. Read both.
 
-The tool's own `CLAUDE.md` said "we cannot count what they post now". That was false and untested.
-A public Instagram profile loads without signing in, and every post's date is encoded in its
-shortcode. Measured on a real bakery: last posted one day ago, 6 posts in 30 days, 2.4 days
-between them.
+The tool's `CLAUDE.md` said "we cannot count what they post now". I corrected that on 2026-09-16 to
+"we can", having checked that a public Instagram profile loads without signing in and that every
+post's date is encoded in its shortcode.
 
-Section 2b is corrected. Read it. It changes the cadence recommendation from a guess against
-nothing into a comparison against what they already do, which is what makes "step up" and "step
-down" mean anything. Counting their current rate is part of the job now.
+That was right about the technology and wrong about the decision. Instagram's robots.txt is
+`User-agent: *` / `Disallow: /`: every agent, every path. `CLAUDE.md` 1.5 rule 1 says robots is the
+gate and a block is never worked around. "Cannot" was false; "may not" is true; I fixed the wrong
+half, and a correction that reads as permission is worse than the error it replaced.
+
+**Do not build post counting.** The code never did it, and that is the position to keep. The
+cadence recommendation is a judgement against what the owner says about their own time, not a
+comparison against a measured rate. That is the honest trade.
 
 ## Done means
 
