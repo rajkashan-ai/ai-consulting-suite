@@ -442,8 +442,27 @@ const BOUNDED = new RegExp([
   // phrasing. Found by scanning the page script, where 51 user-facing strings
   // had never been read by any guard.
   String.raw`we looked at|we read|we checked`,
-  // An explicit denominator IS the boundary: "none of the five", "4 of 9".
-  String.raw`of (?:the )?(?:\d+|two|three|four|five|six|seven|eight|nine|ten)\b`,
+  // "we saw" and "we found" say the same thing as "we read" and were missing.
+  // The first live run to reach the last gate, 2026-09-17, was refused partly
+  // on: "The only review counts we saw in St Albans at all were on the Booksy
+  // listing, and none of these six appears there."
+  String.raw`we saw|we found`,
+  /**
+   * An explicit denominator IS the boundary: "none of the five", "4 of 9".
+   *
+   * The determiner was not allowed for, so "none of THESE six" read as
+   * unbounded while "none of the six" read as bounded. The same sentence, and
+   * the one the model actually writes.
+   */
+  String.raw`of (?:the |these |those |our |all )*(?:\d+|two|three|four|five|six|seven|eight|nine|ten)\b`,
+  /**
+   * A page named in the same sentence is a boundary too.
+   *
+   * "Mirror Image's directory page carries a review form for customers to fill
+   * in but no reviews on it." "It" is that page, three words earlier. Refusing
+   * this cost a run all five of its mend passes and then the whole card.
+   */
+  String.raw`on it\b|on that page|on this page|on their (?:own )?page`,
 ].join('|'), 'i');
 
 export function findUnboundedCounts(text: string): string[] {

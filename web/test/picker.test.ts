@@ -720,3 +720,48 @@ test("with no listing to read, the offer is businesses and keeps their urls", as
     "every url was dropped, so there is nothing to read",
   );
 });
+
+// ---------------------------------------------------------------------------
+// The last gate, on the first run that ever reached it
+// ---------------------------------------------------------------------------
+
+test("a count the sentence bounds itself is not an unbounded count", async () => {
+  /**
+   * 2026-09-17. The first live run to go all the way through was refused at the
+   * last gate, having spent all five mend passes trying to satisfy a guard
+   * that was wrong. The two sentences it objected to:
+   *
+   *   "The only review counts we saw in St Albans at all were on the Booksy
+   *    listing, and none of these six appears there."
+   *   "Mirror Image's directory page carries a review form for customers to
+   *    fill in but no reviews on it."
+   *
+   * Both say out of what. The guard's list of bounding phrases knew "of the
+   * six" but not "of these six", knew "we read" but not "we saw", and had no
+   * way to see that "on it" meant the page named three words earlier.
+   *
+   * An allowlist catches only the phrasings somebody already thought of, the
+   * same shape as the country blocklist that let Melbourne through. The
+   * difference is which way it fails: this one throws away good work.
+   */
+  const { findUnboundedCounts } = await import(
+    "../../Agents/Competitor Tracker/src/guards.ts"
+  );
+
+  for (const bounded of [
+    "The only review counts we saw in St Albans at all were on the Booksy listing, and none of these six appears there.",
+    "Mirror Image's directory page carries a review form for customers to fill in but no reviews on it.",
+    "None of the five use it.",
+    "None found on any platform we could reach.",
+    "We looked at Booksy, Fresha and their own site, and found no reviews.",
+    "None of those four publishes a price.",
+  ]) {
+    assert.deepEqual(findUnboundedCounts(bounded), [], bounded);
+  }
+
+  // And it still catches a count with nothing behind it, which is the whole
+  // reason the guard exists: "you have none" out of what, on which sites?
+  for (const unbounded of ["You have none.", "No reviews.", "They are not on any.", "None at all."]) {
+    assert.equal(findUnboundedCounts(unbounded).length, 1, unbounded);
+  }
+});
