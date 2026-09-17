@@ -242,3 +242,18 @@ what makes it dangerous: an invented limit silently decides what the customer is
 
 **Attempt it first. Report what you ran and what came back, not the conclusion alone.** If it truly
 fails, say so with the evidence. See the suite `CLAUDE.md` 1.4.10 and the practice `CLAUDE.md` §1.
+
+## A test never names a tool's file (added 2026-09-17)
+
+Three times in two days, the same afternoon each time. The Tracker's prompts moved out of
+`stages.ts` and six tests failed. The Planner's spec was split into `references/` and four more did.
+Not one of them was wrong about the product: each was checking "the tool says X" or "the spec says
+X" and had written down a filename instead, so a file moving looked like a rule breaking.
+
+Use `sourceOf(tool)` for a tool's code and `specOf(tool)` for its `CLAUDE.md` and references, both
+from `test/tool-source.ts`. What the test means is "somewhere in this tool", and a declaration
+moving between files inside a tool's own folder is that tool's business.
+
+Fixtures are exempt and stay pinned. A fixture is a specific file by design.
+
+Enforced by `test/contract.test.ts`, because fixing the instances three times was not fixing it.

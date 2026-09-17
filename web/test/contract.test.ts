@@ -117,3 +117,45 @@ test("no tool reaches into another tool", () => {
 
   assert.deepEqual(offenders, [], offenders.join("\n  "));
 });
+
+/**
+ * No test reads a tool's source or spec by filename.
+ *
+ * Three times in two days, the same afternoon each time. The Tracker's prompts
+ * moved out of stages.ts and six tests failed. The Planner's spec was split and
+ * four more did. None of them was wrong about the product: each was checking
+ * "the tool says X" or "the spec says X" and had written down a filename
+ * instead, so a file moving looked like a rule breaking.
+ *
+ * Fixing the instances three times is not fixing it. `sourceOf` reads a tool's
+ * whole folder and `specOf` reads a CLAUDE.md with its references, and this
+ * stops the next person reaching past them, including me.
+ *
+ * Fixtures stay exempt. A fixture is a specific file by design, and reading a
+ * folder to find one would be wrong.
+ */
+test("no test pins itself to a tool's filename", () => {
+  const dir = join(here, "..", "test");
+  const offenders: string[] = [];
+
+  for (const file of readdirSync(dir).filter((f) => f.endsWith(".test.ts"))) {
+    const body = readFileSync(join(dir, file), "utf8");
+
+    body.split("\n").forEach((line, i) => {
+      if (!line.includes("readFileSync")) return;
+      if (line.includes("fixtures")) return;
+
+      // A path into a tool's own folder, or into an agent's spec folder.
+      const reachesTool = /"tools"|tools\/|"Agents"|Agents\//.test(line);
+      if (reachesTool) offenders.push(`${file}:${i + 1}`);
+    });
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    `These read a tool's source or spec by filename:\n  ${offenders.join("\n  ")}\n` +
+      `Use sourceOf(tool) or specOf(tool) from test/tool-source.ts. What the test means is ` +
+      `"somewhere in this tool", and a declaration moving between files is not a rule breaking.`,
+  );
+});
