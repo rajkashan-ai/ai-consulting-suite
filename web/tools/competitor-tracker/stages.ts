@@ -919,11 +919,12 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
         "the businesses named on it. Copy each name exactly as printed. Take nothing that " +
         "is not a business on this page: not the platform, not a category, not a heading, " +
         "not a place name. If it is not a listing, return nothing.\n\n" +
-        "Links are written in the text as: the words, then the address in round " +
-        "brackets. When a business name carries one, copy that address into its url " +
-        "field exactly. It is how we read their own page rather than only this listing, " +
-        "and a business with no url is one we can say much less about. Never repair or " +
-        "shorten an address, and never invent one: a made-up address is a made-up source.",
+        "Links are written in the text as: the words, then the link in round " +
+        "brackets. When a business name carries one, copy that link into its url " +
+        "field exactly. A url starts with http, and the street address is NOT a " +
+        "url: put the street in the area field and leave url null if there is no " +
+        "link. Never repair or shorten a url, and never invent one: a made-up " +
+        "link is a made-up source.",
       prompt: `Town: ${profile.town}. Trade: ${profile.trade}.\n\n${got.text.slice(0, 20_000)}`,
       /**
        * A town listing names thirty or more businesses, each with a name, a
@@ -960,9 +961,33 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
                     type: ["number", "null"],
                     description: "Their cheapest or headline price as a number.",
                   },
-                  url: { type: ["string", "null"] },
+                  /**
+                   * What they sell, which is the only sure way to tell a barber
+                   * from a salon. Names and categories both lie: BARBONE is a
+                   * barber whose url says nothing, and Rob's Cuts is filed as a
+                   * hairdresser and serves men and boys only. What a business
+                   * lists for sale does not lie, and the listing already prints
+                   * it, so this costs nothing extra to collect.
+                   */
+                  services: {
+                    type: "array",
+                    items: { type: "string" },
+                    description:
+                      "The service names printed for this business, as printed, " +
+                      "for example 'Mens Cut', 'Beard Trim', 'Ladies Cut & Finish'. " +
+                      "Empty if the listing prints none.",
+                  },
+                  url: {
+                    type: ["string", "null"],
+                    description:
+                      "Their own web page, starting with http. Null if the listing " +
+                      "shows no link. Never a street address.",
+                  },
                 },
-                required: ["name", "reviews", "rating", "reviewed_days_ago", "area", "price", "url"],
+                required: [
+                  "name", "reviews", "rating", "reviewed_days_ago", "area",
+                  "price", "url", "services",
+                ],
               },
             },
           },
@@ -982,7 +1007,25 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
         reviewedDaysAgo: num(b.reviewed_days_ago),
         area: str(b.area),
         price: num(b.price),
-        url: str(b.url),
+        /**
+         * Checked, not trusted.
+         *
+         * The prompt said "address" meaning web address, on a page that prints
+         * a postal address beside every business, and the model did the
+         * reasonable thing. On 2026-09-17 every competitor's url was a street:
+         * "33 High St, St Albans AL3 4EH, United Kingdom". Every fetch failed,
+         * so a run that reported five businesses and eight sources had read
+         * nobody's page but the customer's own, and the whole comparison came
+         * off the listing.
+         *
+         * Wording alone cannot fix that, because the next model can misread the
+         * next sentence. fetchable() returns null for anything that is not a
+         * url, so a bad one costs the extra page and not the run.
+         */
+        url: fetchable(str(b.url)),
+        services: Array.isArray(b.services)
+          ? (b.services as unknown as string[]).map(String).slice(0, 30)
+          : [],
       });
       }
     }
@@ -1153,7 +1196,19 @@ async function choose(state: RunState, business: Business): Promise<Step> {
     (state.listed ?? []).filter(
       (r) => !NEVER_A_BUSINESS.some((h) => r.name.toLowerCase().includes(h)),
     ),
-    { you: profile.name, trade: business.trade },
+    {
+      you: profile.name,
+      trade: business.trade,
+      /**
+       * What the customer sells, so we can ask who sells it too.
+       *
+       * The question a trade label only approximates. BARBONE is a barber whose
+       * url says nothing; Rob's Cuts is filed as a hairdresser and cuts men and
+       * boys. Both passed every name and category test and neither is an
+       * alternative to a ladies colour.
+       */
+      sells: business.services.map((x) => x.name),
+    },
   );
 
   /**

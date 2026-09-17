@@ -49,6 +49,9 @@ export type Found = {
   /** Their headline price, as a number, where one is printed. */
   price: number | null;
   url: string | null;
+  /** The service names the listing prints for them, as printed. The only sure
+   *  way to tell a barber from a salon: see sellsWhatYouSell. */
+  services?: string[];
 };
 
 export type You = {

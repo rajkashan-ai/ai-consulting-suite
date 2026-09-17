@@ -145,9 +145,63 @@ export function rightTrade<T extends { name: string; url?: string | null }>(
 }
 
 /** All three, in the order that wastes the least work. */
-export function sift<T extends { name: string }>(
+export function sift<T extends { name: string; url?: string | null; services?: string[] }>(
   rows: T[],
-  opts: { you: string | null; trade: string | null },
+  opts: { you: string | null; trade: string | null; sells?: string[] },
 ): T[] {
-  return oneEach(rightTrade(notYou(rows, opts.you), opts.trade));
+  const kept = oneEach(rightTrade(notYou(rows, opts.you), opts.trade));
+  // Last, because it is the most expensive question and the cheapest ones have
+  // already emptied the list. Skipped when we do not know what the customer
+  // sells, which is a fact about us, not a reason to refuse everybody.
+  if (!opts.sells?.length) return kept;
+  return kept.filter((r) => sellsWhatYouSell(r.services, opts.sells!));
+}
+
+/**
+ * Who is selling what you sell.
+ *
+ * Names lie and categories lie. BARBONE is a barber whose Booksy url says
+ * nothing about trade. Rob's Cuts is filed as a hairdresser and, by its own
+ * shopfront, cuts men and boys. A Cut Above publishes twelve prices and every
+ * one of them is a ladies cut, a restyle or a cleanse and finish.
+ *
+ * What a business lists for sale does not lie, and it is also the actual
+ * question: a competitor is somebody a customer could go to instead. Somebody
+ * selling only beard trims is not an alternative to a ladies colour, whatever
+ * either of them is called.
+ *
+ * Matched on the words in the service names rather than the whole string,
+ * because "Ladies Cut & Finish" and "Ladies Cut and Blow Dry" are the same
+ * offer written twice. Stop words go, so "and" and "the" cannot make a barber
+ * look like a salon.
+ */
+const NOISE = new Set([
+  "and", "the", "with", "for", "a", "an", "of", "or", "&", "cut", "cuts",
+  "hair", "finish", "service", "services", "appointment", "booking",
+]);
+
+const wordsIn = (services: string[] | undefined): Set<string> =>
+  new Set(
+    (services ?? [])
+      .flatMap((s) => s.toLowerCase().split(/[^a-z]+/))
+      .filter((w) => w.length > 2 && !NOISE.has(w)),
+  );
+
+/**
+ * Does this business sell anything the customer sells?
+ *
+ * True when the listing printed nothing for them, because no evidence is not
+ * evidence of no overlap, and refusing on silence would empty the comparison
+ * for every platform that does not print services.
+ */
+export function sellsWhatYouSell(
+  theirs: string[] | undefined,
+  yours: string[],
+): boolean {
+  const them = wordsIn(theirs);
+  if (!them.size) return true;
+  const you = wordsIn(yours);
+  if (!you.size) return true;
+  for (const word of them) if (you.has(word)) return true;
+  return false;
 }

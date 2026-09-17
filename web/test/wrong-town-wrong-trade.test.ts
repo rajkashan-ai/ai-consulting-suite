@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { rightTrade, tradeFromUrl } from "../tools/competitor-tracker/sift.ts";
+import { rightTrade, sellsWhatYouSell, tradeFromUrl } from "../tools/competitor-tracker/sift.ts";
+import { fetchable } from "../tools/identity.ts";
 import { matchTrade } from "../tools/categories.ts";
 import { resultCountry } from "../../Agents/Competitor Tracker/src/search-visibility.ts";
 
@@ -67,4 +68,57 @@ test("Barbering is barber, which is what the word boundary missed", () => {
     assert.equal(matchTrade(name), "barber", name);
   }
   assert.equal(matchTrade("A Cut Above Hair Salon"), "hairdresser");
+});
+
+/**
+ * Raj, 2026-09-17, on two businesses that survived every name and category
+ * test: "Barbone are barbers. Evident from their website. Rob's Cuts come up as
+ * hairdressers, but only have men / boys as customers." Asked for a sure and
+ * fast way to spot it. This is it, and it costs no extra request: the listing
+ * already prints what each business sells.
+ */
+const A_CUT_ABOVE = [
+  "Ladies Cut & Finish - Stylist",
+  "Restyle & Finish - Top Stylist",
+  "Cleanse & Finish (short)",
+];
+
+test("what they sell tells a barber from a salon when the name does not", () => {
+  assert.equal(
+    sellsWhatYouSell(["Mens Cut", "Beard Trim", "Skin Fade", "Boys Cut"], A_CUT_ABOVE),
+    false,
+    "a barber is an alternative to a ladies colour",
+  );
+  assert.equal(
+    sellsWhatYouSell(["Mens Cut", "Boys Cut", "Mens Cut & Beard"], A_CUT_ABOVE),
+    false,
+    "Rob's Cuts: filed as a hairdresser, sells men and boys only",
+  );
+  assert.equal(
+    sellsWhatYouSell(["Ladies Cut and Blow Dry", "Highlights", "Restyle"], A_CUT_ABOVE),
+    true,
+  );
+  // Sells both, so a customer really could go there instead.
+  assert.equal(sellsWhatYouSell(["Mens Cut", "Ladies Cut & Finish"], A_CUT_ABOVE), true);
+});
+
+test("silence is not evidence of no overlap", () => {
+  // Most platforms print no services. Refusing on silence would empty the
+  // comparison for all of them, which is a worse answer than a wider one.
+  assert.equal(sellsWhatYouSell([], A_CUT_ABOVE), true);
+  assert.equal(sellsWhatYouSell(undefined, A_CUT_ABOVE), true);
+  // And we cannot ask the question at all when we do not know what they sell.
+  assert.equal(sellsWhatYouSell(["Mens Cut"], []), true);
+});
+
+test("a street address is never kept as a web address", () => {
+  /**
+   * Every competitor's url on the 2026-09-17 run was a street, because the
+   * prompt said "address" meaning web address on a page that prints a postal
+   * address beside every business. Every fetch failed, so a run reporting five
+   * businesses had read nobody's page but the customer's own.
+   */
+  assert.equal(fetchable("33 High St, St Albans AL3 4EH, United Kingdom"), null);
+  assert.equal(fetchable("301 High St, London Colney, St Albans AL2 1EJ"), null);
+  assert.equal(fetchable("https://booksy.com/en-gb/54777_picasso"), "https://booksy.com/en-gb/54777_picasso");
 });
