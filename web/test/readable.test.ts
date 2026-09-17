@@ -201,7 +201,11 @@ test("the running screen shows the real progress line, not a fixed word", () => 
 // The summary above the findings. Added 2026-09-16.
 // ---------------------------------------------------------------------------
 
-const scrubSrc = readFileSync(join(here, "..", "tools", "competitor-tracker", "scrub.ts"), "utf8");
+// The whole tool, not scrub.ts by name. What this checks is that the tracker
+// drops an unsourced headline rather than rewording it, which is true of the
+// tool wherever the function lives. Six tests broke on 2026-09-17 because they
+// were pinned to a filename while checking something that had simply moved.
+const scrubSrc = sourceOf("competitor-tracker");
 
 test("the page says what it compared before the first finding assumes you know", () => {
   /**

@@ -984,7 +984,7 @@ test("the angle each purpose may use is the same list in both places", () => {
    * runner that imports node:fs and cannot be pulled into a server bundle. That
    * is a reason for two copies, not for two answers, and nothing compared them.
    */
-  const mine = readFileSync(join(here, "..", "tools", "content-social-planner", "shape.ts"), "utf8");
+  const mine = sourceOf("content-social-planner");
   const theirs = readFileSync(
     join(here, "..", "..", "Agents", "Content & Social Planner", "bin", "plan.mjs"),
     "utf8",
@@ -1008,7 +1008,7 @@ test("the angle each purpose may use is the same list in both places", () => {
 test("every angle the shape can pick is one the agent folder defines", () => {
   /* And the map cannot name an angle that does not exist, which a hand-written
      list can and a typo would make silently unreachable. */
-  const mine = readFileSync(join(here, "..", "tools", "content-social-planner", "shape.ts"), "utf8");
+  const mine = sourceOf("content-social-planner");
   const block = mine.slice(mine.indexOf("const BY_PURPOSE"), mine.indexOf("};", mine.indexOf("const BY_PURPOSE")));
   const named = [...block.matchAll(/"([a-z-]+)"/g)].map((m) => m[1]);
 
