@@ -39,7 +39,29 @@ export type Watch = {
    * run, successful or not, so a decision about speed is made from measurements
    * rather than from whichever cause is easiest to imagine.
    */
-  cost?: Record<string, { seconds: number; input: number; output: number; pages: number }>;
+  cost?: Record<
+    string,
+    {
+      seconds: number;
+      input: number;
+      output: number;
+      pages: number;
+      /**
+       * Tokens written to and read from the prompt cache.
+       *
+       * Recorded before anything is cached, on purpose. ARCHITECTURE.md
+       * section 2 estimates what caching would save, and an estimate is all it
+       * can be while these are unmeasured: the response carries both numbers
+       * and nothing was looking at them. With these, one run says exactly what
+       * was reused rather than what we hoped would be.
+       *
+       * `read` is billed at a tenth of base input and `written` at one and a
+       * quarter times, so they are not interchangeable and are not summed.
+       */
+      cacheWritten?: number;
+      cacheRead?: number;
+    }
+  >;
 };
 
 /**
@@ -110,7 +132,15 @@ const STUCK =
   "We got stuck partway through and stopped rather than keep going. Start it again.";
 
 /** What one step actually cost. */
-export type Spent = { seconds: number; input: number; output: number; pages: number };
+export type Spent = {
+  seconds: number;
+  input: number;
+  output: number;
+  pages: number;
+  /** Optional, because a step that made no model call has neither. */
+  cacheWritten?: number;
+  cacheRead?: number;
+};
 
 /** Record one completed step. Returns the updated record, nothing mutated. */
 export function note(
@@ -133,6 +163,11 @@ export function note(
       input: had.input + spentHere.input,
       output: had.output + spentHere.output,
       pages: had.pages + spentHere.pages,
+      // Kept apart from input rather than folded into it: read is billed at a
+      // tenth of base and written at one and a quarter times, so a total that
+      // mixed them would answer no question anybody has.
+      cacheWritten: (had.cacheWritten ?? 0) + (spentHere.cacheWritten ?? 0),
+      cacheRead: (had.cacheRead ?? 0) + (spentHere.cacheRead ?? 0),
     };
   }
 

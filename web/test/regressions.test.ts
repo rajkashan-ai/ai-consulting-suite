@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { visibleText } from "../lib/research/text.ts";
+import { sourceOf } from "./tool-source.ts";
 
 /**
  * Faults that have actually happened, each with the date and what it cost.
@@ -38,7 +39,7 @@ test("a pricing action is told to say what to publish, never what to charge", ()
   // 15 September. Four cards refused in a row, one for "You do not have to
   // match anyone", where the guard saw the verb "match" near the word "price"
   // and cannot see a negation.
-  const stages = read("tools/competitor-tracker/stages.ts");
+  const stages = sourceOf("competitor-tracker");
   assert.match(stages, /never what to charge/i);
   assert.match(stages, /do not have to match anyone/i, "the failing example is kept");
 });
@@ -46,7 +47,7 @@ test("a pricing action is told to say what to publish, never what to charge", ()
 test("the writing step is told the five and cannot choose its own", () => {
   // 15 September. Ranking chose NO.1, HINCES, Branded Barbers and Golden
   // Scissors. The card came back about Fade Inn, Darwin's and Barbering AJ.
-  const stages = read("tools/competitor-tracker/stages.ts");
+  const stages = sourceOf("competitor-tracker");
   assert.match(stages, /AND NOBODY ELSE/);
   assert.match(stages, /agreed\.size/, "and a filter, because a prompt is only guidance");
 });
@@ -216,7 +217,7 @@ test("every line handed to the guards ends in a full stop", async () => {
 test("the repair is told the exact wordings the guard accepts", () => {
   // Telling it to "say out of what" produced four different unacceptable
   // phrasings across four runs. The guard has a fixed list and it is short.
-  const stages = readFileSync(join(ROOT, "tools/competitor-tracker/stages.ts"), "utf8");
+  const stages = sourceOf("competitor-tracker");
   for (const accepted of ["on Booksy", "we looked at", "on any site we read", "4 of 9"]) {
     assert.ok(stages.includes(accepted), `the repair never mentions "${accepted}"`);
   }
@@ -240,7 +241,7 @@ test("the customer is the first column and never one of the competitors", async 
 test("the comparison is a grid, not a list under each name", async () => {
   // A row of bullet points per business cannot be compared: finding who is
   // cheapest meant reading six paragraphs and holding them in your head.
-  const stages = readFileSync(join(ROOT, "tools/competitor-tracker/stages.ts"), "utf8");
+  const stages = sourceOf("competitor-tracker");
   assert.match(stages, /One row per thing, one column per business|one column per business/i);
   assert.match(stages, /attribute/, "rows are named, comparable things");
 });
@@ -269,14 +270,14 @@ test("a venue page is never mistaken for a listing", async () => {
   assert.equal(isVenuePage("https://booksy.com/en-gb/s/barber/1227928_shrewsbury"), false);
   assert.equal(isVenuePage("https://www.fresha.com/lp/en/bt/barbershops/in/gb-shrewsbury"), false);
 
-  const stages = readFileSync(join(ROOT, "tools/competitor-tracker/stages.ts"), "utf8");
+  const stages = sourceOf("competitor-tracker");
   assert.match(stages, /!isVenuePage/, "the listing check is bypassed for trusted hosts again");
 });
 
 test("a page naming one business is not filed as a platform", () => {
   // It used to record every page it read with the run's total against each, so
   // a venue naming one shop was filed as a listing naming eighteen.
-  const stages = readFileSync(join(ROOT, "tools/competitor-tracker/stages.ts"), "utf8");
+  const stages = sourceOf("competitor-tracker");
   assert.match(stages, /rows\.length >= 3/, "anything is being learned as a platform again");
 });
 
@@ -302,7 +303,7 @@ test("the customer's own prices reach the comparison", () => {
    * a business whose prices we had in full. The one column we always have was
    * the one that was empty.
    */
-  const stages = readFileSync(join(ROOT, "tools/competitor-tracker/stages.ts"), "utf8");
+  const stages = sourceOf("competitor-tracker");
   assert.match(stages, /business\.services/, "the tool never looks at their own services");
   assert.match(stages, /What \$\{profile\.name\} publishes/, "and never tells the model about them");
 
@@ -319,7 +320,7 @@ test("a playbook makes discovery faster, never narrower", () => {
    * untouched. A good playbook should make us faster, not put a whole run on
    * one throw.
    */
-  const stages = readFileSync(join(ROOT, "tools/competitor-tracker/stages.ts"), "utf8");
+  const stages = sourceOf("competitor-tracker");
   assert.match(
     stages,
     /\[\.\.\.targeted, \.\.\.buildSearchTerms\(profile\)\]/,

@@ -8,6 +8,7 @@ import { progressFor, type RunState, type Stage } from "../tools/content-social-
 import { PLAN_DAYS } from "../../Agents/Content & Social Planner/src/plan-shape.ts";
 import { ANGLES, CADENCES, CADENCE_LABEL, CRITIQUES } from "../../Agents/Content & Social Planner/src/types.ts";
 import { recommendCadence } from "../../Agents/Content & Social Planner/src/recommend.ts";
+import { sourceOf } from "./tool-source.ts";
 
 /**
  * One test per thing that broke, so it cannot break again quietly.
@@ -631,7 +632,7 @@ test("the run actually hands the last plan to the shape", async () => {
    * them, so replacing the argument with an empty list changed nothing and the
    * suite stayed green: the unwired guard again, one layer up.
    */
-  const stages = readFileSync(join(here, "..", "tools", "content-social-planner", "stages.ts"), "utf8");
+  const stages = sourceOf("content-social-planner");
   assert.match(
     code(stages),
     /* [^)]* stops at toISOString(), so the match never reached the argument
@@ -759,7 +760,7 @@ test("hashtags come off, because they do not do what people think", async () => 
   assert.equal(unTag("Book your #skinfade today."), "Book your skinfade today.");
   assert.equal(hasTag(unTag("Words.\n#one\n#two\nMore.")), false);
 
-  const stages = readFileSync(join(here, "..", "tools", "content-social-planner", "stages.ts"), "utf8");
+  const stages = sourceOf("content-social-planner");
   assert.match(stages, /never write a hashtag/i, "the model is not told");
   assert.match(stages, /words somebody would actually search for/i, "it is not told what to do instead");
   assert.match(stages, /unTag\(/, "the guard exists and nothing calls it");

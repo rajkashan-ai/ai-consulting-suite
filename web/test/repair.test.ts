@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { advance, type RunState } from "../tools/competitor-tracker/stages.ts";
 import type { Business, ToolContext } from "../tools/types.ts";
+import { sourceOf } from "./tool-source.ts";
 
 /**
  * A refused card is reworded once before it is thrown away.
@@ -154,7 +155,7 @@ test("a rewrite that loses the actions is not accepted", async () => {
 test("the repair is not asked to rewrite the comparison grid", () => {
   // Structured data cannot trip a guard that reads prose, so regenerating it
   // was pure risk and it is what blew the token budget.
-  const stages = readFileSync(join(import.meta.dirname, "..", "tools", "competitor-tracker", "stages.ts"), "utf8");
+  const stages = sourceOf("competitor-tracker");
   const shape = stages.slice(stages.indexOf("const REPAIR_SHAPE"), stages.indexOf("const REPAIR_RULES"));
   assert.ok(!shape.includes("comparison"), "the repair shape is asking for the grid again");
 });

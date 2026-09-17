@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { MACHINERY, plainly } from "../lib/plainly.ts";
+import { sourceOf } from "./tool-source.ts";
 
 /**
  * What an owner is told when something throws.
@@ -157,10 +158,7 @@ test("reading a town listing has room for a town's worth of businesses", () => {
   // A listing names thirty or more, each with six fields. That does not fit in
   // the 4,000 token default, and a real run died at the first listing because
   // the answer was cut off and we correctly refuse a half answer.
-  const stages = readFileSync(
-    join(import.meta.dirname, "..", "tools", "competitor-tracker", "stages.ts"),
-    "utf8",
-  );
+  const stages = sourceOf("competitor-tracker");
   const listing = stages.slice(stages.indexOf("Town: ${profile.town}"), stages.indexOf("Town: ${profile.town}") + 600);
   assert.match(listing, /maxTokens: 12_000/, "the listing call has no budget of its own");
 });

@@ -213,6 +213,7 @@ test("an unparseable address does not crash the report", () => {
 
 import { advance, type RunState } from "../tools/competitor-tracker/stages.ts";
 import { aBusiness, fakeContext, type Recorded } from "./fake.ts";
+import { sourceOf } from "./tool-source.ts";
 
 const recorded = JSON.parse(
   readFileSync(join(import.meta.dirname, "fixtures", "shrewsbury.json"), "utf8"),
@@ -349,10 +350,7 @@ test("a listing for the wrong country is never fetched, however trusted the host
   // Comments stripped: the note explaining why the old check went still
   // contains the old check, and a test that fires on its own explanation is a
   // test that can never pass. Third time today.
-  const src = readFileSync(
-    join(import.meta.dirname, "..", "tools", "competitor-tracker", "stages.ts"),
-    "utf8",
-  )
+  const src = sourceOf("competitor-tracker")
     .replace(/\/\*[\s\S]*?\*\//g, " ")
     .replace(/\/\/[^\n]*/g, " ")
     .replace(/\s+/g, " ");

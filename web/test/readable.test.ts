@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { sourceOf } from "./tool-source.ts";
 
 /**
  * Can this page be read?
@@ -29,7 +30,7 @@ import { join } from "node:path";
  */
 
 const here = import.meta.dirname;
-const stages = readFileSync(join(here, "..", "tools", "competitor-tracker", "stages.ts"), "utf8");
+const stages = sourceOf("competitor-tracker");
 const screen = readFileSync(join(here, "..", "app", "workspace", "[tool]", "battlecard.tsx"), "utf8");
 const css = readFileSync(join(here, "..", "app", "design.css"), "utf8");
 

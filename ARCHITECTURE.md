@@ -257,6 +257,12 @@ is 90 seconds rather than 20 minutes, restarting costs a fraction of what it did
 
 - **2026-09-17** Written. Measurements taken the same day from the running product and from the
   runs table. Nothing here is implemented.
+- **2026-09-17** Items 2, 3, 4 and 5 done. Cache tokens are recorded apart from ordinary input.
+  The system prompt is cached, verified live: a first call wrote 6,852 tokens and a second read all
+  6,852 back. Sections 1.5 and 1.6 moved to `.claude/rules/`, taking CLAUDE.md from 351 lines to
+  252. `stages.ts` split from 2,481 to 2,035 by lifting out the prompts and the schemas. Six tests
+  broke in that split, all of them pinned to a filename rather than to what they were checking, and
+  they now read the tool's whole folder.
 - **2026-09-17** Order corrected. The live run moved from third to last, because nothing in caching
   or splitting depends on it and a single run after both answers more than two runs around them.
   The remote moved from last to first: it is the only item whose downside is losing the work.

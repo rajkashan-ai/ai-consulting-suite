@@ -219,130 +219,13 @@ See 1.4a.
 
 ## 1.5 Getting data off the web, legally
 
-Only Competitor Tracker and Funnel Builder touch the web. Same rules for both.
-
-**Where facts may come from**
-
-| Source | Cost | Notes |
-|---|---|---|
-| The competitor's own public pages | Free | Logged out only. Pricing, services, case studies |
-| **Booksy** venue pages | Free | For anyone who takes bookings, the richest single source there is: every price and review count on one page. `robots.txt` **disallows `/search/`**, so we never crawl their search |
-| **Fresha** venue pages | Free | Same shape. `/search*` disallowed, venue pages allowed, salons sitemap published |
-| Claude API web search tool | $10 per 1,000 searches | Anthropic runs it. Domain allow and block lists |
-| Claude API web fetch tool | Tokens only | Only fetches URLs already in the conversation |
-| Companies House API (UK) | Free | Filed accounts and officers. Official open data |
-| Meta Ad Library API | Free | Every ad a rival is running now, word for word, with its start date. The only source that says what a competitor pays to say rather than where they show up. Needs an identity confirmation at `facebook.com/ID`, 2 to 7 days, and nothing else. **Whether GB returns commercial ads is unsettled and decides the feature.** Steps and the probe that settles it: `Agents/Competitor Tracker/ad-library-access.md` |
-| Google Ads Transparency Center | Free | Thinner, no mature API |
-| Google Places API | Paid per call | Reviews shown live with attribution, never stored. Place IDs may be kept, coordinates 30 days |
-| Trustpilot API | Paid | Their API only. Scraping Trustpilot is banned in their terms and actively blocked |
-| Similarweb or Semrush | $125 to $549 a month | Not used. The only lawful source of a rival's traffic mix, and we chose not to buy it |
-| Checkatrade | | **Not used.** Returns 403 to us |
-| TikTok Commercial Content Library | Free | **Not used.** Covers the UK, and both doors are shut: `library.tiktok.com/robots.txt` disallows `/api`, `/ads` and the whole site, and the official API is gated to academics and non-profits |
-| LinkedIn Ad Library | Free | **Not used.** Their `robots.txt` prohibits automated access without written permission. Ask at `whitelist-crawl@linkedin.com` if we ever take on B2B customers |
-| Google Ads Transparency Centre | Free | **Not used.** No API and no `robots.txt`. The page is 2.5MB of JavaScript and 159 characters of text, so there is nothing to read |
-| Snapchat, Pinterest, X ad libraries | Free | **Not used.** Commercial tiers are EU only, and the UK is out of scope since Brexit |
-
-**Booking platforms are the first place to look, and their search is out of bounds.** Both Booksy
-and Fresha let us read a named venue's page and neither lets us crawl their search results
-(`robots.txt`, checked 14 September 2026). So the platform never tells us *who* the competitors are.
-Finding them is Claude web search or Google Places; the platform is then read one venue page at a
-time. **Before launch, read both sets of terms of use.** `robots.txt` being clear is not the same as
-the terms allowing it, and Trustpilot is the precedent: a site can permit the crawl and ban the use.
-
-**How the crawler behaves**
-
-1. `robots.txt` is the gate. Disallowed means we do not fetch it.
-2. Logged out only. Never a login, a paywall, a captcha, or an IP rotated to dodge a block.
-3. Identify ourselves in the user agent, with a URL explaining who we are.
-4. One request at a time per site, with a pause between. We are not a load test.
-5. Read and summarise. Never store or reproduce substantial copied text: copyright applies, and the
-   UK kept the database right after Brexit.
-6. Reviews give themes, never named individuals. Under UK GDPR "it was public" is not a lawful basis.
-7. Every stored fact carries its URL and the date it was fetched.
-8. Honour any takedown request the same day, and keep a way to block a domain permanently.
-
-**No traffic data (decided 2026-09-14, corrected 2026-09-16).** This said a competitor's traffic
-mix "cannot be obtained lawfully", which is false: it can, by buying a Similarweb or Semrush
-licence, and plenty of people do. What is true is that **we have not bought one, and an estimate
-from anyone is still an estimate.** So the product does not offer it, nothing may estimate, infer or
-imply it, and if a customer asks we say we do not have that data. That is a choice about cost and
-honesty, not a law, and the screen already words it correctly.
-
-Corrected under 1.4.10: the original sentence was a limit nobody had tested, and it would have
-stopped us even considering a licence if the product ever needed one.
-
-**Cost of one competitor run, measured 2026-09-16.** About $1.10 to $1.25. The last clean run was
-179,000 input and 15,000 output tokens plus five web searches: roughly $1.07 of it is the writing
-stage on Opus, $0.10 the searching and listing work on Sonnet, $0.05 the searches themselves.
-
-Input roughly doubled when the grid split into four parallel calls, which halved the time. Prompt
-caching on the shared evidence would buy most of that back and has not been done.
-
-The old estimate here was $0.50 to $2.00 "until measured". It is measured.
+Moved to `.claude/rules/web-fetching.md` on 2026-09-17, where it loads only when a session
+touches the files it governs. Same rules, unchanged: robots is the gate, no cookies, one
+request at a time per host, and a block is never worked around.
 
 ## 1.6 Skills: what we use, and which one owns what
 
-A skill is a written method Claude Code loads when needed. They help us **build**. They do not run
-inside the product: see the end of this section.
-
-**Nothing to install per tool.** They live in `~/.claude/skills/`, so every folder under this one
-already has them. A subagent is the exception: it reaches them only if its definition grants it the
-`Skill` tool.
-
-### Wired in at root, for the whole build
-
-| Skill | What it does, plainly | When it should fire |
-|---|---|---|
-| `owasp-security` | Checks code for the standard security holes: broken login, leaked data, unsafe input | Before any code touching login, customer data, uploads or payments is done. Again before launch |
-| `claude-api` | The current reference for calling the Claude API: model names, prices, streaming, tools | Before writing or changing any API call. Never write that code from memory, the API moves |
-| `code-review` | Reads the diff for real bugs and code that could be simpler | On the diff, before anything is called done |
-| `panel` | Puts 5 or 6 invented buyer personas in front of something, separately, and scores it | Before anything a customer sees ships: landing page, pricing, onboarding, tool output |
-| `no-ai-speak` | Finds the tells that make writing read as machine-written, and rewrites them out | On any copy we publish. It is also the source of the product's own writing rules, below |
-| `instruction-audit` | Reads instruction files too long to be followed and proposes cuts | When a file passes 200 lines or 12,000 characters, or when rules are visibly ignored |
-| `session-handoff` | Writes a short note so the next session starts from 40 lines, not the whole transcript | Only when pausing mid-task |
-| `go-faster` | Splits a job so parts run at once | Before a big multi-part push |
-| `agent-setup` | Installs guard rails: warns if a secret is written to a file, or instructions outgrow their cap | Once, if we add those guards here |
-
-### Used on one tool only, never at root
-
-| Skill | Which tool | Why it stays there |
-|---|---|---|
-| `company-research` with `research-once` | Competitor Tracker | Verify, register, date and grade every fact. Irrelevant to the other five |
-| `seo-audit` | Lead Capture & Funnel Builder | A website audit from a real render, the lead magnet itself, page copy, three emails |
-
-### Things that look like duplicates, settled
-
-| Looks like a clash | Who owns it | Why |
-|---|---|---|
-| `research-once` and `company-research` | Both. They compose | `company-research` says to follow `research-once` for register mechanics. One owns the method, one owns `SOURCES.md` |
-| `code-review` and `simplify` | `code-review` | `simplify` is quality only and points at `code-review` for bugs. Running both runs one twice |
-| `panel` and the two code checkers | `panel` for anything a customer sees, the others for code | `panel` states it is not for source code |
-| `agent-setup` and `instruction-audit` | `agent-setup` before, `instruction-audit` after | One sets the caps, the other fixes files that grew past them |
-| `session-handoff` and our `memory.md` | `memory.md` owns decisions and state. `HANDOFF.md` is only a mid-task pause note | A decision never goes in `HANDOFF.md`, it goes in `memory.md` |
-| `no-ai-speak` and the product's writing rules | `no-ai-speak` is the source | The product holds a marked copy, because code cannot call a skill |
-| the practice's `research` skill and `company-research` | Neither, here | The practice skill writes consultancy research packs into client folders. Not this product |
-
-### The product does not call a skill today, and that is a choice
-
-This said "the product cannot call a skill". Checked against the Claude API docs on 2026-09-16 and
-it is **false**: the Claude API supports custom Skills, uploaded through the `/v1/skills` endpoints
-and referenced by `skill_id`, and on the API they are workspace-wide.
-
-Two real constraints, which are the reasons to keep what we do rather than the reasons we imagined:
-
-- Skills on the API need the **code execution tool**, whose container they run in. That is a
-  dependency our runs do not otherwise have.
-- That container has **no network access**. Our tools read the live web, so anything that must
-  fetch stays in our own code whatever we do with skills.
-
-So today our server sends a system prompt and nothing is inherited: no `CLAUDE.md`, no skills
-folder. Anything all six tools must do lives in the one file they all prepend,
-`Agents/_shared/base-prompt.md`: the writing rules copied out of `no-ai-speak` and the sourcing
-rules from 1.5, each marked as a copy pointing at its original. Change them there, once.
-
-**That remains the right call for now, and it is now a decision rather than an assumption.** Worth
-revisiting if the copies ever drift from their originals, which is the failure this arrangement
-risks.
+Moved to `.claude/rules/skills.md` on 2026-09-17.
 
 ## 1.7 Adding a new tool
 

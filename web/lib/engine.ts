@@ -129,7 +129,15 @@ export async function step(runId: string): Promise<Progress | null> {
   // whether there is anything to do; the engine does not know what it is.
   if (tool.prepare) state = await tool.prepare(state as never, business, db as never);
 
-  const spent = { input: 0, output: 0 };
+  /**
+   * What this step spent, including what the prompt cache gave back.
+   *
+   * The two cache numbers are counted apart from `input` because they are
+   * billed apart: a read is a tenth of base input and a write is one and a
+   * quarter times it. Adding them together would produce a figure that answers
+   * no question anybody has.
+   */
+  const spent = { input: 0, output: 0, cacheWritten: 0, cacheRead: 0 };
   let pages = 0;
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -181,6 +189,7 @@ export async function step(runId: string): Promise<Progress | null> {
 
       spent.input += response.usage.input_tokens;
       spent.output += response.usage.output_tokens;
+      countCache(spent, response.usage);
 
       type SearchBlock = {
         type: string;
@@ -228,7 +237,29 @@ export async function step(runId: string): Promise<Progress | null> {
       const response = await anthropic.messages.stream({
         model: hard ? BIG : SMALL,
         max_tokens: maxTokens ?? 4000,
-        system,
+        /**
+         * The system prompt is cached, and it is the only thing that is.
+         *
+         * The documented rule is to put the breakpoint on the last block that
+         * stays identical between requests. The system prompt is exactly that:
+         * a tool's rules do not change between the calls of one run, or between
+         * runs, and the tracker's writing stage alone sends it three times.
+         *
+         * A cache read is a tenth of base input; a write is one and a quarter
+         * times. So the first call of a run pays slightly more and every call
+         * after it pays a tenth, which is only worth doing because the same
+         * prefix is reused several times within the five minute life.
+         *
+         * The prompt is NOT cached. It carries the evidence, and the evidence
+         * is different in every run and mostly different between calls in one
+         * run. Caching a block that changes writes a new entry every time and
+         * reads none, which costs 1.25x to achieve nothing.
+         *
+         * Below the model's minimum prefix length, nothing is cached and no
+         * error is raised, which is why `cacheRead` is recorded rather than
+         * assumed. See ARCHITECTURE.md section 2.
+         */
+        system: [{ type: "text" as const, text: system, cache_control: { type: "ephemeral" as const } }],
         ...(tools?.length || shape
           ? {
               tools: [
@@ -247,6 +278,7 @@ export async function step(runId: string): Promise<Progress | null> {
 
       spent.input += response.usage.input_tokens;
       spent.output += response.usage.output_tokens;
+      countCache(spent, response.usage);
 
       /**
        * An answer that was cut off is not an answer.
@@ -319,6 +351,8 @@ export async function step(runId: string): Promise<Progress | null> {
     seconds: (Date.now() - startedStep) / 1000,
     input: spent.input,
     output: spent.output,
+    cacheWritten: spent.cacheWritten,
+    cacheRead: spent.cacheRead,
     pages,
   });
 
@@ -492,4 +526,21 @@ async function fail(
   }
 
   return { stage: "failed", progress: reason, documentId: null, reason };
+}
+
+/**
+ * Add what the prompt cache did on this call to the running total.
+ *
+ * Both fields are optional on the response: an account or a model with no
+ * caching in play simply does not send them, and the documentation says
+ * explicitly that a prompt below the minimum length is not cached and raises no
+ * error. So a zero here means "nothing was cached", which is the honest answer
+ * and is exactly what we need to see before claiming caching saved anything.
+ */
+function countCache(
+  spent: { cacheWritten: number; cacheRead: number },
+  usage: { cache_creation_input_tokens?: number | null; cache_read_input_tokens?: number | null },
+): void {
+  spent.cacheWritten += usage.cache_creation_input_tokens ?? 0;
+  spent.cacheRead += usage.cache_read_input_tokens ?? 0;
 }
