@@ -4,6 +4,7 @@ import { FIRST_STAGE, lastPlan } from "@/tools/content-social-planner/index";
 import Channels from "./channels";
 import PlanView from "./plan";
 import Running from "./running";
+import { tooOldToResume } from "@/tools/cadence";
 
 /**
  * Show the month, watch one being written, or start writing one.
@@ -52,7 +53,48 @@ export default async function ContentSocialPlanner({
 
   const confirmed = (workspace?.channels ?? null) as string[] | null;
 
-  const latest = runs?.[0];
+  let latest = runs?.[0];
+
+  /**
+   * A run from yesterday is not a run to carry on with. See RESUMABLE_HOURS.
+   *
+   * The same hole as the Competitor Tracker had, and it cost that one a screen
+   * full of New York businesses: a run parked overnight was resumed, so rows
+   * gathered before a fix arrived as findings after it. Retired rather than
+   * ignored, because one run at a time per workspace is a database constraint.
+   */
+  if (latest && latest.stage !== "done" && latest.stage !== "failed"
+      && tooOldToResume(latest.started_at, new Date())) {
+    const { error: retiring } = await supabase
+      .from("runs")
+      .update({
+        stage: "failed",
+        ok: false,
+        finished_at: new Date().toISOString(),
+        error: "This one was left overnight, so we have started it again.",
+      })
+      .eq("id", latest.id)
+      .eq("workspace_id", workspaceId)
+      .eq("tool", "content-social-planner")
+      // Still where we found it. The scheduled tick runs every minute and may
+      // have moved it on between our read and this write, and retiring a run
+      // that is working is worse than resuming one that is stale.
+      .eq("stage", latest.stage);
+
+    if (retiring) {
+      console.error(`[planner] could not retire the stale run ${latest.id}: ${retiring.message}`);
+      return (
+        <div className="panel" key="stuck">
+          <h2 className="t-sub">We could not start this.</h2>
+          <p className="t-doc">
+            An earlier plan was left part way through and we could not clear it.
+            Try again in a moment.
+          </p>
+        </div>
+      );
+    }
+    latest = undefined;
+  }
 
   /**
    * Keys, so React swaps these rather than reconciling them.
