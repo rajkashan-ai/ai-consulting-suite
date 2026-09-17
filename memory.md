@@ -7,7 +7,7 @@
 > files and generated documents live in the database, one row per account, separated by row level
 > security. A single markdown file cannot hold fifty paying customers' data, and should never try.
 >
-> **Last updated:** 2026-09-14
+> **Last updated:** 2026-09-17
 
 ---
 
@@ -282,3 +282,77 @@ the card; prices never checked against the page they cite.
 6. Not deployed. No privacy policy, no processor agreements, retention job
    unscheduled. Minute-level cron needs a Vercel Pro plan.
 7. Landing page still shows Reed Plumbing in its workspace preview.
+
+---
+
+## Where we got to, 17 September 2026
+
+### The Competitor Tracker finished a run for the first time
+
+Five named St Albans competitors, two comparison grids, three actions, five sources, 6.5
+minutes, 199,910 billed against a 300,000 ceiling. Before today it had never produced a
+document from a run anyone watched.
+
+The Content & Social Planner also ran live and succeeded at 20:43: 12,227 tokens, 30
+seconds, two posts written and none dropped. The same salon on 16 September had both its
+posts dropped for inventing prices of £126 and £89.
+
+### Faults fixed today, so they are not rediscovered
+
+Each was found by counting run records rather than reading code, and each has a test that
+was broken on purpose and watched go red.
+
+- The setup stored a comparison key as the website, so every later `new URL()` threw. Five
+  of eleven substantive failures.
+- Five search terms went in one request and the results accumulated turn on turn: 127,351
+  input tokens for one call. One term per call now.
+- The naming call asked a model who the competitors were before crawling. It never once met
+  its threshold in five runs, cost between 42 seconds and 19.5 minutes, and is off behind
+  `ASK_FIRST`.
+- `\bbarbers?\b` does not match "Barbering", so three barbers were compared against a
+  women's salon.
+- A Melbourne listing and a New York one were accepted because the country test was a
+  blocklist. One rule now, positively checked, in `resultCountry`.
+- **The town key kept punctuation**, so "St. Albans" refused every UK listing and accepted
+  the American one, whose path happens to write the stop. One rule now, in `tools/place.ts`,
+  which also handles apostrophes and accents: King's Lynn and Ynys Môn both failed the first
+  fix.
+- Search result page titles were offered as businesses. "Hairdressers in St Albans" reached
+  a real owner's screen.
+- The token ceiling counted `input` and ignored cache writes, so it read 87,274 for a run
+  that cost about 146,000. It counts what is billed now.
+- `enough()` stopped on names, leaving unopened the one page carrying 38 ratings, 34 prices
+  and 40 profile links. It counts usable rows now.
+- The lookup took whatever search ranked first, so a Cylex directory beat a Fresha profile.
+  Three tiers, read from the source registry rather than a new list.
+- `judge()` refused a business's own profile because the url named their village. It accepts
+  the locality we already hold; the country stays absolute.
+- A run left overnight was resumed, so rows gathered before a fix arrived as findings after
+  it. Screens and the scheduler now share one age limit.
+- The planner's writer was never told which prices it could state, while the guard checking
+  it knew. Both halves agree now.
+
+### Added today
+
+- **The competitor picker.** 24 candidates, 10 shown, our five pre-ticked, add your own by
+  name, 48 hours then ours stand. Built because one listing record in twenty is factually
+  wrong about the business and no rule reading that record can tell.
+- **A `finding` stage** that looks up a page for each chosen competitor, after the pick
+  rather than before, which is what makes five searches affordable where 24 were not.
+- **Three ways to ask for a post** in the planner: eight intent categories, a rough thought
+  expanded, and starting from a photo shown disabled. The month plan stays as the prompter.
+
+### Pending
+
+- **Workspace `2b6a7451-57fd-4cab-bf3a-c36d1e95e589` is a duplicate of A Cut Above and must
+  not be used.** Its documents and `found_via` were moved to
+  `5f42eff6-7536-4f13-83d7-a0a841750f1b` on 17 September; the empty row was deliberately
+  left in place because its 11 runs are the only record of the New York screen, the town
+  bug and the first tracker run that reached `done`. Delete it once that evidence is no
+  longer wanted. Summaries are in the session scratchpad as `2b6a7451-runs.json`.
+- Starting a post from a photo needs a storage bucket, an upload route and an image in the
+  model call. None of it exists; the path is on screen and refused by name.
+- The `finding` stage's token estimate is arithmetic, not measurement. Revisit the 300,000
+  ceiling once three runs have been through it.
+- Two of the five discovery search terms produced nothing on the one run measured. Two more
+  runs would say whether to cut them, and they are the largest single line in the bill.
