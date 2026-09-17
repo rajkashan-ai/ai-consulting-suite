@@ -130,7 +130,7 @@ export default async function ContentSocialPlanner({
      * and the two have different lifetimes: the plan is remade every thirty
      * days and the fact that they posted on the 17th outlives it.
      */
-    const [{ data: state }, { data: voice }] = await Promise.all([
+    const [{ data: state }, { data: voice }, { data: made }] = await Promise.all([
       supabase
         .from("content_post_state")
         .select("post_date, channel, edited_words, posted_at, posted_url")
@@ -140,6 +140,20 @@ export default async function ContentSocialPlanner({
         .select("corrections")
         .eq("workspace_id", workspaceId)
         .maybeSingle(),
+      /**
+       * Posts they asked for on the day, newest first.
+       *
+       * Read here beside the plan for the same reason the post state is: the
+       * plan is what we produced and these are what they made, and the two
+       * have different lifetimes. The plan is remade every thirty days; a post
+       * they wrote on a Tuesday because a bride came in at six outlives it.
+       */
+      supabase
+        .from("content_made")
+        .select("id, path, intent, thought, words, shot, why, source_url, source_on, made_at")
+        .eq("workspace_id", workspaceId)
+        .order("made_at", { ascending: false })
+        .limit(30),
     ]);
 
     const postState = Object.fromEntries(
@@ -157,6 +171,7 @@ export default async function ContentSocialPlanner({
         workspaceId={workspaceId}
         postState={postState}
         corrections={(voice?.corrections ?? []) as string[]}
+        made={(made ?? []) as never}
       />
       {/* Kept on the finished plan, not only before the first run. A channel
           they started last week is the most likely thing to be wrong, and a

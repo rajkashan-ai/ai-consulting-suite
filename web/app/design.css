@@ -1280,3 +1280,7 @@ main{padding:0}
    a three-row box needs to be three rows. */
 .field--area{height:auto; min-height:96px; padding:var(--s3); width:100%;
   resize:vertical; line-height:22px}
+
+/* The post itself, which is the thing they came to copy. Line breaks kept as
+   written, because a caption's shape is part of the caption. */
+.made__words{white-space:pre-wrap; margin:var(--s2) 0}

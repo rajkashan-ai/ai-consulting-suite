@@ -199,3 +199,37 @@ test("the table carries row level security from its first migration", () => {
   // The path that is not built must not be storable even by mistake.
   assert.match(sql, /check \(path in \('category', 'thought'\)\)/);
 });
+
+test("what is made is read back and shown", () => {
+  /**
+   * 2026-09-17. `makePost` wrote to content_made, called revalidatePath, and
+   * nothing anywhere read that table. The button worked, the row was saved,
+   * and the post was invisible. Raj asked "where do you render the post?" and
+   * the answer was nowhere.
+   *
+   * Every test written with the feature checked the asking and none checked
+   * the showing, which is how a half-built thing passed a full suite.
+   */
+  const screen = read("content-social-planner.tsx");
+  assert.match(screen, /from\("content_made"\)/, "nothing reads the table the action writes to");
+  assert.match(screen, /made=\{/, "the posts are read and then not passed to the view");
+
+  const view = read("plan.tsx");
+  assert.match(view, /<Made made=\{made\} \/>/, "the view is given them and does not render them");
+
+  // And the post itself keeps its shape: a caption's line breaks are part of
+  // the caption.
+  const css = readFileSync(join(import.meta.dirname, "..", "app", "design.css"), "utf8");
+  assert.match(css, /\.made__words\{[^}]*white-space:pre-wrap/);
+});
+
+test("every class the made list uses exists", () => {
+  const css = readFileSync(join(import.meta.dirname, "..", "app", "design.css"), "utf8");
+  const used = new Set(
+    [...read("made.tsx").matchAll(/className="([^"{]+)"/g)]
+      .flatMap((m) => m[1].split(/\s+/))
+      .filter(Boolean),
+  );
+  const missing = [...used].filter((c) => !css.includes(`.${c}`));
+  assert.deepEqual(missing, [], `classes with no stylesheet behind them: ${missing}`);
+});

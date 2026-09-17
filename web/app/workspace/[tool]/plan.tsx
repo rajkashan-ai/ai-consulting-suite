@@ -1,5 +1,6 @@
 import type { DocumentBody } from "@/tools/content-social-planner/document";
 import Make from "./make";
+import Made, { type MadePost } from "./made";
 import { isWrittenPost } from "@/tools/content-social-planner/stages";
 import Resizer from "./resizer";
 import SendWeek from "./send-week";
@@ -71,6 +72,7 @@ export default function PlanView({
   workspaceId,
   postState,
   corrections,
+  made,
 }: {
   plan: DocumentBody;
   nextPlan: string;
@@ -79,6 +81,8 @@ export default function PlanView({
   postState: Record<string, PostState>;
   /** Corrections they have made to how we write for them. */
   corrections: string[];
+  /** Posts they asked for on the day, newest first. See Made. */
+  made: MadePost[];
 }) {
   const written = plan.posts.filter(isWrittenPost);
   const blanks = written.flatMap((p) => p.words.match(/\[[^\]]+\]/g) ?? []);
@@ -101,6 +105,7 @@ export default function PlanView({
           exactly as it was. */}
       <Band mod="band--a band--first">
         <Make workspaceId={workspaceId} />
+        <Made made={made} />
       </Band>
 
       {/* ── 1. Where they are, before anything they can do ─────────────── */}
