@@ -82,6 +82,28 @@ export async function step(runId: string): Promise<Progress | null> {
   }
 
   const watch = ((run.state ?? {}) as { watch?: Watch }).watch ?? {};
+
+  /**
+   * Did the last attempt at this run die without saving?
+   *
+   * `began` is written before the work starts, so it is still here if the step
+   * never got to write anything. That is the case none of our other numbers can
+   * see, and on 2026-09-17 it was the case that mattered: the step route is
+   * capped at 60 seconds, the lease is 90, and the scheduler fires every 60, so
+   * a step that outlives the cap is killed, saves nothing, and is then picked
+   * up again by whoever claims next. Nothing recorded it.
+   */
+  if (watch.began) {
+    const seconds = Math.round((Date.now() - Date.parse(watch.began.at)) / 1000);
+    watch.died = [...(watch.died ?? []), { stage: watch.began.stage, seconds }];
+    console.warn(`[step] ${watch.began.stage} started and never finished, ${seconds}s ago`);
+  }
+  watch.began = { stage: run.stage, at: new Date().toISOString() };
+  (run.state as { watch?: Watch } | null) && ((run.state as { watch?: Watch }).watch = watch);
+  await db
+    .from("runs")
+    .update({ state: { ...(run.state ?? {}), watch } as never })
+    .eq("id", runId);
   const verdict = check(watch, { stage: run.stage, startedAt: run.started_at });
   if (verdict) {
     // The reason the customer reads and the reason we need are different
@@ -89,7 +111,9 @@ export async function step(runId: string): Promise<Progress | null> {
     // still here tomorrow when somebody asks what happened.
     await db
       .from("runs")
-      .update({ state: { ...(run.state ?? {}), watch: { ...watch, stopped: verdict.why } } as never })
+      .update({
+        state: { ...(run.state ?? {}), watch: { ...watch, stopped: verdict.why, began: null } } as never,
+      })
       .eq("id", runId);
     return fail(db, runId, verdict.say);
   }
@@ -324,9 +348,12 @@ export async function step(runId: string): Promise<Progress | null> {
   try {
     result = await tool.advance(run.stage, state as never, business, ctx);
   } catch (e) {
+    const seconds = (Date.now() - startedStep) / 1000;
+    console.warn(`[step] ${run.stage} threw after ${seconds.toFixed(1)}s`);
+    watch.began = null;
     return faulted(db, runId, run.state, watch, e, spent, pages, {
       stage: run.stage,
-      seconds: (Date.now() - startedStep) / 1000,
+      seconds,
     });
   }
 
@@ -358,6 +385,14 @@ export async function step(runId: string): Promise<Progress | null> {
     cacheRead: spent.cacheRead,
     pages,
   });
+  // It saved, so it did not die. Cleared here rather than anywhere earlier,
+  // because everything between the claim and this line can still be killed.
+  (result.state as { watch?: Watch }).watch!.began = null;
+  console.log(
+    `[step] ${run.stage} -> ${result.stage} in ` +
+      `${((Date.now() - startedStep) / 1000).toFixed(1)}s, ` +
+      `${spent.input.toLocaleString()} in, ${spent.output.toLocaleString()} out, ${pages} pages`,
+  );
 
   /**
    * Whatever this tool wants to keep from the run, kept.

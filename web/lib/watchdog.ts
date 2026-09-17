@@ -62,6 +62,24 @@ export type Watch = {
       cacheRead?: number;
     }
   >;
+
+  /**
+   * The step running right now: which stage, and when it was claimed.
+   *
+   * Written before the work starts and cleared when the step saves. A step that
+   * is killed mid-flight saves nothing, so it leaves this behind, and this is
+   * the only thing that sees it. Every other measurement we keep is written at
+   * the end of a step, which means a step that never ends is invisible to all
+   * of them: the token ceiling, the worked-seconds clock, the progress line.
+   */
+  began?: { stage: string; at: string } | null;
+
+  /**
+   * Steps that started and never finished, and how long they had been going
+   * when the next claim noticed. An empty list here is the evidence that steps
+   * are completing; a full one is the evidence that they are not.
+   */
+  died?: { stage: string; seconds: number }[];
 };
 
 /**
