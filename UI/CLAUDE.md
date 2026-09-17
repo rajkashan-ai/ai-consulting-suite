@@ -60,65 +60,11 @@ edge. Three signals.
 
 ## 3. The home screen
 
-**The greeting says nothing clever (decided 2026-09-14).**
-
-> **Reed Plumbing**
-> Monday 15 September
-
-That is the whole header. It is quiet and it is never wrong.
-
-**Which puts all the weight on what sits underneath.** A greeting that carries no information has
-to be followed immediately by something that does, or the screen is empty furniture. So the first
-block on the page is what changed:
-
-```
-Reed Plumbing
-Monday 15 September
-
-What moved
-  PRICE    Drayton put their call-out fee up from £60 to £75.   drayton.co.uk · 8 Sep
-  REVIEWS  Three new reviews for Kemp mention waiting.          Google · 14 Sep
-  Nothing else moved. We checked 5 competitors and 23 pages.
-
-Carry on
-  [ the last three things they were working on ]
-```
-
-**"Nothing else moved" is not filler.** It is the line that makes a quiet week trustworthy, and it
-is why the loud weeks get believed.
-
-**Week one, before anything can have changed**, the block keeps its place and its heading, and
-shows the dated baseline instead: what the five competitors charge today, each sourced. It proves
-the product already ran rather than apologising for having nothing.
+What the home screen holds and in what order. `references/home-screen.md`.
 
 ## 4. Warmth, without a photograph (decided 2026-09-14)
 
-**Colour and light, not an image.** A photograph behind a working screen fights the text and dates
-within a year. The ground is already warm: `#fafaf8` is a warm off-white, not a cold grey.
-
-Two soft pools of berry at very low opacity, high on the page, fading out before any content
-starts:
-
-```css
-.shell-top{
-  background:
-    radial-gradient(900px 320px at 18% -60px, rgba(166,30,77,.075), transparent 70%),
-    radial-gradient(680px 260px at 82% -40px, rgba(166,30,77,.045), transparent 70%),
-    var(--paper);
-}
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]) .shell-top{
-    background:
-      radial-gradient(900px 320px at 18% -60px, rgba(201,55,106,.16), transparent 70%),
-      radial-gradient(680px 260px at 82% -40px, rgba(201,55,106,.10), transparent 70%),
-      var(--paper);
-  }
-}
-```
-
-**Rules.** Berry only, no invented colours. It never sits behind body text, a table or a document.
-It fades to nothing by roughly 360px. It does not animate. If it makes anything harder to read,
-it is too strong.
+How the suite reads as warm without stock photography. `references/warmth.md`.
 
 ## 5. States every screen needs
 

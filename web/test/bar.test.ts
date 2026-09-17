@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { belowTheBar, givesSomethingAway, longestSentence, sayBar, LONGEST_SENTENCE } from "../tools/content-social-planner/bar.ts";
 import type { KnownFacts } from "../../Agents/Content & Social Planner/src/types.ts";
-import { specOf } from "./tool-source.ts";
+import { sourceOf, specOf } from "./tool-source.ts";
 
 /**
  * The bar is somebody else's, and it is checked.
@@ -123,10 +123,7 @@ test("the spec puts measured evidence above the named bar, and our taste nowhere
 });
 
 test("the code names whose rule each check is, not just the spec", () => {
-  const bar = readFileSync(
-    join(import.meta.dirname, "..", "tools", "content-social-planner", "bar.ts"),
-    "utf8",
-  );
+  const bar = sourceOf("content-social-planner");
   const whose = [...bar.matchAll(/whose:\s*"([^"]+)"/g)].map((m) => m[1]);
   assert.ok(whose.length >= 3, `only ${whose.length} checks name anyone`);
   for (const w of whose) {

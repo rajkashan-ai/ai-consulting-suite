@@ -30,16 +30,17 @@ Source: <https://code.claude.com/docs/en/memory>
 
 ### Measured, 2026-09-17
 
-| File | Lines | Against a 200 target | Loads |
+| File | Was | Now | Loads |
 |---|---|---|---|
-| `CLAUDE.md` | 351 | **+76%** | Every session |
-| `Agents/Content & Social Planner/CLAUDE.md` | 391 | **+96%** | When that folder is read |
-| `memory.md` | 284 | n/a, not a CLAUDE.md | Referenced, read on demand |
-| `UI/CLAUDE.md` | 225 | +13% | When UI files are read |
-| `Agents/Competitor Tracker/CLAUDE.md` | 212 | +6% | When that folder is read |
-| `ERROR-HANDLING.md` | 331 | n/a | Referenced from 1.4c |
+| `CLAUDE.md` | 351 | **189** | Every session |
+| `Agents/Content & Social Planner/CLAUDE.md` | 403 | **189** | When that folder is read |
+| `Agents/Competitor Tracker/CLAUDE.md` | 212 | **185** | When that folder is read |
+| `UI/CLAUDE.md` | 225 | **171** | When UI files are read |
+| Every other agent spec | 125 to 163 | unchanged | On demand |
 
-`.claude/rules/` is not used anywhere in this project.
+All under the target as of 2026-09-17. Four path-scoped rules in `.claude/rules/`, and a
+`references/` folder beside each spec that was split. Nothing was cut: every moved section is whole,
+with a note saying where it came from.
 
 ### What that costs
 

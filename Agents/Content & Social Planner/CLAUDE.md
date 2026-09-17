@@ -110,23 +110,8 @@ adding something that looks missing: most of it was left out on purpose.
 
 ## 3a. The mix, and what stops it repeating
 
-**Counts, not percentages.** Seventy per cent of four posts is 2.8 posts, and four posts is what a
-weekly cadence means. So the mix is whole posts, per cadence:
-
-| Cadence | Posts in 30 days | Useful | A question for them | An offer |
-|---|---|---|---|---|
-| Once a week | 4 | 3 | 0 | 1 |
-| A couple of times a week | 9 | 6 | 2 | 1 |
-| Most days | 22 | 15 | 5 | 2 |
-
-**Never nought offers over a month, and never more than two.** A month with no ask in it has failed
-at the job the tool exists for. Three is the one the owner is embarrassed to post. At four posts a
-month the question post is what goes, because a poll is what you can least afford at four.
-
-**No angle twice in a row, and none more than three times in a month.** Every slot carries one
-angle from the named set in `src/types.ts`. **Checked on the shape, not on the words**, which is
-what makes it hold for weeks nobody has written. Never explained to the customer: our working does
-not belong in their export.
+The spread of post types across a month, and the rule that stops the same one twice running.
+`references/the-mix.md`.
 
 ## 4. The rule that governs this tool
 
@@ -154,42 +139,11 @@ people book. Checkable, and not claims about them.
 
 ## 5. Changing the plan: the critique loop
 
-The owner edits any post in place, or names what is wrong: too salesy, too formal, not how I talk,
-too long, I would not say that about myself.
-
-| Rule | Why |
-|---|---|
-| **A critique is written into the voice note (§2a)** | The correction has to outlive this plan, or they make it again next month |
-| **An unwritten week is written correctly, never rewritten** | Since 2026-09-15 most of the cascade is simply gone. Only this week's unwritten posts need redoing |
-| **Rewriting is offered, never automatic** | One click once rewrote every later post, and the owner asked for none of them |
-| **A post they have edited is never overwritten** | Their words beat ours. The one rule in the tool with no exception |
-| **An approved post is never overwritten** | Changing it behind them is how they stop trusting the page. Approval is per post, on the post: there is no "approve the week", because that word promised publishing and only set a flag |
-| **It says how many it will change, before it changes them** | "This will rewrite 2 of this week's 3." |
-| **One batched rewrite, never one call per click** | Cost. `most days` at a flat price is the case that breaks if this is wrong |
-
-**Named options, not a free-text box**, for the reason in `UI/CLAUDE.md` §6a: a count is actionable
-and a mood is not. Free text sits underneath and goes into the voice note in their own words.
+How an owner changes a plan and what we do with the change. `references/critique-loop.md`.
 
 ## 6. What it must never do
 
-1. **Never invent anything about the business.** §4.
-2. **Never put a feedback prompt inside the plan.** It gets exported. Feedback lives in the app
-   around the document.
-3. **Never assume they are local.** Wrong for a studio competing nationally. Work out which.
-4. **Never write a post that needs a photo they cannot take** on their phone this week.
-5. **Never produce more than the cadence they settled on.**
-6. **Never overwrite a post the owner has edited or approved.** §5.
-7. **Never mark a post overdue, late or missed**, and never write to an occasion that has gone.
-   A day carries a reason, not a deadline. §3.
-8. **Never promise a result.** Not from posting more, not from posting at all. The step up is
-   costed and scoped, never sold. §2b.
-9. **Never research a competitor here.** That is the Competitor Tracker's job, it costs a second
-   research run, and two tools answering the same question is two answers. §8.
-10. **Never an em dash, and never AI speak, in anything they post.** Added 2026-09-16 by Raj.
-    `base-prompt.md` has said "no jargon, no buzzwords, no em dashes" since the first version and
-    nothing checked it, so the first live run put eight em dashes and three en dashes into two
-    posts. An em dash is the single clearest tell that a person did not write something, and the
-    owner is putting their name on it. §6b says what happens to each.
+The refusals, each with the failure that earned it. `references/never-do.md`.
 
 ## 6c. The bar, and who sets it (added 2026-09-16 by Raj)
 
@@ -203,31 +157,12 @@ are in `references/house-style.md`.
 
 ## 6a. Tracking what went out
 
-The owner pastes the live link and presses Posted. That needs no connected
-account and gives us the caption **as published**, which drives the learning.
-
-**The count says which count it is.** Posts through this tool and posts on their
-account are two numbers, and showing the first as the second tells a barber of
-four years that they have posted twice. Connecting an account is the only way to
-see the second, and it is also the only way §2b's "we cannot count what they post
-now" stops being true.
-**Metrics need a connected account**, a business or creator one, and the screen
-says so rather than showing an empty box.
-
-**We report what happened and never why.** "Your 22 September post reached 412,
-the most this month" is a reading. "Because it had a photo" is an inference off
-nine data points with no control, and `findUnearnedInference` refuses it in every
-phrasing. Not a threshold to raise later: more data would still not make us the
-ones who ran the experiment.
-
-**A solid learning is never given twice.** Learnings live on the profile, carry
-their evidence, are applied to every later run, and cannot vanish, be rewritten
-or be retired without a reason. Four guards, one per failure. Method, the API
-constraints and what it costs to connect: `tracking.md`.
+What we record about a post after it is sent, and what we deliberately do not.
+`references/tracking.md`.
 
 ## 7. Build notes
 
-`build-notes.md`. Read once, while building. `tests/README.md` says what the suite covers.
+In `build-notes.md` beside this file, and what it has learned in `memory.md`.
 
 ## 8. Open
 

@@ -146,76 +146,13 @@ The short version, and the file has the evidence:
 
 ## 1.4a Readable by an owner, not just correct (added 2026-09-16)
 
-Correct and unreadable is not done. The first finished comparison was accurate in
-every cell and Raj's verdict was "at present I wouldn't read it". Every fault in it
-maps onto a published heuristic, so we use the published ones rather than inventing
-house rules: **Nielsen's 10 Usability Heuristics** for the interface
-(`nngroup.com/articles/ten-usability-heuristics/`), and **SVPG** for what we choose to
-build, in particular that the test of a feature is whether a real user can get value
-from it unaided, not whether it shipped.
-
-The four we broke, and the rules that come out of them:
-
-1. **Say a thing once.** (Nielsen 8, aesthetic and minimalist design: "interfaces
-   should not contain information that is irrelevant or rarely needed".) Every cell
-   printed its source and date, thirty repetitions of the same eight words in one
-   table. Repeated support belongs in the header, the footer, or a footnote. It moves,
-   it does not go: a claim nobody can check is a claim nobody believes.
-2. **A row exists to be read across.** (Nielsen 6, recognition rather than recall.)
-   The comparable fact is first and loudest in every cell, in the same place in each,
-   and numbers use `tabular-nums` so digits sit under digits. Comparing two prices must
-   never mean reading two sentences and holding them in your head.
-3. **A heading is the answer, not the label.** People read the heading and stop. "You
-   put five prices in plain sight" is a label. "You publish 5 prices, they publish 2"
-   is the finding. Cap it in the schema, because a length asked for in prose drifts.
-4. **Never show our own references.** (Nielsen 2, match between the system and the real
-   world.) "(page 3)" is our machinery: the reader cannot see page 3. This is section
-   7.7 of `UI/CLAUDE.md` in another costume.
-
-**Enforce it on the shape, not in the prompt.** A cell that must be short gets
-`maxLength` in its JSON schema. Asking politely produced full sentences every time.
-
-**Every one of these has a test** in `web/test/readable.test.ts`, asserting both the
-shape we ask the model for and what the screen does with it. Both have to hold: a
-short value rendered badly is still unreadable, and a beautiful table full of
-sentences is still unreadable.
-
-Apply all of this to the other five tools before they are built, not after.
+Moved to `.claude/rules/readable-output.md` on 2026-09-17. It governs what a customer reads,
+so it loads when a session touches the code that produces it.
 
 ## 1.4b Six tools, six sessions, no collisions (added 2026-09-16)
 
-Each tool is meant to be built independently. What stopped that, and what each
-one now costs:
-
-1. **The engine named the tool.** It imported the Competitor Tracker's stages,
-   playbook and document, and wrote its slug into the row, so every new tool
-   meant editing `lib/engine.ts` and two sessions collided on their first
-   commit. The engine now looks the tool up by the slug already on the run and
-   calls the contract in `tools/contract.ts`. It names no tool, and a test in
-   `test/contract.test.ts` fails if it ever does again.
-
-2. **A tool owns its folder and nothing else.** `tools/<slug>/` holds its
-   stages, its document, its own tests and its own fixtures. A tool importing
-   another tool's files makes two sessions dependent without either touching a
-   shared file, so a test forbids it.
-
-3. **Migrations are named, not numbered.** A running number means two sessions
-   both write `013` and one silently loses. Name them
-   `<tool>-<date>-<what>.sql`. The already-applied numbered ones keep their
-   names: renaming would make them all look unapplied.
-
-4. **Some files are read-only to a tool session.** `app/design.css`, the tokens,
-   `app/layout.tsx`, the workspace shell, `lib/engine.ts`, `lib/watchdog.ts`,
-   `lib/plainly.ts` and the guards. A tool that needs one changed asks rather
-   than changing it. This is the lock `UI/CLAUDE.md` 6c already describes,
-   applied to `web/`.
-
-**What a new tool costs, in full:** one folder, one line in
-`tools/registry.ts`, and `built: true` when it works. Nothing else.
-
-**Styling is never a tool's business.** Every colour, size and space is a token
-in `app/design.css`, and a test refuses a hex or a `font-family` inside a tool.
-See 1.4a.
+Moved to `.claude/rules/parallel-sessions.md` on 2026-09-17. It says which files a session owns,
+and it loads when a session opens one of them, which is the moment it matters.
 
 ## 1.5 Getting data off the web, legally
 

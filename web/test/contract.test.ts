@@ -141,14 +141,36 @@ test("no test pins itself to a tool's filename", () => {
   for (const file of readdirSync(dir).filter((f) => f.endsWith(".test.ts"))) {
     const body = readFileSync(join(dir, file), "utf8");
 
-    body.split("\n").forEach((line, i) => {
-      if (!line.includes("readFileSync")) return;
-      if (line.includes("fixtures")) return;
+    /**
+     * The call, not the line.
+     *
+     * Written line by line first, and a `readFileSync(` with its path on the
+     * next line walked straight through it: that is how these are usually
+     * formatted once the path is long, which is exactly when somebody reaches
+     * for a filename. The window is the call and its arguments.
+     */
+    for (const found of body.matchAll(/readFileSync\(/g)) {
+      const call = body.slice(found.index!, found.index! + 200);
+      if (call.includes("fixtures")) continue;
 
-      // A path into a tool's own folder, or into an agent's spec folder.
-      const reachesTool = /"tools"|tools\/|"Agents"|Agents\//.test(line);
-      if (reachesTool) offenders.push(`${file}:${i + 1}`);
-    });
+      /**
+       * A named file inside one tool's own folder, and nothing else.
+       *
+       * Three things are not this and were flagged by a cruder version:
+       * a walker whose path is a variable, which is the right pattern; a
+       * cross-check that two implementations of the same rule agree, where
+       * naming both files is the point; and `tools/categories.ts`, which is
+       * shared between tools rather than owned by one.
+       */
+      const insideOneTool = TOOLS.some(
+        (t) => call.includes(`"${t.slug}"`) || call.includes(`/${t.slug}/`),
+      );
+      const namesAFile = /"[\w.-]+\.tsx?"/.test(call);
+
+      if (insideOneTool && namesAFile) {
+        offenders.push(`${file}:${body.slice(0, found.index!).split("\n").length}`);
+      }
+    }
   }
 
   assert.deepEqual(

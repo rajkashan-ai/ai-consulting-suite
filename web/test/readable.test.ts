@@ -290,10 +290,7 @@ test("the page shows the narrowing, not just what survived it", () => {
    * answer.
    */
   assert.match(screen, /funnelReads\(card\.funnel\)/);
-  const shortfall = readFileSync(
-    join(here, "..", "tools", "competitor-tracker", "shortfall.ts"),
-    "utf8",
-  );
+  const shortfall = sourceOf("competitor-tracker");
   assert.match(shortfall, /export function funnelReads/);
   for (const part of ["searches", "results", "town", "businesses"]) {
     assert.match(shortfall, new RegExp(part), `the narrowing never mentions ${part}`);

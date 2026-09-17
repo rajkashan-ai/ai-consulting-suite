@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { hasDash, houseStyle, unDash } from "../tools/content-social-planner/scrub.ts";
-import { specOf } from "./tool-source.ts";
+import { sourceOf, specOf } from "./tool-source.ts";
 
 /**
  * No em dash, and no words nobody says out loud, in anything they post.
@@ -87,10 +87,7 @@ test("the rule is written down where the tool's rules live", () => {
 });
 
 test("the model is told, and the shape refuses it as well", () => {
-  const stages = readFileSync(
-    join(import.meta.dirname, "..", "tools", "content-social-planner", "stages.ts"),
-    "utf8",
-  );
+  const stages = sourceOf("content-social-planner");
   assert.match(stages, /const NO_DASH = /, "no schema pattern, so only the prompt asks");
   assert.equal((stages.match(/pattern: NO_DASH/g) ?? []).length >= 4, true, "some fields can still come back with one");
   /* Both prompts, not one. The posts prompt is the one that matters and it
