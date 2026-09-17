@@ -115,7 +115,34 @@ export const WORKING_MINUTES = 12;
  * Checked before each step, like the clock, so a run that has already spent
  * this much does not start another call.
  */
-export const TOKEN_CEILING = 150_000;
+export const TOKEN_CEILING = 200_000;
+
+/**
+ * Why 200,000 and not the 150,000 it was.
+ *
+ * The ceiling was set when a run did all its discovery up front and read
+ * whatever pages the listing happened to link. It now also looks up a page for
+ * each business the owner chose, because 13 of 58 businesses on a real listing
+ * had any url at all and a comparison with one column is a run refusing itself.
+ *
+ * Measured parts, from the run of 2026-09-17 that finished:
+ *   searching, 5 broad terms      69,364
+ *   listings, 2 pages             16,802
+ *   writing, after caching         6,711
+ *
+ * Estimated part, and it is an estimate, not a measurement:
+ *   finding, 5 lookups            67,500   at about 13,500 a search
+ *
+ * That is about 160,000, so the old ceiling would have stopped every run that
+ * used the picker, at the last stage, with the work done. 200,000 leaves room
+ * for the spread without leaving room for a runaway: the old failure was a run
+ * that reached 434,000.
+ *
+ * Revisit this once three runs have gone through `finding` and the estimate is
+ * a measurement. Raising a limit on arithmetic is a thing to be uncomfortable
+ * about, which is why the arithmetic is written down here rather than in a
+ * commit message nobody reads twice.
+ */
 
 /** Kept for anything still reading the old name. */
 export const WHOLE_RUN_MINUTES = WORKING_MINUTES;
@@ -147,6 +174,12 @@ export const WAITING_ON_A_PERSON = new Set(["picking"]);
  * is one step of each.
  */
 export const CAPS: Record<string, number> = {
+  /**
+   * One search each for the five they chose, plus one spare step to notice
+   * there are none left. A stage that searches is a stage that spends, so this
+   * one is capped tightly rather than loosely.
+   */
+  finding: 6,
   searching: 3,
   listings: 4,
   choosing: 3,

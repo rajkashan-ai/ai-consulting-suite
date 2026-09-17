@@ -16,7 +16,7 @@ import {
   type Offer,
 } from "../tools/competitor-tracker/shortlist.ts";
 import { advance, type RunState, type Stage } from "../tools/competitor-tracker/stages.ts";
-import { check, WAITING_ON_A_PERSON, STILL_LIMIT } from "../lib/watchdog.ts";
+import { CAPS, TOKEN_CEILING, check, WAITING_ON_A_PERSON, STILL_LIMIT } from "../lib/watchdog.ts";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { aBusiness, fakeContext, type Recorded } from "./fake.ts";
@@ -193,7 +193,9 @@ test("their five become the set, and their pages are what gets read", async () =
   const state = { offered, chosen: ["Clipso", "Atelier Salon & Spa"] } as RunState;
 
   const step = await advance("picking" as Stage, state, aBusiness(), ctx);
-  assert.equal(step.stage, "reading");
+  // Their choice is the set from here on. The next stage looks up a page for
+  // anyone the listing gave us no link for, which is most of them.
+  assert.equal(step.stage, "finding");
   assert.deepEqual((step.state.competitors ?? []).map((c) => c.name), [
     "Clipso",
     "Atelier Salon & Spa",
@@ -454,4 +456,97 @@ test("two names they typed is an answer, not too few", () => {
   // screen arguing with the person it exists to ask.
   assert.equal(wrongWith([], ["Chapter One Barbers", "Hair by Lauren"]), null);
   assert.match(wrongWith([], ["Only One"])!, /at least 2/i);
+});
+
+// ---------------------------------------------------------------------------
+// Finding a page for the ones they chose
+// ---------------------------------------------------------------------------
+
+test("we only go looking for the ones we have no page for", async () => {
+  /**
+   * A search is about 13,500 input tokens. Twenty four of them is more than
+   * double a whole run, which is why this happens after the pick and not
+   * before it, and why it skips anyone the listing already linked.
+   */
+  const { ctx, calls } = fakeContext(recorded);
+  const state = {
+    profile: { name: "You", town: "Shrewsbury", trade: "barber", missing: [] },
+    competitors: [{ name: "Has A Page", claims: {} }, { name: "Needs Looking Up", claims: {} }],
+    queue: [
+      { name: "you", url: "https://example.com" },
+      { name: "Has A Page", url: "https://booksy.com/en-gb/1_has-a-page_barber_2_shrewsbury" },
+    ],
+  } as unknown as RunState;
+
+  const step = await advance("finding" as Stage, state, aBusiness(), ctx);
+
+  assert.equal(calls.search.length, 1, "one search, for the one with nothing behind it");
+  assert.match(calls.search[0].join(" "), /Needs Looking Up/);
+  assert.deepEqual(step.state.lookedUp, ["Needs Looking Up"]);
+});
+
+test("a business we cannot place is not searched for twice", async () => {
+  /**
+   * Without this the stage asks the same fruitless question every step until
+   * the cap stops it, which is five searches and about 68,000 tokens spent
+   * learning nothing.
+   */
+  const { ctx, calls } = fakeContext(recorded);
+  const state = {
+    profile: { name: "You", town: "Shrewsbury", trade: "barber", missing: [] },
+    competitors: [{ name: "Nowhere To Be Found", claims: {} }],
+    queue: [],
+    lookedUp: ["Nowhere To Be Found"],
+  } as unknown as RunState;
+
+  const step = await advance("finding" as Stage, state, aBusiness(), ctx);
+  assert.equal(calls.search.length, 0, "it went looking again");
+  assert.equal(step.stage, "reading", "it should move on rather than circle");
+});
+
+test("one we could not place stays in the comparison, with nothing behind it", async () => {
+  // What the screen promised when they typed a name in: still compared, with
+  // the cells we could not fill left empty.
+  const { ctx } = fakeContext(recorded);
+  const state = {
+    profile: { name: "You", town: "Shrewsbury", trade: "barber", missing: [] },
+    competitors: [{ name: "Chapter One Barbers", claims: {} }],
+    queue: [],
+    lookedUp: ["Chapter One Barbers"],
+  } as unknown as RunState;
+
+  const step = await advance("finding" as Stage, state, aBusiness(), ctx);
+  assert.deepEqual(
+    (step.state.competitors ?? []).map((c) => c.name),
+    ["Chapter One Barbers"],
+    "it was dropped for having no page",
+  );
+});
+
+test("the lookup stage is capped, because it is a stage that spends", () => {
+  // One search each for five, plus a step to notice there are none left.
+  assert.equal(CAPS.finding, 6);
+});
+
+test("the ceiling has room for the lookups, and the arithmetic is written down", () => {
+  /**
+   * Looking a business up is about 13,500 input tokens and there can be five
+   * of them. Against the old 150,000 ceiling, a run using the picker would
+   * have been stopped at the last stage with the work already done, which is
+   * exactly how three runs died on 2026-09-17 before the ceiling was the
+   * problem rather than the symptom.
+   */
+  const measured = 69_364 + 16_802 + 6_711;   // searching, listings, writing
+  const lookups = 5 * 13_500;                  // finding, estimated
+  assert.ok(
+    TOKEN_CEILING > measured + lookups,
+    `a run that uses the picker costs about ${(measured + lookups).toLocaleString()} ` +
+      `and the ceiling is ${TOKEN_CEILING.toLocaleString()}`,
+  );
+  // And not so high that the runaway it exists to catch would pass. The worst
+  // real one reached 434,033.
+  assert.ok(TOKEN_CEILING < 434_033, "the ceiling would not have caught the run that caused it");
+
+  const src = readFileSync(join(import.meta.dirname, "..", "lib", "watchdog.ts"), "utf8");
+  assert.match(src, /Revisit this once three runs have gone through/, "the estimate is not flagged");
 });

@@ -104,6 +104,7 @@ export type Stage =
   | "listings"
   | "choosing"
   | "picking"
+  | "finding"
   | "reading"
   | "writing"
   | "checking"
@@ -174,6 +175,9 @@ export type RunState = {
   chosen?: string[];
   /** Names the owner typed in rather than ticked. No page behind them. */
   typed?: string[];
+  /** Who we have already gone looking for a page for, found or not, so the
+   *  same fruitless search is not repeated every step. */
+  lookedUp?: string[];
   /** The comparison as a grid, one row per thing and one column per business. */
   grid?: Grid[];
   listingPages?: ReadPage[];
@@ -376,6 +380,8 @@ async function run(
       return choose(state, business);
     case "picking":
       return picking(state, business);
+    case "finding":
+      return finding(state, business, ctx);
     case "reading":
       return read(state, ctx);
     case "writing":
@@ -1507,9 +1513,9 @@ async function picking(state: RunState, business: Business): Promise<Step> {
     if (business.website) queue.unshift({ name: "you", url: business.website });
 
     return {
-      stage: "reading",
+      stage: "finding",
       state: { ...state, competitors, queue, pages: {} },
-      progress: `Reading the ${competitors.length} you chose`,
+      progress: `Looking up the ${competitors.length} you chose`,
     };
   }
 
@@ -1527,6 +1533,85 @@ async function picking(state: RunState, business: Business): Promise<Step> {
     stage: "picking",
     state,
     progress: `Found ${offered.length} nearby. Which ${PICK} do you compete with?`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Find a page for the ones they chose that we have no page for.
+ *
+ * WHY THIS IS HERE AND NOT EARLIER
+ * Measured on 2026-09-17: 13 of 58 businesses on a real St Albans listing had
+ * any url at all, and every one of those 13 was a platform profile rather than
+ * the shop's own site. So most of what an owner picks has nothing behind it,
+ * and a comparison with one column is the run refusing itself, which is what
+ * happened.
+ *
+ * One search finds it, and a search costs about 13,500 input tokens. Twenty
+ * four of those is more than double a whole run. Five is affordable, and five
+ * is all we need once the owner has chosen, which is the entire reason this
+ * runs after the picker rather than before it.
+ *
+ * One at a time, saving each. A step that did all five would be about a
+ * minute, and a step that outlives its budget saves nothing at all.
+ */
+async function finding(
+  state: RunState,
+  business: Business,
+  ctx: ToolContext,
+): Promise<Step> {
+  const profile = state.profile;
+  const competitors = state.competitors ?? [];
+  const queue = state.queue ?? [];
+
+  // Nothing to do without a profile, and nothing lost: the queue is whatever
+  // the listing already gave us.
+  if (!profile) return { stage: "reading", state, progress: "Reading their pages" };
+
+  const have = new Set(queue.map((q) => q.name));
+  const missing = competitors.map((c) => c.name).filter((name) => !have.has(name));
+  const looked = state.lookedUp ?? [];
+  const next = missing.find((name) => !looked.includes(name));
+
+  if (!next) {
+    return {
+      stage: "reading",
+      state,
+      progress: `Reading ${queue.filter((q) => q.name !== "you").length} pages`,
+    };
+  }
+
+  /**
+   * Asked and judged by the same code that used to check names the model
+   * proposed. The question is identical, "is there a page that is really this
+   * business in this town", and the rules for answering it were paid for once
+   * already: the right town, the right country, not a directory.
+   */
+  const term = searchFor({ name: next, why: "chosen by the owner" }, profile.town, profile.trade);
+  const seen = await ctx.search([term], searchToolConfig(profile, 1));
+  const { found } = judge(
+    { name: next, why: "chosen by the owner" },
+    seen[0]?.results ?? [],
+    profile.town,
+  );
+
+  /**
+   * Recorded either way.
+   *
+   * `lookedUp` is what stops this asking the same question every step until the
+   * cap stops it. A business we searched for and could not place is a business
+   * we do not search for again, and it stays in the comparison with the cells
+   * we could not fill left empty, which is what the screen promised.
+   */
+  return {
+    stage: "finding",
+    state: {
+      ...state,
+      lookedUp: [...looked, next],
+      queue: found?.url ? [...queue, { name: next, url: found.url }] : queue,
+    },
+    progress: `Looking up ${next}`,
   };
 }
 
