@@ -1,0 +1,27 @@
+{
+  "note": "A town with no listing page we can read. Recorded in shape from the real St Albans run of 2026-09-17, where the country check correctly refused two US Fresha pages and left the run with nothing but search results. Every other fixture has 18 listed businesses, so this path reached the owner's screen untested: page titles were offered as businesses and every url was dropped.",
+  "searchResults": [
+    {
+      "term": "hairdresser St Albans",
+      "results": [
+        { "url": "https://www.toniandguy.com/salons/st-albans/", "title": "Hairdressing at TONI&GUY St. Albans" },
+        { "url": "https://www.hairdressers-stalbans.co.uk/", "title": "Hairdressers in St Albans" },
+        { "url": "https://www.clipso.co.uk/st-albans/", "title": "Clipso St Albans" }
+      ]
+    },
+    {
+      "term": "best hairdresser St Albans",
+      "results": [
+        { "url": "https://www.stalbanshairsalon.co.uk/", "title": "Hairdressing Salon St Albans" },
+        { "url": "https://www.chestnuthair.co.uk/", "title": "Chestnut Hair | St Albans" }
+      ]
+    }
+  ],
+  "listing": null,
+  "listed": [],
+  "competitorPage": "Prices. Ladies cut and finish 52.00. Restyle 60.00.",
+  "ownPage": "A Cut Above. Ladies Cut & Finish 57.00.",
+  "grid": [],
+  "battlecard": null,
+  "competitors": []
+}

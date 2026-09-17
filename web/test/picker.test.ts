@@ -668,3 +668,55 @@ test("the picker's classes exist in the stylesheet", () => {
   const missing = [...used].filter((c) => !css.includes(`.${c}`));
   assert.deepEqual(missing, [], `classes used by the picker that no stylesheet defines: ${missing}`);
 });
+
+// ---------------------------------------------------------------------------
+// The path that reached a real owner untested
+// ---------------------------------------------------------------------------
+
+test("with no listing to read, the offer is businesses and keeps their urls", async () => {
+  /**
+   * HOW THE NEW YORK SCREEN AND THE PAGE-TITLE SCREEN BOTH GOT PAST ME
+   *
+   * Every fixture that drives a full run carries 18 listed businesses, so
+   * `choose()` always had listing rows to work from. The fallback, where a town
+   * has no listing we can read and competitors come from search results, never
+   * reached the offer in any test. Both faults live only on that path:
+   *
+   *   - a search result's name is the page's own title, so "Hairdressers in
+   *     St Albans" was offered as a business
+   *   - the offer was built from listing rows alone, so every candidate
+   *     arrived with url null and nothing for the lookup stage to fetch
+   */
+  const noListing = JSON.parse(
+    readFileSync(join(import.meta.dirname, "fixtures", "no-listing.json"), "utf8"),
+  ) as Recorded;
+
+  const { ctx } = fakeContext(noListing);
+  let stage = "searching" as Stage;
+  let state: RunState = {};
+  for (let i = 0; i < 20; i++) {
+    const step = await advance(stage, state, aBusiness({ trade: "hairdresser", town: "St Albans" }), ctx);
+    stage = step.stage as Stage;
+    state = step.state;
+    if (stage === "picking" || stage === "failed" || stage === "done") break;
+  }
+
+  assert.equal(stage, "picking", `never reached the owner: ended at ${stage}`);
+  const offered = state.offered ?? [];
+  assert.ok(offered.length > 0, "nothing was offered at all");
+
+  // Not one of these is a business. They are the titles of web pages.
+  for (const o of offered) {
+    assert.ok(
+      namesABusiness(o.name, "hairdresser", "St Albans"),
+      `a page title was offered as a business: "${o.name}"`,
+    );
+  }
+
+  // And what search found kept its address, or the lookup stage has nothing to
+  // look up and the comparison has one column.
+  assert.ok(
+    offered.some((o) => o.url),
+    "every url was dropped, so there is nothing to read",
+  );
+});
