@@ -25,6 +25,8 @@ export async function POST(request: Request) {
       where?: unknown;
       kind?: unknown;
       severity?: unknown;
+      interaction?: unknown;
+      action?: unknown;
       workspaceId?: unknown;
     };
 
@@ -39,6 +41,11 @@ export async function POST(request: Request) {
       where: String(body.where ?? "unknown"),
       kind,
       severity,
+      // Anybody can post here, so both are cut to a length and taken as text.
+      // They are printed in a table we read, never interpreted.
+      interaction:
+        typeof body.interaction === "string" ? body.interaction.slice(0, 64) : null,
+      action: typeof body.action === "string" ? body.action.slice(0, 120) : null,
       digest: typeof body.digest === "string" ? body.digest.slice(0, 120) : null,
       workspaceId:
         typeof body.workspaceId === "string" && uuid.test(body.workspaceId)

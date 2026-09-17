@@ -6,6 +6,8 @@ import Nav from "../nav";
 import Chrome from "../chrome";
 import { LAYS_OUT_ITS_OWN_BANDS, screenFor } from "./screens";
 import { readyFor } from "./ready";
+import { refused } from "@/lib/problems";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export default async function ToolPage({
   params,
@@ -33,6 +35,28 @@ export default async function ToolPage({
   if (!workspaces?.length) redirect("/welcome");
   const wanted = (await searchParams).w;
   const current = workspaces.find((w) => w.id === wanted) ?? workspaces[0];
+
+  /**
+   * They asked for a business that is not theirs, and we quietly gave them
+   * their own instead.
+   *
+   * Row level security already stops the data crossing: `workspaces` above is
+   * scoped to the owner, so an id that is not theirs simply is not in the list.
+   * What was missing is any record that the request happened. RLS refuses by
+   * returning nothing, so a refusal and an empty result looked identical, and
+   * the most important security event in this product was invisible.
+   *
+   * The id they asked for is deliberately not recorded: it is somebody else's,
+   * and it does not belong in our table.
+   */
+  if (wanted && wanted !== current.id) {
+    await refused(createAdminClient() as never, {
+      asked: "a business",
+      where: "/workspace/[tool]",
+      action: "open a business",
+      workspaceId: current.id,
+    });
+  }
 
   /**
    * The tool's own screen, found by the slug already in the url.

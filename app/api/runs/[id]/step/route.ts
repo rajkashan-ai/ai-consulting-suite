@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { step } from "@/lib/engine";
+import { refused } from "@/lib/problems";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const maxDuration = 60;
 
@@ -13,7 +15,7 @@ export const maxDuration = 60;
  * has already decided they may not see it, and we do not have to decide again.
  */
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
@@ -30,7 +32,23 @@ export async function POST(
     .eq("id", id)
     .maybeSingle();
 
-  if (!mine) return NextResponse.json({ error: "No such run." }, { status: 404 });
+  if (!mine) {
+    /**
+     * Either there is no such run, or it is somebody else's.
+     *
+     * The client is told the same thing for both on purpose: saying "that
+     * exists but is not yours" confirms an id to somebody guessing. We record
+     * which it was, because from here it is a refusal either way and a run of
+     * them is worth seeing.
+     */
+    await refused(createAdminClient() as never, {
+      asked: "a run",
+      where: "/api/runs/[id]/step",
+      action: "advance a run",
+      interaction: request.headers.get("x-interaction"),
+    });
+    return NextResponse.json({ error: "No such run." }, { status: 404 });
+  }
 
   if (mine.stage === "done" || mine.stage === "failed") {
     return NextResponse.json({

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { report } from "../../report";
+import { interactionId } from "../../interaction";
 
 /**
  * Consecutive failures to reach our own server before we stop and say so.
@@ -82,7 +83,12 @@ export default function Running({
       while (alive.current) {
         let answer: Progress;
         try {
-          const res = await fetch(`/api/runs/${runId}/step`, { method: "POST" });
+          const res = await fetch(`/api/runs/${runId}/step`, {
+            method: "POST",
+            // So a refusal recorded on the server can be read beside whatever
+            // this browser reported from the same visit.
+            headers: { "x-interaction": interactionId() ?? "" },
+          });
           answer = await res.json();
           refused = 0;
         } catch (e) {

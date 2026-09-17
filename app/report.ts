@@ -13,6 +13,8 @@
  * Never throws and never awaits anything the caller cares about. Reporting a
  * fault must not create one, and the customer is already being told.
  */
+import { interactionId } from "./interaction";
+
 export function report(
   error: unknown,
   where: string,
@@ -28,6 +30,7 @@ export function report(
         where,
         kind: "client",
         severity,
+        interaction: interactionId(),
         workspaceId: workspaceId ?? null,
       }),
       // The browser may be leaving the page. This asks it to finish anyway.

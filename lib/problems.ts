@@ -60,6 +60,18 @@ export type Problem = {
   kind: Kind;
   /** What it cost the customer. Defaults to the middle answer. */
   severity?: Severity;
+  /** What they were trying to do. `where` says which route; this says why. */
+  action?: string | null;
+  /** What happened to it. A refusal is a decision, not a crash. */
+  outcome?: "refused" | "failed" | "recovered" | null;
+  /**
+   * Shared by every record from one page load.
+   *
+   * So a browser report and the server error it caused can be read together.
+   * Null where we genuinely have none, which is more honest than inventing a
+   * value that correlates nothing.
+   */
+  interaction?: string | null;
   /** Next gives this for an error React has already processed. */
   digest?: string | null;
   workspaceId?: string | null;
@@ -151,6 +163,9 @@ export async function note(db: Notes, p: Problem): Promise<string | null> {
       p_severity: p.severity ?? "fault",
       p_release: release(),
       p_digest: p.digest ?? null,
+      p_interaction: p.interaction ?? null,
+      p_action: p.action ?? null,
+      p_outcome: p.outcome ?? null,
       p_workspace: p.workspaceId ?? null,
       p_run: p.runId ?? null,
     });
@@ -169,4 +184,48 @@ export async function note(db: Notes, p: Problem): Promise<string | null> {
      */
     return null;
   }
+}
+
+
+/**
+ * Somebody asked for something that is not theirs.
+ *
+ * The most important security event in this product and the one it could not
+ * see. Row level security keeps one business's data out of another's, and it
+ * works by returning nothing rather than by throwing, so a refusal looked
+ * exactly like an empty result. `app/workspace/[tool]/page.tsx` quietly handed
+ * back their own first business instead, and nothing anywhere said that a
+ * request had been turned down.
+ *
+ * OWASP lists authorisation failures third. If RLS were ever misconfigured
+ * there would have been no record that anyone had tried.
+ *
+ * Recorded as "refused", not "failed": nothing is broken, a decision was made,
+ * and one of those needs fixing while the other needs watching.
+ */
+export async function refused(
+  db: Notes,
+  what: {
+    /** What was asked for and turned down: "a business", "a run". */
+    asked: string;
+    where: string;
+    action: string;
+    interaction?: string | null;
+    /** The one they are allowed, where there is one. Never the one they asked for:
+     *  that id is somebody else's and does not belong in our table. */
+    workspaceId?: string | null;
+  },
+): Promise<string | null> {
+  return note(db, {
+    error: `refused ${what.asked}`,
+    where: what.where,
+    kind: "route",
+    // Nobody lost anything they were entitled to, so this is not "stopped".
+    // It is worth seeing, and worth seeing separately from a crash.
+    severity: "noted",
+    action: what.action,
+    outcome: "refused",
+    interaction: what.interaction ?? null,
+    workspaceId: what.workspaceId ?? null,
+  });
 }
