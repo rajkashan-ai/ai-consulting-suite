@@ -108,6 +108,20 @@ first thing learned has somewhere to go.
     what came back. An invented limit is an invented fact, and it silently decides what the
     customer is never offered.
 
+## 1.4d Architecture (added 2026-09-17)
+
+**`ARCHITECTURE.md` is the review, scored against published standards and against measurements
+from the running product.** Read it before a structural change. It says what is measured, what the
+standard says, and what we chose, and it keeps the three apart so the answer is the same next time.
+
+Its four live findings, with the evidence in the file:
+
+1. This file is 351 lines against Anthropic's own "target under 200", and sections 1.5 and 1.6
+   belong in `.claude/rules/` where they load only when the matching files are touched.
+2. Prompt caching is used nowhere. Cache reads cost 0.1x of base input.
+3. `stages.ts` is 2,481 lines, 15% of the codebase, and changed in eight of one day's commits.
+4. A stopped run restarts from zero. 434,000 tokens were discarded and re-spent on 2026-09-16.
+
 ## 1.4c Errors (added 2026-09-17)
 
 **`ERROR-HANDLING.md` is the decision. Read it before touching a `catch`, an `error.tsx` or
