@@ -107,10 +107,39 @@ export function oneEach<T extends { name: string }>(rows: T[]): T[] {
  * that matches nothing is kept: plenty of real businesses are called something
  * that gives no clue, and refusing those would lose more than it saves.
  */
-export function rightTrade<T extends { name: string }>(rows: T[], trade: string | null): T[] {
+/**
+ * What the platform's own url says a business is, or null.
+ *
+ * Booksy writes the trade into the address it serves the page at:
+ *
+ *   booksy.com/en-gb/188243_sofia-shakir-mua_make-up_234686_st-albans
+ *   booksy.com/en-gb/54777_picasso-cut-coffee_barber_234686_st-albans
+ *
+ * That is the platform stating the category itself, which beats guessing from
+ * a trading name, and on 2026-09-17 we were throwing it away. A women's salon
+ * was compared against a make-up artist and two barbers, and not one of the
+ * three could be told from its name: "Sofia Shakir MUA", "Picasso Cut &
+ * Coffee", "HOUSE of MISTR.".
+ *
+ * Null when the url says nothing, which is most of the web. Never a guess.
+ */
+export function tradeFromUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const last = url.split("?")[0].split("#")[0].replace(/\/+$/, "").split("/").pop() ?? "";
+  // id_name_trade_cityid_city. Fewer parts than that and it is not this shape.
+  const parts = last.split("_");
+  if (parts.length < 5) return null;
+  return matchTrade(parts[2].replace(/-/g, " ")) ?? matchTrade(parts[2]);
+}
+
+export function rightTrade<T extends { name: string; url?: string | null }>(
+  rows: T[],
+  trade: string | null,
+): T[] {
   if (!trade) return rows;
   return rows.filter((r) => {
-    const looks = matchTrade(r.name);
+    // The platform first, because it knows. The name only when it does not.
+    const looks = tradeFromUrl(r.url) ?? matchTrade(r.name);
     return looks === null || looks === trade;
   });
 }

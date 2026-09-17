@@ -180,9 +180,24 @@ export function isVenuePage(url: string): boolean {
  */
 export function resultCountry(url: string): string | null {
   const u = url.toLowerCase();
-  const m = u.match(/\/en-([a-z]{2})\//);
-  if (m) return m[1].toUpperCase();
+
+  // booksy.com/en-gb/..., and the /en-us/ that started this.
+  const tagged = u.match(/\/en-([a-z]{2})\//);
+  if (tagged) return tagged[1].toUpperCase();
+
+  /**
+   * fresha.com/lp/en/bt/hair-salons/in/au-melbourne/st-albans
+   *
+   * A second shape, and the one that cost a real report on 2026-09-17. This
+   * function knew only the /en-xx/ shape, so it returned null for that url and
+   * passed it as "cannot tell". There is a St Albans in Melbourne, and twenty
+   * one of the ninety four businesses read off that page were Australian.
+   */
+  const placed = u.match(/\/in\/([a-z]{2})-[a-z]/);
+  if (placed) return placed[1].toUpperCase() === 'UK' ? 'GB' : placed[1].toUpperCase();
+
   if (/\.co\.uk(\/|$)/.test(u)) return 'GB';
+  if (/\/us\/|\.com\/us(\/|$)/.test(u)) return 'US';
   return null;
 }
 

@@ -35,7 +35,7 @@ export const CATEGORIES: Group[] = [
     categories: [
       { id: "barber", label: "Barber", also: ["barbershop", "barbers", "barbering", "gents hairdresser"] },
       { id: "hairdresser", label: "Hairdresser or salon", also: ["hair salon", "stylist"] },
-      { id: "beauty-salon", label: "Beauty salon", also: ["beautician", "aesthetics"] },
+      { id: "beauty-salon", label: "Beauty salon", also: ["beautician", "aesthetics", "make-up", "makeup", "mua"] },
       { id: "nail-salon", label: "Nail salon", also: ["nail bar", "manicurist"] },
       { id: "tattoo-studio", label: "Tattoo or piercing studio", also: ["tattooist"] },
       { id: "massage-spa", label: "Massage or spa", also: ["day spa", "masseuse"] },

@@ -4,6 +4,7 @@ import {
   candidatesFromSearch,
   isVenuePage,
   measure,
+  resultCountry,
   searchToolConfig,
   summarise,
   type SearchProfile,
@@ -802,7 +803,29 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
        * Both have to hold. Being Booksy's list of everybody does not make it
        * everybody here, and "shrewsbury" is in the address of both towns.
        */
-      const clearlyNotOurs = /\/en-us\/|\/us\/|\.com\/us|\/en-au\/|\/en-ca\//.test(url);
+      /**
+       * Asked of the one function that knows, rather than a second opinion.
+       *
+       * This was a local blocklist of five literal url markers, while
+       * resultCountry did the same job for search results with a different and
+       * equally incomplete rule. Neither caught the page that got through on
+       * 2026-09-17:
+       *
+       *   https://www.fresha.com/lp/en/bt/hair-salons/in/au-melbourne/st-albans
+       *
+       * There is a St Albans in Melbourne. The town test passed, because
+       * "st-albans" is in the url. Fresha is a known platform, so the missing
+       * /en-gb/ was forgiven. Twenty one of the ninety four businesses read off
+       * that page were Australian and two of them reached the final five, one
+       * of which was read as a duplicate of the other because they share a
+       * first name.
+       *
+       * So: any `xx-city` segment after /in/ that is not gb or uk, as well as
+       * the old literal markers. Same lesson as Shrewsbury Pennsylvania, and
+       * the third time a country has got in through a door we did not list.
+       */
+      const says = resultCountry(url);
+      const clearlyNotOurs = says !== null && says !== "GB";
 
       /**
        * What the playbook is still for, now that it cannot vouch for a country.
