@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { asChosen, wrongWith, type Offer } from "@/tools/competitor-tracker/shortlist";
+import { asChosen, asTyped, wrongWith, type Offer } from "@/tools/competitor-tracker/shortlist";
 
 /**
  * Store who the owner says they compete with.
@@ -21,6 +21,7 @@ import { asChosen, wrongWith, type Offer } from "@/tools/competitor-tracker/shor
 export async function chooseCompetitors(
   runId: string,
   names: string[],
+  own: string[] = [],
 ): Promise<{ error: string | null }> {
   const supabase = await createClient();
 
@@ -52,8 +53,14 @@ export async function chooseCompetitors(
 
   const state = (run.state ?? {}) as { offered?: Offer[] };
   const chosen = asChosen(names, state.offered ?? []);
+  /**
+   * Held to a different rule from a ticked box, and safely so: a typed name
+   * carries no url, so it becomes a name in a comparison and never a page we
+   * go and fetch. Shape is still checked. See asTyped.
+   */
+  const typed = asTyped(own);
 
-  const wrong = wrongWith(chosen);
+  const wrong = wrongWith(chosen, typed);
   if (wrong) return { error: wrong };
 
   /**
@@ -67,11 +74,13 @@ export async function chooseCompetitors(
    * what makes these survive a week when our own discovery would drop them.
    */
   const { error: keeping } = await supabase.from("competitors").upsert(
-    chosen.map((name) => ({
+    [...chosen, ...typed].map((name) => ({
       workspace_id: run.workspace_id,
       name,
+      // A typed name has no page behind it. Null, never a guess: a url we
+      // invented here is a url the run would go and fetch.
       url: (state.offered ?? []).find((o) => o.name === name)?.url ?? null,
-      why: "You chose this one",
+      why: typed.includes(name) ? "You added this one" : "You chose this one",
       source: "owner",
       found_at: new Date().toISOString(),
     })),
@@ -87,7 +96,7 @@ export async function chooseCompetitors(
 
   const { error: saving } = await supabase
     .from("runs")
-    .update({ state: { ...(run.state ?? {}), chosen } })
+    .update({ state: { ...(run.state ?? {}), chosen, typed } })
     .eq("id", runId)
     .eq("stage", "picking");   // still waiting when we write, not just when we read
 

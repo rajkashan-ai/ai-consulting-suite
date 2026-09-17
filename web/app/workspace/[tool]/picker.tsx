@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { chooseCompetitors } from "./picker-actions";
-import { FEWEST, PICK, type Offer } from "@/tools/competitor-tracker/shortlist";
+import { FEWEST, OWN_LIMIT, PICK, SHOWN_FIRST, type Offer } from "@/tools/competitor-tracker/shortlist";
 
 /**
  * Who do you actually compete with?
@@ -37,11 +37,29 @@ export default function Picker({
   const [ticked, setTicked] = useState<string[]>(() =>
     offered.filter((o) => o.ours).map((o) => o.name).slice(0, PICK),
   );
+  const [own, setOwn] = useState<string[]>([]);
+  const [typing, setTyping] = useState("");
+  const [showAll, setShowAll] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const full = ticked.length >= PICK;
-  const tooFew = ticked.length < FEWEST;
+  const full = ticked.length + own.length >= PICK;
+  const tooFew = ticked.length + own.length < FEWEST;
+
+  /**
+   * Ten on screen, the rest one click away.
+   *
+   * Twenty four is the right number to keep and the wrong number to look at.
+   * Cutting the list instead would put our ranking back in charge of which real
+   * competitors they never see, which is what this screen exists to stop.
+   *
+   * Anything ticked stays visible whatever happens, or unticking the eleventh
+   * means hunting for it.
+   */
+  const shown = showAll
+    ? offered
+    : offered.filter((o, i) => i < SHOWN_FIRST || ticked.includes(o.name));
+  const hidden = offered.length - shown.length;
 
   /** Said once, under the heading, rather than beside every row. Nielsen 8. */
   const note = useMemo(() => {
@@ -63,7 +81,7 @@ export default function Picker({
     setSaving(true);
     setError(null);
     try {
-      const { error: refused } = await chooseCompetitors(runId, ticked);
+      const { error: refused } = await chooseCompetitors(runId, ticked, own);
       if (refused) {
         setError(refused);
         return;
@@ -98,7 +116,7 @@ export default function Picker({
       {note ? <p className="t-meta u-measure">{note}</p> : null}
 
       <div className="rows">
-        {offered.map((o) => {
+        {shown.map((o) => {
           const on = ticked.includes(o.name);
           return (
             <label className="check" key={o.name}>
@@ -111,9 +129,6 @@ export default function Picker({
               <span>
                 <span className="t-row t-strong">{o.name}</span>
                 {o.unsure ? <span className="tag tag--na">Not checked</span> : null}
-                {o.services.length ? (
-                  <span className="t-meta"> {o.services.join(", ")}</span>
-                ) : null}
                 <span className="t-micro">
                   {[
                     o.area,
@@ -124,16 +139,76 @@ export default function Picker({
                     .filter(Boolean)
                     .join(" · ")}
                 </span>
+                {/* What we make of them, and whose reading it is, so they can
+                    disagree with a claim rather than with a bare name. */}
+                {o.reads ? (
+                  <span className="t-meta">
+                    {o.reads}
+                    {o.from ? ` · ${o.from}` : ""}
+                  </span>
+                ) : null}
               </span>
             </label>
           );
         })}
       </div>
 
+      {hidden > 0 ? (
+        <button className="btn--ghost" onClick={() => setShowAll(true)} disabled={saving}>
+          Show the other {hidden}
+        </button>
+      ) : null}
+
+      {/* Somebody who already knows should not have to find us first. */}
+      <div className="rows">
+        {own.map((name) => (
+          <p className="t-row" key={name}>
+            {name}
+            <button
+              className="btn--sm"
+              onClick={() => setOwn((was) => was.filter((n) => n !== name))}
+              disabled={saving}
+            >
+              Remove
+            </button>
+          </p>
+        ))}
+        {own.length < OWN_LIMIT && !full ? (
+          <p className="t-meta">
+            <label htmlFor="own">Not here? Add one by name</label>
+            <input
+              id="own"
+              className="field"
+              value={typing}
+              disabled={saving}
+              placeholder="Their name as a customer would say it"
+              onChange={(e) => setTyping(e.target.value)}
+            />
+            <button
+              className="btn--ghost"
+              disabled={saving || typing.trim().length < 2}
+              onClick={() => {
+                setOwn((was) => [...was, typing.trim()]);
+                setTyping("");
+                setError(null);
+              }}
+            >
+              Add
+            </button>
+          </p>
+        ) : null}
+        {own.length ? (
+          <p className="t-micro">
+            We will look for their prices. If we cannot find them, they are still
+            in your comparison with the cells we could not fill left empty.
+          </p>
+        ) : null}
+      </div>
+
       {/* The count is next to the button, where the decision is made. */}
       <p className="t-meta">
-        {ticked.length} of {PICK} chosen
-        {full ? ". Untick one to swap it." : ""}
+        {ticked.length + own.length} of {PICK} chosen
+        {full ? ". Remove one to swap it." : ""}
       </p>
       {error ? <p className="t-doc">{error}</p> : null}
 

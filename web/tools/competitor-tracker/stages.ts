@@ -59,7 +59,7 @@ import {
 } from "./naming.ts";
 import { rank, type Found, type Scored } from "./rank.ts";
 import { notYou, oneEach, rightTrade, sift } from "./sift.ts";
-import { PICK, asChosen, offer, waitedLongEnough, type Offer } from "./shortlist.ts";
+import { PICK, asChosen, asTyped, offer, waitedLongEnough, type Offer } from "./shortlist.ts";
 import { areasMissing, shortfall, type Funnel } from "./shortfall.ts";
 import { enough, nextToTry, refusals, type Attempt } from "./retry.ts";
 import { displayName, normaliseName } from "../../../Agents/Competitor Tracker/src/normalise.ts";
@@ -172,6 +172,8 @@ export type RunState = {
   offered?: Offer[];
   offeredAt?: string;
   chosen?: string[];
+  /** Names the owner typed in rather than ticked. No page behind them. */
+  typed?: string[];
   /** The comparison as a grid, one row per thing and one column per business. */
   grid?: Grid[];
   listingPages?: ReadPage[];
@@ -1054,6 +1056,16 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
         services: Array.isArray(b.services)
           ? (b.services as unknown as string[]).map(String).slice(0, 30)
           : [],
+        /**
+         * Which listing this came off.
+         *
+         * Recorded rather than inferred. It was readable only by accident,
+         * because Booksy rows carry a rating and Fresha rows do not, and an
+         * accident is not a field. The owner is being asked to judge our
+         * reading of a business, so they should be able to see whose reading
+         * it is.
+         */
+        from: hostOf(got.url) || null,
       });
       }
     }
@@ -1460,8 +1472,9 @@ async function picking(state: RunState, business: Business): Promise<Step> {
    * offered is a name whose country and trade were never established.
    */
   const chosen = asChosen(state.chosen, offered);
+  const typed = asTyped(state.typed);
 
-  if (chosen.length) {
+  if (chosen.length || typed.length) {
     /**
      * A competitor the owner typed in survives every run, for ever.
      *
@@ -1471,10 +1484,11 @@ async function picking(state: RunState, business: Business): Promise<Step> {
      * the one the cap drops.
      */
     const named = business.knownCompetitor;
+    const said = [...typed, ...chosen];
     const withNamed =
-      named && !chosen.some((c) => c.toLowerCase() === named.toLowerCase())
-        ? [named, ...chosen]
-        : chosen;
+      named && !said.some((c) => c.toLowerCase() === named.toLowerCase())
+        ? [named, ...said]
+        : said;
 
     const rows = new Map(offered.map((o) => [o.name, o]));
     const competitors: Competitor[] = withNamed.slice(0, PICK).map((name) => ({

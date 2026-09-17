@@ -22,8 +22,8 @@
  * already have, so it can be tested without either.
  */
 import type { Found } from "./rank.ts";
-import { tradeFromUrl } from "./sift.ts";
-import { matchTrade } from "../categories.ts";
+import { tradeFromUrl, whoFor } from "./sift.ts";
+import { ALL, matchTrade } from "../categories.ts";
 
 /**
  * How many we offer.
@@ -35,6 +35,22 @@ import { matchTrade } from "../categories.ts";
  * screen exists to remove.
  */
 export const SHORTLIST = 24;
+
+/**
+ * How many are on screen before they ask for more.
+ *
+ * Raj, on 24: "feels too high". He is right about the screen and the
+ * measurement is right about the market, so both hold: ten to scan, the rest
+ * one click away. Cutting the list to ten instead would put our ranking back in
+ * charge of which real competitors they never see, which is the fault this
+ * screen exists to remove.
+ *
+ * Revealing costs nothing. All 24 are already on the page.
+ */
+export const SHOWN_FIRST = 10;
+
+/** The most they may type in themselves, beyond what we found. */
+export const OWN_LIMIT = 2;
 
 /** The fewest a comparison can be built from. Matches the run's own rule. */
 export const FEWEST = 2;
@@ -67,7 +83,41 @@ export type Offer = {
   unsure: boolean;
   /** True for the ones we would have chosen ourselves, so agreeing is one click. */
   ours: boolean;
+  /** What we make of them, in an owner's words. Null when we cannot say. */
+  reads: string | null;
+  /** The listing we read them off, as a host, so our reading can be weighed. */
+  from: string | null;
 };
+
+/**
+ * What we make of a business, in words an owner can disagree with.
+ *
+ * Two separate readings joined: the trade, from the platform's own url or from
+ * the trading name, and who the price list is written for, from the services.
+ * Either can be missing and often is.
+ *
+ * Written plainly on purpose. "hairdresser / women" is our machinery showing;
+ * "Hair salon, women" is a claim somebody can look at and say no to, which is
+ * the entire point of putting it in front of them.
+ */
+export function readsAs(row: {
+  name: string;
+  url?: string | null;
+  services?: string[];
+}): string | null {
+  const trade = tradeFromUrl(row.url) ?? matchTrade(row.name);
+  const label = trade ? (ALL.find((c) => c.id === trade)?.label ?? null) : null;
+  const who = whoFor(row.services);
+
+  // "Barber" already says who it is for. Saying "Barber, men" is the same fact
+  // twice, which is exactly what Nielsen 8 is about.
+  if (label && trade === "barber") return label;
+  if (label && who) return `${label}, ${who}`;
+  if (label) return label;
+  if (who === "men") return "Men's cuts and shaves";
+  if (who === "women") return "Women's hair";
+  return null;
+}
 
 /**
  * Could we tell what this business is from anything but its trading name?
@@ -109,6 +159,8 @@ export function offer(
       miles: row.miles ?? null,
       unsure: !weKnowTheTrade(row),
       ours,
+      reads: readsAs(row),
+      from: row.from ?? null,
     });
   };
 
@@ -138,9 +190,44 @@ export function asChosen(sent: unknown, offered: Offer[]): string[] {
   return out;
 }
 
-/** Why a choice cannot be used yet, in the owner's words, or null. */
-export function wrongWith(chosen: string[]): string | null {
-  if (chosen.length < FEWEST) {
+/**
+ * A name they typed in themselves, made safe.
+ *
+ * Held to a different rule from a ticked box, and safely so. A ticked name has
+ * a url behind it and goes into a fetch queue, which is why nothing outside the
+ * offer is accepted there. A typed name carries no url and never can: it
+ * becomes a name in a comparison and nothing else, so there is nothing for a
+ * bad one to reach.
+ *
+ * What is still checked is shape. A url pasted in here would read as a business
+ * name on their own screen, and anything with markup in it is not somebody's
+ * trading name.
+ */
+export function asTyped(sent: unknown, limit = OWN_LIMIT): string[] {
+  if (!Array.isArray(sent)) return [];
+  const out: string[] = [];
+  for (const raw of sent) {
+    if (typeof raw !== "string") continue;
+    const name = raw.trim().replace(/\s+/g, " ");
+    if (name.length < 2 || name.length > 60) continue;
+    if (/https?:|www\.|[<>{}]/i.test(name)) continue;
+    if (out.some((n) => n.toLowerCase() === name.toLowerCase())) continue;
+    out.push(name);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/**
+ * Why a choice cannot be used yet, in the owner's words, or null.
+ *
+ * Counts what they typed as well as what they ticked. Somebody who knows
+ * exactly who they compete with and types both names has answered the question,
+ * and telling them to tick two of our suggestions instead would be the screen
+ * arguing with the person it exists to ask.
+ */
+export function wrongWith(chosen: string[], typed: string[] = []): string | null {
+  if (chosen.length + typed.length < FEWEST) {
     return `Choose at least ${FEWEST}. Comparing you against one business is not a comparison.`;
   }
   return null;

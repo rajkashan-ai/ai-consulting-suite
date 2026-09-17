@@ -3,10 +3,14 @@ import assert from "node:assert/strict";
 import {
   FEWEST,
   HOURS_TO_CHOOSE,
+  OWN_LIMIT,
   PICK,
   SHORTLIST,
+  SHOWN_FIRST,
   asChosen,
+  asTyped,
   offer,
+  readsAs,
   waitedLongEnough,
   wrongWith,
   type Offer,
@@ -16,6 +20,7 @@ import { check, WAITING_ON_A_PERSON, STILL_LIMIT } from "../lib/watchdog.ts";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { aBusiness, fakeContext, type Recorded } from "./fake.ts";
+import { sourceOf } from "./tool-source.ts";
 
 const recorded = JSON.parse(
   readFileSync(join(import.meta.dirname, "fixtures", "shrewsbury.json"), "utf8"),
@@ -336,4 +341,117 @@ test("a run waiting on a person does not hold a slot in the queue", () => {
   );
   assert.match(sql, /not \(stage = 'picking' and \(state -> 'chosen'\) is null\)/);
   assert.match(sql, /create or replace function public\.stalled_runs/);
+});
+
+// ---------------------------------------------------------------------------
+// What we make of each one, said in their words
+// ---------------------------------------------------------------------------
+
+test("what we read a business as, from its url and its price list", () => {
+  assert.equal(
+    readsAs({ name: "Sofia Shakir MUA", url: "https://booksy.com/en-gb/1_sofia_make-up_2_st-albans" }),
+    "Beauty salon",
+  );
+  // "Barber, men" is the same fact twice. Nielsen 8.
+  assert.equal(
+    readsAs({ name: "BARBONE", services: ["Hot Towel Shave", "Beard Trim"], url: null }),
+    "Men's cuts and shaves",
+  );
+  assert.equal(
+    readsAs({
+      name: "Atelier Salon & Spa",
+      url: "https://booksy.com/en-gb/1_atelier_hair-salon_2_st-albans",
+      services: ["Women's Haircut", "Hair Coloring"],
+    }),
+    "Hairdresser or salon, women",
+  );
+  assert.equal(
+    readsAs({ name: "Distinct Barbering", url: null }),
+    "Barber",
+    "a name that names its trade is evidence",
+  );
+  // Nothing to go on is said with the "Not checked" tag instead, not guessed.
+  assert.equal(readsAs({ name: "HOUSE of MISTR.", url: null }), null);
+});
+
+test("the offer says whose reading it is", () => {
+  const one = offer([], [row("Clipso", { from: "fresha.com" })])[0];
+  assert.equal(one.from, "fresha.com");
+  assert.equal(offer([], [row("Clipso")])[0].from, null, "never guessed");
+
+  // And the run records it rather than leaving it to be inferred from whether
+  // a rating happens to be present.
+  assert.match(sourceOf("competitor-tracker"), /from: hostOf\(got\.url\) \|\| null/);
+});
+
+// ---------------------------------------------------------------------------
+// Ten on screen, the rest a click away
+// ---------------------------------------------------------------------------
+
+test("ten to look at, twenty four kept", () => {
+  assert.equal(SHOWN_FIRST, 10);
+  assert.ok(SHORTLIST > SHOWN_FIRST, "cutting the list puts our ranking back in charge");
+
+  const picker = readFileSync(
+    join(import.meta.dirname, "..", "app", "workspace", "[tool]", "picker.tsx"),
+    "utf8",
+  );
+  // Anything ticked stays visible, or unticking the eleventh means hunting.
+  assert.match(picker, /i < SHOWN_FIRST \|\| ticked\.includes\(o\.name\)/);
+  assert.match(picker, /Show the other \{hidden\}/);
+});
+
+// ---------------------------------------------------------------------------
+// A name they type in themselves
+// ---------------------------------------------------------------------------
+
+test("a typed name is held to shape, since it has no page behind it", () => {
+  assert.deepEqual(asTyped(["Chapter One Barbers"]), ["Chapter One Barbers"]);
+  assert.deepEqual(asTyped(["  Hair  by   Lauren "]), ["Hair by Lauren"], "spacing tidied");
+  assert.deepEqual(asTyped(["A"]), [], "too short to be a name");
+  assert.deepEqual(asTyped(["x".repeat(61)]), []);
+  assert.deepEqual(asTyped(["https://evil.example"]), [], "a url is not a trading name");
+  assert.deepEqual(asTyped(["www.evil.example"]), []);
+  assert.deepEqual(asTyped(["<script>alert(1)</script>"]), []);
+  assert.deepEqual(asTyped(["Clipso", "clipso"]), ["Clipso"], "counted once");
+  assert.deepEqual(asTyped(null), []);
+  assert.equal(asTyped(["One", "Two", "Three"]).length, OWN_LIMIT);
+});
+
+test("a name they typed is compared, and never fetched", async () => {
+  /**
+   * The reason typing is allowed at all where ticking a name we never offered
+   * is not. A ticked name carries a url and goes into the fetch queue, so an
+   * unoffered one would be a page we go and read having checked nothing about
+   * it. A typed name has no url and never can, so there is nothing for a bad
+   * one to reach.
+   */
+  const { ctx } = fakeContext(recorded);
+  const offered = offer([], [
+    row("Clipso", { url: "https://booksy.com/en-gb/2_clipso_hair-salon_2_st-albans" }),
+  ]);
+  const step = await advance(
+    "picking" as Stage,
+    { offered, chosen: ["Clipso"], typed: ["Chapter One Barbers"] } as RunState,
+    aBusiness(),
+    ctx,
+  );
+
+  const names = (step.state.competitors ?? []).map((c) => c.name);
+  assert.ok(names.includes("Chapter One Barbers"), `the typed name went: ${names}`);
+
+  const queued = step.state.queue ?? [];
+  assert.ok(
+    !queued.some((q) => q.name === "Chapter One Barbers"),
+    "a name with no page behind it reached the fetch queue",
+  );
+  assert.ok(queued.some((q) => q.name === "Clipso"), "the ticked one is still read");
+});
+
+test("two names they typed is an answer, not too few", () => {
+  // Somebody who knows exactly who they compete with has answered the
+  // question. Telling them to tick two of our suggestions instead would be the
+  // screen arguing with the person it exists to ask.
+  assert.equal(wrongWith([], ["Chapter One Barbers", "Hair by Lauren"]), null);
+  assert.match(wrongWith([], ["Only One"])!, /at least 2/i);
 });

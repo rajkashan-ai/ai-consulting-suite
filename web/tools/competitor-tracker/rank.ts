@@ -50,8 +50,11 @@ export type Found = {
   price: number | null;
   url: string | null;
   /** The service names the listing prints for them, as printed. The only sure
-   *  way to tell a barber from a salon: see sellsWhatYouSell. */
+   *  way to tell a barber from a salon: see servesTheSamePeople. */
   services?: string[];
+  /** The listing this was read off, as a host. Shown to the owner so "Fresha
+   *  says they are a hair salon" can be weighed rather than taken on trust. */
+  from?: string | null;
 };
 
 export type You = {
