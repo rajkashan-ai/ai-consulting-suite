@@ -555,6 +555,43 @@ async function shaping(state: RunState, business: Business, ctx: ToolContext): P
  * named client for anybody, which is exactly why a post mentioning one is an
  * invention.
  */
+/**
+ * The prices the writer may state, said before it writes rather than after.
+ *
+ * 2026-09-17. A Cut Above publishes twelve prices from 35.00 to 78.00. The
+ * writer produced two posts for week one and the guard dropped both:
+ *
+ *   a claim nobody gave us (20%, £24.00)
+ *   a claim nobody gave us (£126.00, £89.00)
+ *
+ * 126.00 is two of their prices added together. Nothing was left, the plan was
+ * refused, and fourteen minutes and 11,699 tokens produced no document.
+ *
+ * knownFacts is what `unsafe` checks a price against and the prompt never
+ * carried it, so the writer was told to cite a page and never told which prices
+ * it was allowed to say. Two halves of one question disagreeing, and the
+ * customer paying for the disagreement.
+ *
+ * Listed and closed: a list on its own reads as a hint, and the fault was
+ * arithmetic on real prices rather than invention from nothing.
+ */
+function priceRules(business: Business): string {
+  const prices = Object.entries(knownFacts(business).prices);
+  if (!prices.length) {
+    return (
+      `THEIR PRICES\nThey publish none that we could read. Write no price at all, ` +
+      `and no discount or offer either.\n\n`
+    );
+  }
+  return (
+    `THEIR PRICES, AND NO OTHER PRICE MAY APPEAR\n` +
+    prices.map(([name, price]) => `  ${price} ${name}`).join("\n") +
+    `\n\nState one of these exactly as written or state none. Never add two ` +
+    `together, never give a range they do not publish, never a discount or an ` +
+    `offer or a percentage: we have no way to know they are running one.\n\n`
+  );
+}
+
 export function knownFacts(business: Business): KnownFacts {
   return {
     services: business.services.map((s) => s.name),
@@ -683,6 +720,7 @@ async function writing(state: RunState, business: Business, ctx: ToolContext): P
           `\n\nSame facts are fine, the same post is not. If the only thing left to say ` +
           `about a subject is what we said last month, write about something else on their pages.\n\n`
         : "") +
+      priceRules(business) +
       `WRITE THESE POSTS\n${brief}\n\n` +
       `Each post is finished words, ready to paste, not a theme and an opening line. ` +
       `Each carries one line saying what to ${
