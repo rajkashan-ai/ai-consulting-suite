@@ -23,6 +23,8 @@
  * No clock, no network. It is given what has happened and says what to do next.
  */
 
+import { rightTrade } from "./sift.ts";
+
 export type Attempt = { url: string; ok: boolean; note: string };
 
 /**
@@ -60,6 +62,15 @@ export const MOST_TRIES = 6;
 
 /** Names off a listing before we stop looking for more places to look. */
 export const ENOUGH_NAMES = 10;
+
+/**
+ * Rows carrying a price or a rating before we stop looking for more.
+ *
+ * Five, because five is what a comparison is built from. Fewer than that and
+ * the grid has columns with nothing in them, which is what the owner is shown
+ * and what she is asked to price against.
+ */
+export const ENOUGH_PRICED = 5;
 
 /**
  * What to fetch next.
@@ -106,15 +117,41 @@ export function nextToTry(wanted: string[], tried: Attempt[]): string[] {
  * to end the search. Different platforms list different businesses, which is
  * the entire reason we look at more than one.
  */
-export function enough(names: string[], wanted: string[], tried: Attempt[]): boolean {
+export function enough(
+  rows: { name: string; url?: string | null; price?: number | null; rating?: number | null }[],
+  wanted: string[],
+  tried: Attempt[],
+  trade: string | null = null,
+): boolean {
+  // The ceiling, and it was already here: nextToTry returns nothing once
+  // MOST_TRIES pages have been read, so this can never dig past six however
+  // little it finds. The stage cap and its token budget sit behind it.
   if (nextToTry(wanted, tried).length === 0) return true;
 
   const seen = new Set(tried.map((a) => hostOf(a.url)));
   const all = new Set(wanted.map(hostOf));
   const platformsLeft = [...all].some((h) => !seen.has(h));
-
   if (platformsLeft) return false;
-  return names.length >= ENOUGH_NAMES;
+
+  /**
+   * Rows we could actually build a comparison from, not names.
+   *
+   * On 2026-09-17 this counted names and stopped at 58 of them, leaving
+   * fresha.com/lp/en/bt/hair-salons/in/gb-st-albans unopened: 40 salon profile
+   * links, 38 ratings and 34 prices. Of the 58 names it had, 13 carried a price
+   * or a rating and every one of those 13 was a barber, filtered out for a
+   * hairdresser. So the run compared five salons with nothing published against
+   * any of them and reported that as a finding about her market.
+   *
+   * A name with no price and no rating fills a column and says nothing, and
+   * nothing about a name tells you whether the next page is the one with the
+   * numbers on it. Count what a comparison needs instead.
+   */
+  const usable = rightTrade(rows, trade).filter(
+    (r) => r.price != null || r.rating != null,
+  ).length;
+
+  return usable >= ENOUGH_PRICED;
 }
 
 /**

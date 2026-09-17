@@ -379,7 +379,7 @@ async function run(
     case "searching":
       return state.triedNaming ? search(state, business, ctx) : name(state, business, ctx);
     case "listings":
-      return listings(state, ctx);
+      return listings(state, business, ctx);
     case "choosing":
       return choose(state, business);
     case "picking":
@@ -764,7 +764,7 @@ async function search(state: RunState, business: Business, ctx: ToolContext): Pr
  * So a listing is no longer something to discard. For a local business it is
  * the page that names everybody.
  */
-async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
+async function listings(state: RunState, business: Business, ctx: ToolContext): Promise<Step> {
   const { profile, seen } = state;
   if (!profile || !seen) return stop(state, "Lost the search results. Run it again.");
 
@@ -937,7 +937,9 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
    * having saved nothing, for ever. A page at a time is slower on paper and is
    * the only version that finishes.
    */
-  const batch = enough(names, places, tried) ? [] : nextToTry(places, tried).slice(0, 1);
+  const batch = enough(rows, places, tried, business.trade)
+    ? []
+    : nextToTry(places, tried).slice(0, 1);
 
   if (batch.length) {
     const fetched = await Promise.all(batch.map((u) => ctx.read(u)));
@@ -1084,7 +1086,7 @@ async function listings(state: RunState, ctx: ToolContext): Promise<Step> {
 
     // Still places left to look at. Save what this page gave us and come back
     // for the next one, so a killed step costs one page rather than the lot.
-    if (!enough(names, places, tried) && nextToTry(places, tried).length) {
+    if (!enough(rows, places, tried, business.trade) && nextToTry(places, tried).length) {
       return {
         stage: "listings",
         state: {

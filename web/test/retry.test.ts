@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
   AT_ONCE,
   ENOUGH_NAMES,
+  ENOUGH_PRICED,
   MOST_TRIES,
   enough,
   nextToTry,
@@ -12,6 +13,10 @@ import {
   worthRetrying,
   type Attempt,
 } from "../tools/competitor-tracker/retry.ts";
+
+/** Rows that could fill a comparison: a name and a number against it. */
+const priced = (n: number) =>
+  Array.from({ length: n }, (_, i) => ({ name: `Shop ${i}`, price: 30 + i, rating: 4.5 }));
 
 /**
  * Trying again, and trying elsewhere.
@@ -147,22 +152,52 @@ test("enough names does not stop the looking while a platform is untouched", () 
    * Every barber on Fresha and not on Booksy was invisible, and nothing said
    * so. Enough names is not the same as enough coverage.
    */
-  const names = Array.from({ length: ENOUGH_NAMES }, (_, i) => `Shop ${i}`);
-  assert.equal(enough(names, [BOOKSY, FRESHA, CHECKA], []), false);
+  const rows = priced(ENOUGH_PRICED);
+  assert.equal(enough(rows, [BOOKSY, FRESHA, CHECKA], []), false);
 });
 
-test("enough names stops it once every platform has been looked at", () => {
-  const names = Array.from({ length: ENOUGH_NAMES }, (_, i) => `Shop ${i}`);
+test("enough usable rows stops it once every platform has been looked at", () => {
   const tried = [a(BOOKSY, "", true), a(FRESHA, "", true), a(CHECKA, "403")];
-  assert.equal(enough(names, [BOOKSY, FRESHA, CHECKA], tried), true);
+  assert.equal(enough(priced(ENOUGH_PRICED), [BOOKSY, FRESHA, CHECKA], tried), true);
+});
+
+test("names without prices or ratings do not count as enough", () => {
+  /**
+   * 2026-09-17. Two pages gave 58 names, so it stopped, leaving
+   * fresha.com/lp/en/bt/hair-salons/in/gb-st-albans unopened: 40 salon profile
+   * links, 38 ratings, 34 prices. Of the 58 it had, 13 carried a number and
+   * every one of those was a barber, filtered out for a hairdresser. The owner
+   * was shown five competitors with nothing published against any of them and
+   * told that was her market.
+   */
+  // A second page of a platform we have read, still unopened. That is exactly
+  // the shape of the run: fresha's business-type page was found and queued
+  // while its treatment page was the one we read.
+  const wanted = [BOOKSY, FRESHA, `${FRESHA}-2`];
+  const tried = [a(BOOKSY, "", true), a(FRESHA, "", true)];
+  const bare = Array.from({ length: 58 }, (_, i) => ({ name: `Shop ${i}`, price: null, rating: null }));
+  assert.equal(enough(bare, wanted, tried), false, "it stopped on names alone");
+
+  // And a number against the wrong trade is not a number we can use: those 13
+  // were barbers on a hairdresser's run.
+  const barbers = Array.from({ length: 13 }, (_, i) => ({
+    name: `Barber ${i}`,
+    url: `https://booksy.com/en-gb/${i}_barber-${i}_barber_2_st-albans`,
+    price: 20,
+    rating: 5,
+  }));
+  assert.equal(enough(barbers, wanted, tried, "hairdresser"), false);
+  assert.equal(enough(barbers, wanted, tried, "barber"), true);
 });
 
 test("a second page of the same platform does not count as covering it", () => {
   // Two pages of one platform mostly list the same businesses twice. A
   // platform is covered when we have asked it, not when we have asked twice.
-  const names = Array.from({ length: ENOUGH_NAMES }, (_, i) => `Shop ${i}`);
   const twoBooksy = [BOOKSY, `${BOOKSY}-2`, FRESHA];
-  assert.equal(enough(names, twoBooksy, [a(BOOKSY, "", true), a(`${BOOKSY}-2`, "", true)]), false);
+  assert.equal(
+    enough(priced(ENOUGH_PRICED), twoBooksy, [a(BOOKSY, "", true), a(`${BOOKSY}-2`, "", true)]),
+    false,
+  );
 });
 
 test("an untouched platform is tried before a second page of one we have read", () => {
@@ -175,7 +210,7 @@ test("running out of places stops it too, however few names we have", () => {
 });
 
 test("a thin result with somewhere left to look is not finished", () => {
-  assert.equal(enough(["One Shop"], [BOOKSY, FRESHA], [a(BOOKSY, "403")]), false);
+  assert.equal(enough(priced(1), [BOOKSY, FRESHA], [a(BOOKSY, "403")]), false);
 });
 
 // ---------------------------------------------------------------------------
