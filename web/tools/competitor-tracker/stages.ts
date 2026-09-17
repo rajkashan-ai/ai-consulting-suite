@@ -48,6 +48,7 @@ import {
   NAMES_SHAPE,
   askFor,
   distinct,
+  namesFrom,
   judge,
   searchFor,
   type Checked,
@@ -409,14 +410,39 @@ async function name(state: RunState, business: Business, ctx: ToolContext): Prom
     };
   }
 
-  const answered = (await ctx.think({
+  /**
+   * Asked with the search tool, so it names what it has just read.
+   *
+   * This call used to pass no tools at all: it asked a model to recall local
+   * salons from training data. Anthropic's own documentation lists
+   * "information about specific organizations, people, or products that might
+   * have changed" among the things Claude should search for, and stable facts
+   * among the things it should answer directly. We were asking the first kind
+   * of question as though it were the second.
+   *
+   * On 2026-09-17 that produced eight names of which one could be confirmed,
+   * while a single live search the same day returned five real current St
+   * Albans salons. The verification round then existed to catch what recall got
+   * wrong, and the crawler existed to catch what verification rejected: two
+   * mechanisms compensating for not searching. See ARCHITECTURE.md 4b.
+   *
+   * No `shape`. The engine only forces a shape when no server tool is in play,
+   * because forcing one alongside web search stops the model searching before
+   * it answers. So the names are read out of the reply instead.
+   */
+  const spoken = (await ctx.think({
     system:
-      "You are naming local competitors for a UK small business. Trading names " +
-      "only, no commentary, no directories, no listing sites.",
+      "You find the local businesses that compete with a UK small business. " +
+      "Search before you answer: these are real shops that open and close, and " +
+      "what you remember is out of date. Name only businesses you have seen in " +
+      "a search result. Trading names as a customer would say them, one per " +
+      "line, no commentary, no directories, no listing sites.",
     prompt: askFor(profile),
-    shape: NAMES_SHAPE,
-    maxTokens: 1_000,
-  })) as { competitors?: Named[] };
+    tools: [searchToolConfig(profile, 4) as never],
+    maxTokens: 1_500,
+  })) as unknown as string;
+
+  const answered = { competitors: namesFrom(String(spoken ?? ""), profile.name) };
 
   const proposed = (answered.competitors ?? [])
     .filter((c) => c?.name && normaliseName(c.name) !== normaliseName(profile.name))

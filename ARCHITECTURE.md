@@ -201,6 +201,61 @@ not working, between steps, because the browser drives the loop one request at a
 
 ---
 
+## 4b. The naming call does not search, and should
+
+### The standard
+
+Anthropic's web search tool documentation, on when Claude searches:
+
+> "Claude searches when the request depends on information that is current, changing, or outside
+> its training data: recent events... current prices, rates, scores, or statistics... **information
+> about specific organizations, people, or products that might have changed**..."
+
+And when it does not:
+
+> "Claude answers directly without searching when the request draws on stable knowledge:
+> established facts, math, science fundamentals, or coding concepts..."
+
+Cost: **$10 per 1,000 searches**, plus tokens for the content. Citations are always on, and
+`cited_text`, `title` and `url` do not count toward token usage.
+
+Source: <https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool>
+
+### Measured
+
+The naming call passes no `tools`. It asks a model to recall local salons from training data, which
+is the first list above asked as though it were the second.
+
+| | |
+|---|---|
+| Names proposed on the St Albans run, 2026-09-17 | 8 |
+| Names a search could confirm | **1** |
+| Real current salons returned by one live search the same day | 5 |
+
+Verification then exists to catch what recall gets wrong, and the crawler exists to catch what
+verification rejects. Two mechanisms compensating for not searching in the first place.
+
+### What we do
+
+Give the naming call the search tool. It names businesses it has just read rather than ones it
+half-remembers, which is what the same question does in a chat window and why that works.
+
+The engine already documents the interaction: forcing a response shape alongside a server tool stops
+the model searching before it answers. So this is search-then-answer in one call, with the shape
+applied to the result rather than forced on the request.
+
+Verification stays. It becomes a safety net rather than the mechanism, and its verdicts say whether
+it is still earning its place.
+
+### What this does not do
+
+**It does not make the answer deterministic.** Search results vary between runs, so this improves
+accuracy and not variance. Asked twice on 2026-09-17 whether it would, the answer both times was
+no: the deterministic answer is a person picking the five once at setup, which is then stored
+forever and never asked again.
+
+---
+
 ## 5. What is missing
 
 Each of these is absent, not merely thin, and each was found by looking rather than by reasoning.

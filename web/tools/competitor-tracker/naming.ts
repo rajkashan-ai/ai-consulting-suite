@@ -191,3 +191,44 @@ export function distinct(list: Checked[]): Checked[] {
     return true;
   });
 }
+
+/**
+ * The names out of a reply that was allowed to search.
+ *
+ * A call carrying the web search tool cannot also be given a forced shape, so
+ * the answer arrives as text rather than as a filled-in schema. One name per
+ * line was asked for; this is what enforces it, because a length or a format
+ * requested in prose is one that wanders.
+ *
+ * Deliberately forgiving about decoration and strict about what a name is. A
+ * model writing a list adds bullets, numbers and the occasional "and", and
+ * refusing the whole reply over a hyphen would throw away eight good names to
+ * punish one character.
+ */
+export function namesFrom(reply: string, own: string): Named[] {
+  const mine = normaliseName(own);
+
+  return reply
+    .split("\n")
+    .map((line) =>
+      line
+        // Bullets, numbering and the leading punctuation a list picks up.
+        .replace(/^\s*(?:[-*•–—]|\d+[.)])\s*/, "")
+        // Anything after a dash or a bracket is commentary, not the name.
+        .split(/\s[–—-]\s|\s\(/)[0]
+        .replace(/\*\*/g, "")
+        .trim(),
+    )
+    .filter((name) => {
+      if (name.length < 3 || name.length > 80) return false;
+      // A sentence is not a name. Six words is generous for a trading name.
+      if (name.split(/\s+/).length > 6) return false;
+      // Their own name, however it is spelled.
+      if (normaliseName(name) === mine) return false;
+      // Lines that are plainly prose rather than a listed business.
+      if (/^(here|these|i |the following|based on|search|note)/i.test(name)) return false;
+      return true;
+    })
+    .slice(0, 12)
+    .map((name) => ({ name, why: "named from a search result" }));
+}

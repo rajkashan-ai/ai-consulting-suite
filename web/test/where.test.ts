@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { playbookKey, seeded, whereToLook, wordsFor } from "../tools/competitor-tracker/where.ts";
-import { judge, proves } from "../tools/competitor-tracker/naming.ts";
+import { judge, namesFrom, proves } from "../tools/competitor-tracker/naming.ts";
 import type { Playbook } from "../tools/competitor-tracker/playbook.ts";
 import type { Business } from "../tools/types.ts";
 
@@ -226,4 +226,61 @@ test("judge and proves never disagree about the same name", () => {
     const viaJudge = judge(c, results, "Shrewsbury").found;
     assert.deepEqual(proves(c, results, "Shrewsbury"), viaJudge, `${c.name} disagrees`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// The naming call searches
+// ---------------------------------------------------------------------------
+
+/**
+ * Anthropic's documentation lists "information about specific organizations,
+ * people, or products that might have changed" among the things Claude should
+ * search for, and stable facts among the things it should answer directly.
+ *
+ * This call used to pass no tools, so it asked the first kind of question as
+ * though it were the second: eight names recalled from training data, one of
+ * which a search could confirm. See ARCHITECTURE.md 4b.
+ */
+test("the reply from a search-grounded call is read as a list of names", () => {
+  const reply = [
+    "Here are the closest ones I found:",
+    "",
+    "1. Studio 10 Hair",
+    "2. **Wilde About Hair** - a long-established salon on St Peters Street",
+    "- Mosaic Hair Studio (award winning)",
+    "",
+    "Note: I could not find pricing for all of these.",
+  ].join("\n");
+
+  const names = namesFrom(reply, "A Cut Above St Albans").map((n) => n.name);
+
+  assert.deepEqual(names, ["Studio 10 Hair", "Wilde About Hair", "Mosaic Hair Studio"]);
+});
+
+test("the owner's own business is never one of its competitors", () => {
+  // However it is spelled back at us.
+  const names = namesFrom("1. A Cut Above St Albans\n2. Studio 10 Hair", "A Cut Above St Albans");
+  assert.deepEqual(names.map((n) => n.name), ["Studio 10 Hair"]);
+});
+
+test("prose is not mistaken for a business", () => {
+  /**
+   * A model writing a list also writes sentences around it. Refusing the whole
+   * reply over one would throw away the good names to punish the decoration;
+   * taking the sentences as names would put "Here are the closest ones" into a
+   * customer's comparison.
+   */
+  const reply = [
+    "I searched for salons near the address.",
+    "The following compete directly:",
+    "Studio 10 Hair",
+    "Based on reviews, these are the strongest in the area overall for colour work",
+  ].join("\n");
+
+  assert.deepEqual(namesFrom(reply, "x").map((n) => n.name), ["Studio 10 Hair"]);
+});
+
+test("nothing found is nothing returned, not an empty name", () => {
+  assert.deepEqual(namesFrom("", "x"), []);
+  assert.deepEqual(namesFrom("I could not find any.", "x"), []);
 });

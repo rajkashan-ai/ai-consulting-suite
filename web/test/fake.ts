@@ -37,6 +37,8 @@ export type Calls = {
     shape?: string;
     /** The whole schema, so a test can assert what the model was asked for. */
     shapeFull?: unknown;
+    /** Whether this call was allowed to search before it answered. */
+    searched?: boolean;
   }[];
   search: string[][];
 };
@@ -85,8 +87,8 @@ export function fakeContext(
      * adding a stage to the pipeline breaks the tests until somebody says what
      * that stage should return.
      */
-    think: async ({ system, prompt, shape }) => {
-      calls.think.push({ system, prompt, shape: shape?.name, shapeFull: shape });
+    think: async ({ system, prompt, shape, tools }) => {
+      calls.think.push({ system, prompt, shape: shape?.name, shapeFull: shape, searched: Boolean(tools?.length) });
 
       const given = shape?.name ? answers.think?.[shape.name] : undefined;
       if (given !== undefined) return given;
@@ -115,6 +117,23 @@ export function fakeContext(
         if (!asked) return { comparison: all };
         return { comparison: all.filter((g) => g.area === asked) };
       }
+      /**
+       * Who competes, asked with the search tool and answered as text.
+       *
+       * No shape, because the engine cannot force one alongside a server tool.
+       * So the reply is a list, one name per line, and `namesFrom` reads it.
+       * The fake answers in the same shape the real call does, decoration and
+       * all, or it would only prove that a clean list parses.
+       */
+      if (!shape && tools?.length) {
+        const names = recorded.competitors?.competitors ?? [];
+        if (!names.length) return "";
+        return (
+          "Here are the closest ones I found:\n\n" +
+          names.map((c, i) => `${i + 1}. ${c.name}`).join("\n")
+        );
+      }
+
       /**
        * Who competes, asked rather than crawled.
        *

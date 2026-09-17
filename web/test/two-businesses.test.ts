@@ -7,6 +7,7 @@ import { competitorTracker } from "../tools/competitor-tracker/index.ts";
 import { buildBody, hollow } from "../tools/competitor-tracker/document.ts";
 import { aBusiness, fakeContext, type Recorded } from "./fake.ts";
 import type { Business } from "../tools/types.ts";
+import { sourceOf } from "./tool-source.ts";
 
 /**
  * The whole change, end to end, on the two businesses it was built for.
@@ -330,4 +331,31 @@ test("a verdict says which wall the name hit, not just that it failed", async ()
   const verdicts = Object.fromEntries((step.state.judged ?? []).map((j) => [j.name, j.verdict]));
   assert.equal(verdicts["ARMANDO Barbershop"], "matched");
   assert.equal(verdicts["Definitely Not A Real Salon"], "nothing found");
+});
+
+/**
+ * The call that asks who competes is allowed to search before it answers.
+ *
+ * It was not, and asked a model to recall local salons from training data. One
+ * of eight could be confirmed. Anthropic's documentation puts "organizations
+ * that might have changed" in the search list and stable facts in the answer
+ * list, and we were asking the first as though it were the second.
+ */
+test("the naming call searches rather than recalling", async () => {
+  const { ctx, calls } = fakeContext(named(REAL));
+  await advance("searching", {}, theBarber, ctx);
+
+  const naming = calls.think[0];
+  assert.ok(naming, "no model call was made at all");
+  assert.equal(naming.searched, true, "it asked from memory");
+  assert.equal(naming.shape, undefined, "a forced shape stops it searching before it answers");
+});
+
+test("the system prompt tells it its memory is out of date", () => {
+  // The steer matters: the documentation says triggering is steerable through
+  // the system prompt, and a model that is not told will sometimes answer from
+  // what it remembers because that is faster.
+  const tool = sourceOf("competitor-tracker");
+  assert.match(tool, /Search before you answer/i);
+  assert.match(tool, /what you remember is out of date/i);
 });
