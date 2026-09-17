@@ -122,6 +122,10 @@ Its four live findings, with the evidence in the file:
 3. `stages.ts` is 2,481 lines, 15% of the codebase, and changed in eight of one day's commits.
 4. A stopped run restarts from zero. 434,000 tokens were discarded and re-spent on 2026-09-16.
 
+Order: a git remote first, since it is the only one whose downside is losing the work, then cache
+accounting, the rules split, caching itself, the file split, and one live run at the end that
+proves all of it at once.
+
 ## 1.4c Errors (added 2026-09-17)
 
 **`ERROR-HANDLING.md` is the decision. Read it before touching a `catch`, an `error.tsx` or

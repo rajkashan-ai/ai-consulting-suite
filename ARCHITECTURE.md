@@ -225,18 +225,31 @@ Said explicitly, because a review that lists only faults invites rewriting thing
 
 ---
 
-## The order I would do these in, and why
+## The order, and why this one
 
-1. **Record cache token counts.** An hour, and without it section 2 is unverifiable.
-2. **Move 1.5 and 1.6 to path-scoped rules.** An hour, and it is Anthropic's own guidance about
+1. **A remote.** Five minutes. The only item where the downside is losing everything: 389 tracked
+   files, both decision records and the six agent specs sit on one disk with no copy. Everything
+   else here is an optimisation.
+2. **Record cache token counts.** An hour, and without it section 2 is unverifiable.
+3. **Move 1.5 and 1.6 to path-scoped rules.** An hour, and it is Anthropic's own guidance about
    their own product.
-3. **One live run.** Everything expected in section 4 is currently unobserved.
-4. **Cache the system prompt**, then measure against step 1.
+4. **Cache the system prompt.**
 5. **Split `stages.ts`.** Mechanical, and the tests make it safe.
-6. **A remote.** Five minutes, and it is the only item here where the downside is losing everything.
+6. **One live run**, which now proves three things at once: that the rebuilt pipeline works, that
+   caching is happening, and exactly what it saved.
 
-Resume is deliberately not on that list. It is the largest piece of work here, and once the run is
-90 seconds rather than 20 minutes, restarting costs a fraction of what it did.
+**Why the live run is last, having first been put third.** Nothing in 4 or 5 depends on it. Caching
+does not care whether the naming stage works, and splitting a file is behaviour-preserving with 708
+tests behind it. Putting the run earlier needed two runs, one to observe the rebuild and another to
+observe the caching. With cache counts recorded first, the response carries
+`cache_read_input_tokens` itself, so a single run answers both questions in the same pound.
+
+Corrected by Raj on 2026-09-17, and recorded rather than quietly changed, because the first ordering
+came from an instinct that unverified things should be verified early rather than from anything
+downstream needing it.
+
+Resume is deliberately not on the list at all. It is the largest piece of work here, and once a run
+is 90 seconds rather than 20 minutes, restarting costs a fraction of what it did.
 
 ---
 
@@ -244,3 +257,6 @@ Resume is deliberately not on that list. It is the largest piece of work here, a
 
 - **2026-09-17** Written. Measurements taken the same day from the running product and from the
   runs table. Nothing here is implemented.
+- **2026-09-17** Order corrected. The live run moved from third to last, because nothing in caching
+  or splitting depends on it and a single run after both answers more than two runs around them.
+  The remote moved from last to first: it is the only item whose downside is losing the work.
