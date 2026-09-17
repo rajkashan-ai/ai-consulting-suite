@@ -6,6 +6,17 @@ import { chooseCompetitors } from "./picker-actions";
 import { FEWEST, OWN_LIMIT, PICK, SHOWN_FIRST, type Offer } from "@/tools/competitor-tracker/shortlist";
 
 /**
+ * "hairdressers", not "hairdresseres".
+ *
+ * The screen added "es" to everything, which is right for "coach" and wrong
+ * for every trade we actually have. English plurals are irregular enough that
+ * the honest thing is to handle the endings that need it and add "s" to the
+ * rest.
+ */
+const plural = (word: string, n: number): string =>
+  n === 1 ? word : /(s|x|z|ch|sh)$/i.test(word) ? `${word}es` : `${word}s`;
+
+/**
  * Who do you actually compete with?
  *
  * WHY THE OWNER IS ASKED AT ALL
@@ -104,45 +115,45 @@ export default function Picker({
 
   return (
     <div className="panel">
-      <h2 className="t-sub">
-        Which {PICK} do you compete with?
-      </h2>
+      <h2 className="t-sub">Who do you compete with?</h2>
       <p className="t-doc u-measure">
-        We found {offered.length} {trade ?? "business"}
-        {offered.length === 1 ? "" : "es"} near {town ?? "you"}. We have ticked the{" "}
-        {PICK} we would compare you against. Change them if we have it wrong:
-        you know your market and we are reading listings.
+        We found {offered.length} {plural(trade ?? "business", offered.length)} near{" "}
+        {town ?? "you"} and ticked the {ticked.length} we would compare you
+        against. Change them if we have it wrong: you know your market and we
+        are reading listings.
       </p>
       {note ? <p className="t-meta u-measure">{note}</p> : null}
 
-      <div className="rows">
+      <div className="picks">
         {shown.map((o) => {
           const on = ticked.includes(o.name);
+          const where = [
+            o.area,
+            o.miles === null ? null : `${o.miles.toFixed(1)} miles`,
+            o.rating === null ? null : `${o.rating} stars`,
+            o.reviews === null ? null : `${o.reviews} reviews`,
+          ]
+            .filter(Boolean)
+            .join(" · ");
+
           return (
-            <label className="check" key={o.name}>
+            <label className="pick" key={o.name}>
               <input
                 type="checkbox"
                 checked={on}
                 disabled={saving || (!on && full)}
                 onChange={() => toggle(o.name)}
               />
-              <span>
-                <span className="t-row t-strong">{o.name}</span>
-                {o.unsure ? <span className="tag tag--na">Not checked</span> : null}
-                <span className="t-micro">
-                  {[
-                    o.area,
-                    o.miles === null ? null : `${o.miles.toFixed(1)} miles`,
-                    o.rating === null ? null : `${o.rating} stars`,
-                    o.reviews === null ? null : `${o.reviews} reviews`,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
+              <span className="pick__body">
+                <span className="pick__head">
+                  <span className="pick__name">{o.name}</span>
+                  {o.unsure ? <span className="tag tag--na">Not checked</span> : null}
                 </span>
+                {where ? <span className="pick__where">{where}</span> : null}
                 {/* What we make of them, and whose reading it is, so they can
                     disagree with a claim rather than with a bare name. */}
                 {o.reads ? (
-                  <span className="t-meta">
+                  <span className="pick__reads">
                     {o.reads}
                     {o.from ? ` · ${o.from}` : ""}
                   </span>
@@ -160,7 +171,7 @@ export default function Picker({
       ) : null}
 
       {/* Somebody who already knows should not have to find us first. */}
-      <div className="rows">
+      <div className="pick-add">
         {own.map((name) => (
           <p className="t-row" key={name}>
             {name}
@@ -174,8 +185,8 @@ export default function Picker({
           </p>
         ))}
         {own.length < OWN_LIMIT && !full ? (
-          <p className="t-meta">
-            <label htmlFor="own">Not here? Add one by name</label>
+          <>
+            <label className="t-meta" htmlFor="own">Not here? Add one by name</label>
             <input
               id="own"
               className="field"
@@ -195,7 +206,7 @@ export default function Picker({
             >
               Add
             </button>
-          </p>
+          </>
         ) : null}
         {own.length ? (
           <p className="t-micro">
@@ -206,8 +217,9 @@ export default function Picker({
       </div>
 
       {/* The count is next to the button, where the decision is made. */}
+      {/* Asking for five when four exist is the screen arguing with itself. */}
       <p className="t-meta">
-        {ticked.length + own.length} of {PICK} chosen
+        {ticked.length + own.length} of {Math.min(PICK, offered.length + own.length)} chosen
         {full ? ". Remove one to swap it." : ""}
       </p>
       {error ? <p className="t-doc">{error}</p> : null}

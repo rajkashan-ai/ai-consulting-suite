@@ -1203,3 +1203,36 @@ main{padding:0}
 /* The band under the frame carries no top gap of its own: the frame's padding
    is the gap, and two of them is the doubled-section-gap mistake again. */
 .toolhead + .band{padding-top:0}
+
+/* ---------------------------------------------------------------------------
+   The competitor picker.
+
+   Added 2026-09-17. The screen was written against a `.rows` class that does
+   not exist, so every part of a row sat inline and ran into the next one:
+   "Hairdressers in St AlbansHairdresser or salon". A name, a tag, an address
+   and our reading of the business are four different things and a reader has
+   to be able to tell them apart at a glance.
+
+   One row is a stack: what it is called, then where it is, then what we make
+   of it. Nielsen 6, recognition rather than recall: the owner is matching
+   these against shops they drive past, so the identifying line comes first and
+   loudest and everything else is support.
+--------------------------------------------------------------------------- */
+.picks{display:flex; flex-direction:column; margin:var(--s4) 0}
+.picks > * + *{border-top:1px solid var(--line)}
+
+.pick{display:flex; align-items:flex-start; gap:var(--s3);
+  min-height:44px; padding:var(--s3) 0; cursor:pointer}
+.pick input{width:18px; height:18px; flex:none; margin-top:2px; accent-color:var(--ink)}
+.pick__body{display:flex; flex-direction:column; gap:2px; min-width:0}
+.pick__head{display:flex; align-items:center; flex-wrap:wrap; gap:var(--s2)}
+.pick__name{font-size:15px; line-height:20px; font-weight:600; color:var(--ink)}
+.pick__where{font-size:13px; line-height:18px; color:var(--muted);
+  font-variant-numeric:tabular-nums}
+.pick__reads{font-size:13px; line-height:18px; color:var(--ink-soft)}
+
+/* Adding a name they know. The label, the field and the button on one line,
+   wrapping on a narrow screen rather than overflowing. */
+.pick-add{display:flex; align-items:center; flex-wrap:wrap; gap:var(--s3);
+  margin:var(--s4) 0}
+.pick-add .field{flex:1 1 220px; min-width:0}

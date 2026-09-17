@@ -58,7 +58,7 @@ import {
   type Named,
 } from "./naming.ts";
 import { rank, type Found, type Scored } from "./rank.ts";
-import { notYou, oneEach, rightTrade, sift } from "./sift.ts";
+import { namesABusiness, notYou, oneEach, rightTrade, sift } from "./sift.ts";
 import { PICK, asChosen, asTyped, offer, waitedLongEnough, type Offer } from "./shortlist.ts";
 import { areasMissing, shortfall, type Funnel } from "./shortfall.ts";
 import { enough, nextToTry, refusals, type Attempt } from "./retry.ts";
@@ -1213,6 +1213,13 @@ async function choose(state: RunState, business: Business): Promise<Step> {
     // A page whose title announces it is a list is a list, however many
     // businesses are named on it.
     if (/\b(best|top|10|ten|near me|directory|guide)\b/i.test(c.name)) return false;
+    /**
+     * A search result's name is the page's own title, and a title is often a
+     * sentence about the trade rather than the name of a shop. "Hairdressers
+     * in St Albans" reached a real owner's screen as a business she was asked
+     * whether she competed with. See namesABusiness.
+     */
+    if (!namesABusiness(c.name, business.trade, profile.town)) return false;
     return true;
   });
 
@@ -1400,7 +1407,33 @@ async function choose(state: RunState, business: Business): Promise<Step> {
    * answer that sorts last.
    */
   const key = (n: string) => n.trim().toLowerCase();
-  const byName = new Map(withMiles.map((r) => [key(r.name), r]));
+
+  /**
+   * Listing rows first, then anything search turned up.
+   *
+   * This read `withMiles` alone, which comes from the listings. When a town has
+   * no listing page we can read, that is empty, so every competitor reached the
+   * screen as a bare name with no address, no url and nothing to fetch. On
+   * 2026-09-17 a St Albans salon was offered four businesses with url null on
+   * all four, which also meant the lookup stage had nothing to look up.
+   *
+   * The candidates carry a url. Losing it was pure omission.
+   */
+  const byName = new Map<string, Found & { miles?: number | null }>();
+  for (const c of candidates) {
+    byName.set(key(c.name), {
+      name: c.name,
+      area: null,
+      reviews: null,
+      rating: null,
+      reviewedDaysAgo: null,
+      price: null,
+      url: c.url ?? null,
+    });
+  }
+  // A listing row beats a search result for the same business: it carries the
+  // address, the price and the services, and the search result carries a url.
+  for (const r of withMiles) byName.set(key(r.name), r);
 
   /**
    * Ours is `competitors`, not `picked`.
@@ -1427,7 +1460,8 @@ async function choose(state: RunState, business: Business): Promise<Step> {
       },
   );
 
-  const offered = offer(oursRows, withMiles.filter((r) => !ours.has(key(r.name))));
+  const rest = [...byName.values()].filter((r) => !ours.has(key(r.name)));
+  const offered = offer(oursRows, rest);
 
   return {
     stage: "picking",

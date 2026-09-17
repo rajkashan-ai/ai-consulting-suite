@@ -215,3 +215,64 @@ export function servesTheSamePeople(
   if (!them || !you) return true;
   return them === you;
 }
+
+
+/**
+ * Does this name a business, or describe one?
+ *
+ * When a town has no listing page we can read, competitors come from search
+ * results, and a search result's name is the page's own title. A title is
+ * often a sentence about the trade rather than the name of a shop. On
+ * 2026-09-17 a St Albans salon was offered these four as businesses:
+ *
+ *   Hairdressing Salon St Albans
+ *   Hairdressers in St Albans
+ *   Luxury hair salon in the heart of St Albans
+ *   Hairdressing at TONI&GUY St. Albans
+ *
+ * Only the last names anybody. The first two are the trade and the town with
+ * joining words, which is what a page title looks like and what a shop is
+ * almost never called.
+ *
+ * So: take out the trade, the town and the filler, and see whether a name is
+ * left. TONI&GUY survives. "Hairdressers in St Albans" leaves nothing at all,
+ * and a business with no distinguishing word in its name is a description.
+ *
+ * Structural rather than a list of bad titles, which would only catch the
+ * phrasings somebody already thought of. Deliberately generous: it asks for one
+ * surviving word, not a good one, because refusing a real shop is worse than
+ * offering a doubtful one on a screen built for the owner to correct.
+ */
+const JOINING = new Set([
+  "the", "in", "at", "of", "and", "for", "near", "best", "top", "your", "our",
+  "with", "by", "from", "to", "on", "a", "an", "salon", "salons", "studio",
+  "shop", "ltd", "limited", "uk", "co", "com",
+]);
+
+export function namesABusiness(
+  name: string,
+  trade: string | null,
+  town: string | null,
+): boolean {
+  const strip = (s: string) =>
+    s.toLowerCase().replace(/[^a-z0-9&]+/g, " ").split(" ").filter(Boolean);
+
+  const theirs = strip(name);
+  if (!theirs.length) return false;
+
+  const tradeWords = new Set([
+    ...strip(trade ?? ""),
+    // "hairdressing" against a trade of "hairdresser", "barbering" against
+    // "barber". The stem is what the two share.
+    ...strip(trade ?? "").map((w) => w.replace(/(er|ers|ing|s)$/, "")),
+  ]);
+  const townWords = new Set(strip(town ?? ""));
+
+  const left = theirs.filter((w) => {
+    if (JOINING.has(w) || townWords.has(w)) return false;
+    const stem = w.replace(/(er|ers|ing|s)$/, "");
+    return !tradeWords.has(w) && !tradeWords.has(stem) && !(stem.length > 2 && tradeWords.has(stem));
+  });
+
+  return left.length > 0;
+}

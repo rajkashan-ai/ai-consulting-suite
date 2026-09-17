@@ -16,6 +16,7 @@ import {
   type Offer,
 } from "../tools/competitor-tracker/shortlist.ts";
 import { advance, type RunState, type Stage } from "../tools/competitor-tracker/stages.ts";
+import { namesABusiness } from "../tools/competitor-tracker/sift.ts";
 import { CAPS, TOKEN_CEILING, billed, check, WAITING_ON_A_PERSON, STILL_LIMIT } from "../lib/watchdog.ts";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -589,4 +590,81 @@ test("a thrown step prints where it threw, and shows the customer a sentence", (
    */
   const engine = readFileSync(join(import.meta.dirname, "..", "lib", "engine.ts"), "utf8");
   assert.match(engine, /console\.error\(e instanceof Error \? \(e\.stack \?\? e\.message\) : String\(e\)\)/);
+});
+
+// ---------------------------------------------------------------------------
+// What the screen says, and whether it says it about the right things
+// ---------------------------------------------------------------------------
+
+test("a page title is not a business", () => {
+  /**
+   * When a town has no listing we can read, competitors come from search
+   * results and a result's name is the page's own title. These four reached a
+   * real owner's screen on 2026-09-17 as businesses she was asked whether she
+   * competed with.
+   */
+  const yes = (n: string) => namesABusiness(n, "hairdresser", "St. Albans");
+  assert.equal(yes("Hairdressing Salon St Albans"), false);
+  assert.equal(yes("Hairdressers in St Albans"), false);
+  assert.equal(yes("Best hairdresser in St Albans"), false);
+
+  // And every real name survives, including the one that carries the trade.
+  for (const real of [
+    "Hairdressing at TONI&GUY St. Albans",
+    "Atelier Salon & Spa",
+    "Clipso",
+    "Chestnut Hair",
+    "BARBONE",
+    "Hair by Lauren",
+  ]) {
+    assert.equal(yes(real), true, real);
+  }
+});
+
+test("a business search found keeps its url", () => {
+  /**
+   * The offer was built from listing rows alone, so when a town had no listing
+   * every competitor arrived as a bare name: url null on all four, nothing to
+   * show and nothing for the lookup stage to fetch.
+   */
+  assert.match(
+    sourceOf("competitor-tracker"),
+    /for \(const c of candidates\) \{\s*\n\s*byName\.set/,
+    "search results are dropped from the offer again",
+  );
+});
+
+test("the screen counts what it is showing", () => {
+  const picker = readFileSync(
+    join(import.meta.dirname, "..", "app", "workspace", "[tool]", "picker.tsx"),
+    "utf8",
+  );
+  // "We found 4 ... we have ticked the 5" was on screen. Asking for five when
+  // four exist is the screen arguing with itself.
+  assert.match(picker, /Math\.min\(PICK, offered\.length \+ own\.length\)/);
+  assert.match(picker, /ticked the \{ticked\.length\}/, "it claims to have ticked a fixed number");
+  // "hairdresseres". Adding "es" to everything is right for "coach" and wrong
+  // for every trade we have.
+  assert.match(picker, /const plural = /);
+  assert.doesNotMatch(picker, /\{offered\.length === 1 \? "" : "es"\}/);
+});
+
+test("the picker's classes exist in the stylesheet", () => {
+  /**
+   * It was written against a `.rows` class that does not exist, so every part
+   * of a row sat inline and ran into the next: "Hairdressers in St
+   * AlbansHairdresser or salon". A class nothing defines is invisible until
+   * somebody looks at the screen.
+   */
+  const picker = readFileSync(
+    join(import.meta.dirname, "..", "app", "workspace", "[tool]", "picker.tsx"),
+    "utf8",
+  );
+  const css = readFileSync(join(import.meta.dirname, "..", "app", "design.css"), "utf8");
+
+  const used = new Set(
+    [...picker.matchAll(/className="([^"{]+)"/g)].flatMap((m) => m[1].split(/\s+/)).filter(Boolean),
+  );
+  const missing = [...used].filter((c) => !css.includes(`.${c}`));
+  assert.deepEqual(missing, [], `classes used by the picker that no stylesheet defines: ${missing}`);
 });
