@@ -92,3 +92,41 @@ test("a site we could never reach is not reported as a site that refused us", ()
   assert.equal(parse("", UA).reachable, true);
   assert.equal(parse("User-agent: *\nDisallow: /", UA).reachable, true);
 });
+
+/**
+ * What happens to a robots pattern we cannot turn into a regex.
+ *
+ * The honest finding, after getting this wrong first time. The fallback used to
+ * be `false` for both directions, which for a Disallow reads as "this rule does
+ * not apply to you", so a rule we failed to understand would have read as
+ * consent. It is now `true` for Disallow and `false` for Allow: both err
+ * towards not fetching, per CLAUDE.md 1.5 rule 1.
+ *
+ * It is defensive, not a live bug, and this test says so rather than pretending
+ * otherwise. The escaper below escapes every regex metacharacter, so the source
+ * it builds always compiles, and I have not found an input that reaches the
+ * catch. That is worth writing down: the next person to read that branch should
+ * know it is a guard and not a fix for something observed.
+ */
+test("every regex metacharacter is escaped, which is why the fallback is a guard", () => {
+  const nasty = ["/a(b", "/a[b", "/a+b", "/a?b", "/a{2", "/a\\b", "/a|b", "/a)b", "/a]b"];
+
+  for (const pattern of nasty) {
+    const rules = { groups: { allow: [], deny: [pattern] }, reachable: true } as never;
+    // The point is that none of these throw. Whether they match is incidental.
+    assert.doesNotThrow(() => mayFetch(rules, pattern), `${pattern} was not escaped`);
+  }
+});
+
+test("a pattern we can read is unaffected by the change", () => {
+  const rules = { groups: { allow: [], deny: ["/search"] }, reachable: true } as never;
+  assert.equal(mayFetch(rules, "/search/barbers"), false);
+  assert.equal(mayFetch(rules, "/venue/armando"), true);
+});
+
+test("Allow still beats an equally specific Disallow", () => {
+  // The tie-break the file documents, unchanged: it is the difference between
+  // reading a site's public pages and refusing to.
+  const rules = { groups: { allow: ["/venue"], deny: ["/venue"] }, reachable: true } as never;
+  assert.equal(mayFetch(rules, "/venue/armando"), true);
+});

@@ -327,6 +327,8 @@ export async function worthReading(
     try {
       if (new URL(url).origin !== origin) continue;
     } catch {
+      // A sitemap entry that is not a url. Expected: skipping it is right, and
+      // one bad line must not lose the rest of the sitemap.
       continue;
     }
     const map = await ctx.read(url);

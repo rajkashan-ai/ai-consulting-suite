@@ -1643,6 +1643,8 @@ function hostOf(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
   } catch {
+    // Not a url we can parse. Expected: these come off pages we did not
+    // write, and showing the raw string is the right answer.
     return "";
   }
 }

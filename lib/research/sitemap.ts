@@ -52,6 +52,14 @@ export async function pagesFrom(
       }
     }
   } catch {
+    /**
+     * No sitemap, or we could not read one. Deliberately the same answer,
+     * because the caller treats both the same way: it falls back to reading the
+     * homepage and following links, which works either way.
+     *
+     * Said out loud because the two are not the same thing, and if the fallback
+     * ever stops being adequate this is the line to change first.
+     */
     return [];
   }
 
@@ -86,6 +94,8 @@ function sameSite(url: string, origin: string): boolean {
     return new URL(url).hostname.replace(/^www\./, "") ===
       new URL(origin).hostname.replace(/^www\./, "");
   } catch {
+    // Unparseable, so not provably the same site, so we do not follow it.
+    // Expected, and the cautious answer is the correct one here.
     return false;
   }
 }

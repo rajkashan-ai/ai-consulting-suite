@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { IMAGE_SIZES } from "../../../../Agents/Content & Social Planner/src/platform";
 import { cropBox, fitPreview, keptFraction } from "../../../../Agents/Content & Social Planner/src/preview.js";
+import { report } from "../../report";
 
 /**
  * Resize one photo for every place it is going.
@@ -213,7 +214,10 @@ export default function Resizer() {
         was ||
         `${files.length} saved to your downloads. This browser cannot save into a folder you choose.`,
       );
-    } catch {
+    } catch (e) {
+      // A photo we cannot decode and a browser API that is missing produce the
+      // same sentence for the customer and need different fixes from us.
+      report(e, "resize a photo");
       setSaid("We could not make the files. Try a different photo.");
     } finally {
       setBusy(false);

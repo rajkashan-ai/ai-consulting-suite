@@ -86,6 +86,9 @@ export function plainly(e: unknown): Plain {
             try {
               return JSON.stringify(e) ?? String(e);
             } catch {
+              // Circular, usually. String() always gives something, and this
+              // runs while we are already explaining a failure, so it must not
+              // add one. Expected: ERROR-HANDLING.md rule 1, fourth case.
               return String(e);
             }
           })();

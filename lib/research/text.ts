@@ -75,6 +75,8 @@ function absolute(href: string, base?: string): string | null {
   try {
     return base ? new URL(h, base).href : new URL(h).href;
   } catch {
+    // A link on somebody's page that is not a url. Expected: pages contain
+    // broken hrefs, and skipping one is the right answer.
     return null;
   }
 }

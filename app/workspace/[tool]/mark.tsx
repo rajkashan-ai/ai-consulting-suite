@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { report } from "../../report";
 
 /**
  * Mark one claim or action as wrong.
@@ -110,7 +111,11 @@ export function CopyEverything({ runId }: { runId: string }) {
       const body = await res.json();
       await navigator.clipboard.writeText(JSON.stringify(body, null, 1));
       setSaid("Copied. Paste it to Claude");
-    } catch {
+    } catch (e) {
+      // Tell them, and keep the reason. Refused clipboard permission and a
+      // failing export endpoint look identical from here and are not the same
+      // bug. ERROR-HANDLING.md rule 1, second case.
+      report(e, "copy the run");
       setSaid("Could not copy it");
     }
     setTimeout(() => setSaid("Copy everything behind this"), 6000);

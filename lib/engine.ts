@@ -7,6 +7,7 @@ import { runnerFor } from "@/tools/registry";
 import type { AnyState } from "@/tools/contract";
 import type { Business, ToolContext } from "@/tools/types";
 import { check, note, type Watch } from "@/lib/watchdog";
+import { note as noteProblem } from "@/lib/problems";
 import { plainly } from "@/lib/plainly";
 
 /**
@@ -432,6 +433,23 @@ async function faulted(
   pages: number,
 ): Promise<Progress> {
   const plain = plainly(e);
+
+  /**
+   * A thrown run is a fault, not an outcome.
+   *
+   * A run that stops because a site refused us has worked correctly and is not
+   * recorded here. A run that threw has hit something we did not plan for, and
+   * that is exactly what this table is for: `runs.state.watch.stopped` already
+   * held the reason, but only for that one run, so nobody could tell a fault
+   * that happened once from one happening to everybody.
+   */
+  await noteProblem(db as never, {
+    error: e,
+    where: `run ${(had as { stage?: string } | null)?.stage ?? "unknown"}`,
+    kind: "run",
+    runId,
+  });
+
   await db
     .from("runs")
     .update({

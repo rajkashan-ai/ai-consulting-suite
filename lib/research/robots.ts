@@ -142,14 +142,29 @@ export function parse(text: string, userAgent: string): Rules {
 export function mayFetch(rules: Rules, pathAndQuery: string): boolean {
   if (!rules.groups) return true;
 
-  const best = (patterns: string[]) =>
+  /**
+   * A pattern we cannot read is read the cautious way round.
+   *
+   * `matches` builds a regex out of the site's own text, and a pattern with
+   * something in it we did not anticipate will not compile. It returned false
+   * either way, which for a Disallow means "this rule does not apply to you",
+   * so a rule we failed to understand became permission to fetch. This file
+   * already states the opposite principle a few lines up: disallow rather than
+   * assume permission from a server that is failing.
+   *
+   * So the fallback goes with the direction. An unreadable Disallow counts as
+   * disallowing us; an unreadable Allow grants nothing. Both err towards not
+   * fetching, which is CLAUDE.md 1.5 rule 1.
+   */
+  const best = (patterns: string[], whenUnreadable: boolean) =>
     patterns.reduce(
-      (longest, p) => (matches(p, pathAndQuery) && p.length > longest ? p.length : longest),
+      (longest, p) =>
+        matches(p, pathAndQuery, whenUnreadable) && p.length > longest ? p.length : longest,
       -1,
     );
 
-  const allow = best(rules.groups.allow);
-  const deny = best(rules.groups.deny);
+  const allow = best(rules.groups.allow, false);
+  const deny = best(rules.groups.deny, true);
 
   if (deny === -1) return true;
   // Equal length is a tie, and a tie goes to Allow. That is the standard, and
@@ -157,8 +172,14 @@ export function mayFetch(rules: Rules, pathAndQuery: string): boolean {
   return allow >= deny;
 }
 
-/** robots.txt patterns support * for any run of characters and $ for end. */
-function matches(pattern: string, path: string): boolean {
+/**
+ * robots.txt patterns support * for any run of characters and $ for end.
+ *
+ * `whenUnreadable` is what to answer if the pattern will not compile into a
+ * regex. It is the caller's decision, because the safe answer depends on which
+ * way round the rule is: see mayFetch.
+ */
+function matches(pattern: string, path: string, whenUnreadable: boolean): boolean {
   const anchored = pattern.endsWith("$");
   const body = anchored ? pattern.slice(0, -1) : pattern;
 
@@ -173,6 +194,9 @@ function matches(pattern: string, path: string): boolean {
   try {
     return new RegExp(source).test(path);
   } catch {
-    return false;
+    // A pattern out of somebody's robots.txt that will not compile. Expected:
+    // it is their text, not ours, and there is a correct answer for it, which
+    // the caller has already decided. ERROR-HANDLING.md rule 1, fourth case.
+    return whenUnreadable;
   }
 }
