@@ -1236,3 +1236,47 @@ main{padding:0}
 .pick-add{display:flex; align-items:center; flex-wrap:wrap; gap:var(--s3);
   margin:var(--s4) 0}
 .pick-add .field{flex:1 1 220px; min-width:0}
+
+/* ---------------------------------------------------------------------------
+   Asking for a post.
+
+   Added 2026-09-17. The tool laid out a month and wrote a week of it, which is
+   a calendar, and a calendar a small business did not ask for produces guilt
+   rather than posts. The month stays as the prompter; this is the asking.
+
+   The eight intents are a menu, so they are laid out as one: equal cards that
+   read as a set rather than a list of links, wrapping rather than scrolling,
+   because a menu you have to scroll is a menu you skim. Each carries what it
+   asks of the reader under its name, since the word alone is eight ways to
+   write the same post.
+--------------------------------------------------------------------------- */
+.intents{display:grid; gap:var(--s2); margin:var(--s4) 0;
+  grid-template-columns:repeat(auto-fill, minmax(190px, 1fr))}
+
+.intent{display:flex; flex-direction:column; gap:2px; text-align:left;
+  padding:var(--s3); min-height:72px; cursor:pointer;
+  background:var(--card); color:var(--ink);
+  border:1px solid var(--line); border-radius:var(--r-card)}
+.intent:hover:not(:disabled){border-color:var(--ink-soft)}
+.intent:disabled{opacity:.5; cursor:not-allowed}
+
+/* Chosen is the darkest neutral, not the brand pink. Airbnb's own checked
+   control is their ink, and eight berry cards would be the three-accent rule
+   broken eight times in one view. */
+.intent[aria-pressed="true"]{border-color:var(--ink); box-shadow:inset 0 0 0 1px var(--ink)}
+
+.intent__name{font-size:15px; line-height:20px; font-weight:600}
+.intent__asks{font-size:13px; line-height:18px; color:var(--muted)}
+
+/* What a choice is for: five build trust, three ask for the business. Shown
+   so the balance is visible, never to refuse a choice. */
+.intent__kind{font-size:11px; line-height:14px; font-weight:600;
+  letter-spacing:.06em; text-transform:uppercase; color:var(--muted)}
+
+.make{display:flex; flex-direction:column; gap:var(--s3); margin:var(--s4) 0}
+.make__row{display:flex; align-items:center; flex-wrap:wrap; gap:var(--s3)}
+
+/* A textarea is not a 44px control. `.field` sets that height for inputs, and
+   a three-row box needs to be three rows. */
+.field--area{height:auto; min-height:96px; padding:var(--s3); width:100%;
+  resize:vertical; line-height:22px}

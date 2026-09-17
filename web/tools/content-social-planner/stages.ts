@@ -575,7 +575,7 @@ async function shaping(state: RunState, business: Business, ctx: ToolContext): P
  * Listed and closed: a list on its own reads as a hint, and the fault was
  * arithmetic on real prices rather than invention from nothing.
  */
-function priceRules(business: Business): string {
+export function priceRules(business: Business): string {
   const prices = Object.entries(knownFacts(business).prices);
   if (!prices.length) {
     return (

@@ -1,4 +1,5 @@
 import type { DocumentBody } from "@/tools/content-social-planner/document";
+import Make from "./make";
 import { isWrittenPost } from "@/tools/content-social-planner/stages";
 import Resizer from "./resizer";
 import SendWeek from "./send-week";
@@ -93,8 +94,17 @@ export default function PlanView({
 
   return (
     <>
-      {/* ── 1. Where they are, before anything they can do ─────────────── */}
+      {/* ── 0. Asking for a post ───────────────────────────────────────────
+          Above the month, because the month is the prompter and this is the
+          thing they came to do. A calendar they did not ask for produces guilt;
+          this is triggered by something real happening. The plan below stays
+          exactly as it was. */}
       <Band mod="band--a band--first">
+        <Make workspaceId={workspaceId} />
+      </Band>
+
+      {/* ── 1. Where they are, before anything they can do ─────────────── */}
+      <Band mod="band--a">
         <div className="strip">
           <strong>{plan.posts.length} posts to {last ? day(last) : "the end of the month"}</strong>
           <span>Written from your own pages.</span>
