@@ -61,3 +61,26 @@ test("the screen and the scheduler agree on how old is too old", () => {
     "the screen and the scheduled tick disagree about how old a run may be",
   );
 });
+
+test("the measuring script does not share the defect it is meant to catch", () => {
+  /**
+   * How this was missed. scripts/time-a-run.ts resumed an unfinished run of any
+   * age, exactly like the screens did, so every measurement taken on the
+   * morning of 2026-09-17 would have shown New York had it been pointed at the
+   * workspace holding the stale run. It never was: every run that day was
+   * against one of the two St Albans rows, and the stale one sat on the other.
+   *
+   * A harness that shares a fault with the product cannot find that fault. It
+   * reproduces it and reports it as the product working.
+   */
+  const driver = readFileSync(
+    join(import.meta.dirname, "..", "scripts", "time-a-run.ts"),
+    "utf8",
+  );
+  assert.match(
+    driver,
+    /tooOldToResume\(run\.started_at, new Date\(\)\)/,
+    "the harness resumes a run of any age, so it cannot see a stale one",
+  );
+  assert.match(driver, /started_at/, "it does not even read the field the check needs");
+});

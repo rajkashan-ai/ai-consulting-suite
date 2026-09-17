@@ -16,6 +16,7 @@
  */
 const { createAdminClient } = await import("../lib/supabase/admin.ts");
 const { step } = await import("../lib/engine.ts");
+const { tooOldToResume } = await import("../tools/cadence.ts");
 
 const workspaceId = process.argv[2];
 const tool = process.argv[3] ?? "competitor-tracker";
@@ -44,19 +45,50 @@ console.log(`\n${ws.name ?? "(unnamed)"}, ${ws.town ?? "(no town)"} — ${ws.web
  * the more useful measurement: this is the state a real customer comes back to.
  */
 const { data: waiting } = await db
-  .from("runs").select("id, stage").eq("workspace_id", workspaceId).eq("tool", tool)
+  .from("runs").select("id, stage, started_at").eq("workspace_id", workspaceId).eq("tool", tool)
   .not("stage", "in", "(done,failed)").limit(1);
 
 let run = waiting?.[0] ?? null;
+
+/**
+ * A run from yesterday is not a run to measure.
+ *
+ * This resumed an unfinished run of any age, which is the same defect the tool
+ * screens had, and it is worse here: a harness that shares a fault with the
+ * product cannot find that fault, it reproduces it. On 2026-09-17 the screen
+ * put five New York businesses in front of a St Albans owner by resuming a
+ * day-old run, and every measurement I took that morning would have done the
+ * same thing had I pointed it at that workspace. I never did: every run was
+ * against one of the two St Albans rows, and the stale run was on the other.
+ */
+if (run && tooOldToResume(run.started_at, new Date())) {
+  console.log(`retiring run ${run.id}, left at ${run.stage} since ${run.started_at}`);
+  await db
+    .from("runs")
+    .update({
+      stage: "failed",
+      ok: false,
+      finished_at: new Date().toISOString(),
+      error: "This one was left overnight, so we have started it again.",
+    })
+    .eq("id", run.id)
+    .eq("stage", run.stage);
+  run = null;
+}
+
 if (run) {
   console.log(`carrying on run ${run.id}, stuck at ${run.stage}\n`);
 } else {
   const { data: made, error } = await db
-    .from("runs").insert({ workspace_id: workspaceId, tool }).select("id, stage").single();
+    .from("runs").insert({ workspace_id: workspaceId, tool }).select("id, stage, started_at").single();
   if (error || !made) throw new Error(`Could not start a run: ${error?.message}`);
   run = made;
   console.log(`run ${run.id}\n`);
 }
+
+// Either resumed or made above. Said out loud so the compiler can see it and
+// so a future edit that drops one branch fails here rather than at run.id.
+if (!run) throw new Error("No run to measure.");
 
 const steps: { stage: string; seconds: number }[] = [];
 const began = Date.now();
