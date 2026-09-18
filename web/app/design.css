@@ -1107,6 +1107,11 @@ main{padding:0}
 .toggle__who{font-size:13px; line-height:17px; font-weight:400; color:var(--muted);
   white-space:normal}
 .toggle[aria-pressed="true"] .toggle__who{font-weight:400}
+/* A size bigger than the photo, marked on the size itself. --warn, which is the
+   token for "this will not go the way you expect", and the only place amber is
+   spent here. Not red: choosing it is allowed, it just costs sharpness. */
+.toggle__warn{font-size:12px; line-height:16px; font-weight:500; color:var(--warn);
+  white-space:normal; margin-top:2px}
 
 .fb__panel{margin-top:var(--s4); padding:var(--s6);
   background:var(--card-2); border-radius:var(--r-card)}

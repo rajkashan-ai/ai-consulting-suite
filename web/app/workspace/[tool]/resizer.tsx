@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { IMAGE_SIZES } from "../../../../Agents/Content & Social Planner/src/platform";
-import { cropBox, fitPreview, keptFraction } from "../../../../Agents/Content & Social Planner/src/preview.js";
+import { cropBox, fitPreview, keptFraction, stretchFor } from "../../../../Agents/Content & Social Planner/src/preview.js";
 import { report } from "../../report";
 
 /**
@@ -133,6 +133,19 @@ export default function Resizer() {
       ),
     );
   })();
+
+  /**
+   * The gentlest stretch any size asks of this photo, and whether they all do.
+   *
+   * The gentlest rather than the worst: if even the kindest size has to stretch
+   * it, the photo is small for everything here, and quoting the worst size
+   * would overstate what they are choosing between.
+   */
+  const stretches = image
+    ? SIZES.map((s) => stretchFor(image.naturalWidth, image.naturalHeight, s.w, s.h))
+    : [];
+  const smallest = stretches.length ? Math.min(...stretches) : 1;
+  const everySizeStretches = stretches.every((x) => x > 1.05);
 
   async function saveAll() {
     if (!image || !chosen.length) return;
@@ -340,6 +353,36 @@ export default function Resizer() {
               </div>
             ) : null}
 
+            {/**
+             * Said before they spend the time, not after they look at the result.
+             *
+             * A photo smaller than the size asked for gets stretched, and no
+             * setting in the encoder puts back detail the camera never took.
+             * This tool used to do it silently: Raj resized a 236 by 419 photo
+             * to 1080 square, which draws every pixel about twenty one times,
+             * and the only thing that told him was his own eyes on the output.
+             *
+             * Their number and ours, both shown. "Too small" is a judgement
+             * they cannot check; "236 by 419" is a fact they can.
+             */}
+            {smallest > 1.05 ? (
+              <div className="inset">
+                <p className="t-row">
+                  This photo is {image.naturalWidth} by {image.naturalHeight}, which is smaller
+                  than {smallest >= 2 && everySizeStretches
+                    ? "every size here"
+                    : "some of the sizes here"}
+                  . The smallest stretch is {smallest.toFixed(1)} times, so it will come out
+                  softer than the original.
+                </p>
+                <p className="t-micro">
+                  A photo saved from Instagram, Pinterest or a message has usually been shrunk
+                  already. The one straight off the phone or camera is normally four or five
+                  times bigger and will hold up at these sizes.
+                </p>
+              </div>
+            ) : null}
+
             <p className="t-kind">The sizes</p>
             <div className="sizes">
               {SIZES.map((s) => (
@@ -356,6 +399,15 @@ export default function Resizer() {
                     {s.name} {s.w} × {s.h}
                   </span>
                   <span className="toggle__who">{s.who}</span>
+                  {/* On the size itself, because the note above says the photo
+                      is too small for "some of these" and this is which. */}
+                  {stretchFor(image.naturalWidth, image.naturalHeight, s.w, s.h) > 1.05 ? (
+                    <span className="toggle__warn">
+                      bigger than your photo,{" "}
+                      {stretchFor(image.naturalWidth, image.naturalHeight, s.w, s.h).toFixed(1)}×
+                      stretch
+                    </span>
+                  ) : null}
                 </button>
               ))}
             </div>

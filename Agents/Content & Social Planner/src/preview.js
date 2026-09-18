@@ -66,6 +66,30 @@ function keptFraction(sw, sh, box) {
   return (box.w * box.h) / (sw * sh);
 }
 
+/**
+ * How far a photo has to be stretched to fill a size, where 1 is a true fit.
+ *
+ * 2026-09-18. Raj resized a photo and said it had lost its quality. The photo
+ * was 236 by 419 and 14KB, and every size this tool offers is 900 pixels or
+ * more, so a square feed post meant drawing each pixel about 21 times. Nothing
+ * in the encoder can put back detail the camera never recorded, and the tool
+ * had said nothing about it before or after.
+ *
+ * The number is the crop's scale factor. cropBox takes the largest window of
+ * the target's shape that fits inside the photo, so when that window is
+ * smaller than the target, this is exactly the amount drawImage stretches it.
+ *
+ * Floored at 1: a photo larger than the size is not stretched at all, it is
+ * reduced, and that is the case this says nothing about.
+ *
+ * @param {number} sw @param {number} sh @param {number} tw @param {number} th
+ * @returns {number} 1 when the photo is big enough, more when it is not
+ */
+function stretchFor(sw, sh, tw, th) {
+  if (!(sw > 0) || !(sh > 0)) return 1;
+  return Math.max(1, Math.max(tw / sw, th / sh));
+}
+
 /* Three callers, one source.
  *
  * The test evaluates this file, `UI/sync-preview.py` inlines it into a plain
@@ -76,4 +100,4 @@ function keptFraction(sw, sh, box) {
  * The alternative was a second copy of the geometry inside `web/`, and two
  * copies of one rule is the defect this project has now found in the engine,
  * the tool screen, the running panel, the channel names and the image sizes. */
-export { PV_W, PV_H, fitPreview, cropBox, keptFraction };
+export { PV_W, PV_H, fitPreview, cropBox, keptFraction, stretchFor };
