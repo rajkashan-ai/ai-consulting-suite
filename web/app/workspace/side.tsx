@@ -57,6 +57,16 @@ export default function Side({
 
   const items = [
     { href: `/workspace${q}`, at: "/workspace", label: "Home", key: "HO", state: null },
+    /**
+     * Their business, reachable on any screen and any day.
+     *
+     * Not a tool: nothing runs, no agent reads it, and it is not in the
+     * registry. It is here because what they told us on the first afternoon
+     * was a guess we made off their website and asked them to correct, and
+     * without a way back to it the correction never happens and every post
+     * carries the guess.
+     */
+    { href: `/workspace/profile${q}`, at: "/workspace/profile", label: "Your business", key: "YB", state: null },
     ...TOOLS.filter((t) => !t.hidden).map((t) => ({
       href: `/workspace/${t.slug}${q}`,
       at: `/workspace/${t.slug}`,

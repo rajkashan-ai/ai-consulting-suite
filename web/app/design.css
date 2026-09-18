@@ -1678,3 +1678,16 @@ main{padding:0}
   border-left:2px solid var(--warn); background:var(--warn-wash);
   color:var(--ink); font-size:15px; line-height:23px; max-width:var(--measure);
   border-radius:0 var(--r-chip) var(--r-chip) 0}
+
+/**
+ * The profile form. One column, label above field, because it is read down
+ * rather than scanned across and a two-column form on a phone is one column
+ * with the labels in the wrong place.
+ */
+.profile{display:flex; flex-direction:column; gap:var(--s2); max-width:var(--measure)}
+.profile .t-kind{margin-top:var(--s4)}
+.profile .t-section{margin-top:var(--s7)}
+.profile .t-section:first-of-type{margin-top:0}
+.profile .t-micro{color:var(--muted); margin:0}
+.profile .controls{margin-top:var(--s2)}
+.profile .make__row{margin-top:var(--s6)}
