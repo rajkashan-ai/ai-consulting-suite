@@ -1630,12 +1630,38 @@ async function finding(
   // counts as the right place. See judge.
   const knownArea = (state.offered ?? []).find((o) => o.name === next)?.area ?? null;
 
-  const { found } = judge(
-    { name: next, why: "chosen by the owner" },
-    bestFirst(seen[0]?.results ?? []),
-    profile.town,
-    knownArea,
-  );
+  const asked = { name: next, why: "chosen by the owner" };
+  let { found } = judge(asked, bestFirst(seen[0]?.results ?? []), profile.town, knownArea);
+
+  /**
+   * Nothing found, so ask again on the places we already decided to trust.
+   *
+   * A competitor picked off a listing often arrives with no link. Fresha's
+   * listing is the case that proved it: fetched on 2026-09-18, its server HTML
+   * carries a name and a postal address per business in schema.org JSON and
+   * nothing else. 300 anchors, none pointing at a venue, and the word "price"
+   * absent from the page. So `fetchable()` rightly stores no url and the plain
+   * search by name is the only route left, which is a lottery: for one of five
+   * it returned a Cylex page that refused us while a booking profile read
+   * cleanly for another.
+   *
+   * `knownHosts` is `whereToLook(...).hosts`: the same four-tier list the
+   * listings stage searches, already filtered of hosts we have recorded as
+   * blocked, and already ranked tier one by `tierOf` when they carry prices.
+   * It was written to the run and read by nothing. This is its consumer, and
+   * using it is the reason there is no second list of platforms anywhere: one
+   * question, one answer, which is the rule this file keeps paying for.
+   *
+   * One extra search, only when the first found nobody, so a competitor we can
+   * already place costs exactly what it did before.
+   */
+  const trusted = state.knownHosts ?? [];
+  if (!found && trusted.length) {
+    const onTrusted =
+      `"${next}" ${profile.town} (${trusted.map((h) => `site:${h}`).join(" OR ")})`;
+    const again = await ctx.search([onTrusted], searchToolConfig(profile, 1));
+    ({ found } = judge(asked, bestFirst(again[0]?.results ?? []), profile.town, knownArea));
+  }
 
   /**
    * Recorded either way.
