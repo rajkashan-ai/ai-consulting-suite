@@ -1467,7 +1467,23 @@ main{padding:0}
 /* The photo they chose, shown back at a size that fits the panel rather than
    the 1568px copy that goes to the writer. Capped in height so a portrait shot
    off a phone does not push the service buttons off the screen. */
-.make__shot{display:block;max-width:100%;max-height:220px;width:auto;border-radius:var(--r-card);border:1px solid var(--line);margin-top:var(--s3)}
+/**
+ * The photo they chose, at its own shape.
+ *
+ * `align-self` is the whole fix. `.make` is a COLUMN flex container, so its
+ * default `align-items:stretch` stretches its children across the cross axis,
+ * which for a column is the width. The image was pulled to the full width of
+ * the panel while `max-height` held it at 220px, so both dimensions were being
+ * forced and a portrait photo of somebody's hair came out as a letterbox.
+ *
+ * `max-width` and `width:auto` cannot save it: a stretched flex item is sized
+ * by the container, not by its own content. Opting out of the stretch lets the
+ * intrinsic ratio decide again, and `height:auto` says so rather than relying
+ * on it being the initial value.
+ */
+.make__shot{display:block; align-self:flex-start;
+  max-width:100%; max-height:220px; width:auto; height:auto;
+  border-radius:var(--r-card); border:1px solid var(--line); margin-top:var(--s3)}
 
 /* =============================================================================
    THE SHELL. Sidebar and top bar, from the Instrument handoff of 2026-09-18.

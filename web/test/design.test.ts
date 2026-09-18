@@ -234,3 +234,34 @@ test("the comparison table is laid out as a table", () => {
   assert.match(css, /\.grid \{ table-layout: fixed; \}/);
   assert.doesNotMatch(css, /\.grid\s*\{[^}]*display:\s*grid/, ".grid is being drawn as a CSS grid");
 });
+
+test("no image is sized on both axes at once", () => {
+  /**
+   * A portrait photo of somebody's hair rendered as a 952 by 220 letterbox.
+   *
+   * `.make` is a COLUMN flex container, so its default `align-items:stretch`
+   * stretches its children across the cross axis, which for a column is the
+   * width. The image was pulled to the full width of the panel while
+   * `max-height:220px` held the height, so both dimensions were forced and the
+   * ratio went from 0.667 to 4.327. Measured in the page, both ways, before and
+   * after.
+   *
+   * `max-width` and `width:auto` cannot save it: a stretched flex item is sized
+   * by its container, not by its own content. Only opting out of the stretch
+   * gives the intrinsic ratio back.
+   */
+  const shot = css.slice(css.indexOf(".make__shot{"), css.indexOf(".make__shot{") + 260);
+  assert.match(shot, /align-self:\s*flex-start/, "the preview is stretched by its column flex parent again");
+  assert.match(shot, /height:auto/, "the height is not free to follow the width");
+
+  /**
+   * And the general form, so the next image added does not repeat it. A rule
+   * that pins an image's height must let the width follow, or the other way
+   * round, and never both.
+   */
+  for (const rule of css.match(/^[^{}\n]*\bimg\b[^{}\n]*\{[^}]*\}/gm) ?? []) {
+    const pinsWidth = /(?:^|;|\{)\s*width:\s*(?!auto)[^;}]+/.test(rule);
+    const pinsHeight = /(?:^|;|\{)\s*height:\s*(?!auto)[^;}]+/.test(rule);
+    assert.ok(!(pinsWidth && pinsHeight), `both dimensions are fixed on an image: ${rule.slice(0, 90)}`);
+  }
+});
