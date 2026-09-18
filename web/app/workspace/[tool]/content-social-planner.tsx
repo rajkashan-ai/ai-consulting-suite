@@ -127,16 +127,10 @@ export default async function ContentSocialPlanner({
 
   if (document && !decision.allowed) {
     /**
-     * What the owner has already done, read beside the plan rather than stored
-     * inside it. A document is what we produced; this is what they did with it,
-     * and the two have different lifetimes: the plan is remade every thirty
-     * days and the fact that they posted on the 17th outlives it.
+     * Read beside the plan rather than stored inside it: a document is what we
+     * produced, and these outlive the thirty days it is remade on.
      */
-    const [{ data: state }, { data: voice }, { data: made }] = await Promise.all([
-      supabase
-        .from("content_post_state")
-        .select("post_date, channel, edited_words, posted_at, posted_url")
-        .eq("workspace_id", workspaceId),
+    const [{ data: voice }, { data: made }] = await Promise.all([
       supabase
         .from("content_voice_note")
         .select("persona, style, samples, inspiration")
@@ -158,21 +152,15 @@ export default async function ContentSocialPlanner({
         .limit(30),
     ]);
 
-    const postState = Object.fromEntries(
-      (state ?? []).map((r) => [
-        `${r.post_date}|${r.channel}`,
-        { editedWords: r.edited_words, postedAt: r.posted_at, postedUrl: r.posted_url },
-      ]),
-    );
 
     return (
       <>
       <PlanView
         plan={document.body as never}
         workspaceId={workspaceId}
-        postState={postState}
         made={(made ?? []) as never}
         services={servicesToOffer(workspace?.services as never)}
+        knownEmail={(await supabase.auth.getUser()).data.user?.email ?? null}
         voice={{
           persona: (voice?.persona ?? null) as never,
           style: (isStyle(voice?.style) ? voice.style : "original") as never,

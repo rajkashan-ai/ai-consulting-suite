@@ -1,12 +1,11 @@
 import type { DocumentBody } from "@/tools/content-social-planner/document";
 import Make from "./make";
 import Made, { type MadePost } from "./made";
+import SendPosts from "./send-posts";
 import BrandPersona from "./persona";
 import type { Persona, StyleId } from "@/tools/content-social-planner/persona";
 import { isWrittenPost } from "@/tools/content-social-planner/stages";
 import Resizer from "./resizer";
-import SendWeek from "./send-week";
-import PostControls, { type PostState } from "./post-controls";
 import { CHANNEL } from "../../../../Agents/Content & Social Planner/src/types";
 
 /**
@@ -21,14 +20,6 @@ import { CHANNEL } from "../../../../Agents/Content & Social Planner/src/types";
  * in what order. The sections are a contract, not a layout preference: one went
  * missing once and no test noticed.
  */
-
-const day = (d: string) =>
-  new Date(d + "T12:00:00Z").toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    timeZone: "UTC",
-  });
 
 /** One band, with its inner column. The only landmark this system gives. */
 function Band({ mod, id, children }: { mod: string; id?: string; children: React.ReactNode }) {
@@ -49,40 +40,22 @@ const host = (url: string) => {
   }
 };
 
-/** The blanks the owner fills, marked where they are. */
-function Words({ words }: { words: string }) {
-  const parts = words.split(/(\[[^\]]+\])/g);
-  return (
-    <p className="t-doc">
-      {parts.map((part, i) =>
-        part.startsWith("[") && part.endsWith("]") ? (
-          <span className="blank" key={i}>
-            {part}
-          </span>
-        ) : (
-          <span key={i}>{part}</span>
-        ),
-      )}
-    </p>
-  );
-}
-
 export default function PlanView({
   plan,
   workspaceId,
-  postState,
   made,
   services,
+  knownEmail,
   voice,
 }: {
   plan: DocumentBody;
   workspaceId: string;
-  /** What the owner has already done to each post, keyed date|channel. */
-  postState: Record<string, PostState>;
   /** Posts they asked for on the day, newest first. See Made. */
   made: MadePost[];
   /** Their own services, off their own site, for the photo path. See Make. */
   services: string[];
+  /** The address they signed in with, so we do not ask for one we have. */
+  knownEmail: string | null;
   /** How they sound, and the voice they chose. See BrandPersona. */
   voice: {
     persona: Persona | null;
@@ -91,7 +64,6 @@ export default function PlanView({
     inspiration: string | null;
   };
 }) {
-  const written = plan.posts.filter(isWrittenPost);
   /**
    * Every week, with this one marked. It used to slice(1), which dropped the
    * week they are actually in and labelled the rest "Ahead", so the section
@@ -117,53 +89,16 @@ export default function PlanView({
         />
       </Band>
 
-      {/* ── 2. Asking for a post ─────────────────────────────────────────
-          Above the month, because the month is the prompter and this is the
-          thing they came to do. A calendar they did not ask for produces guilt;
-          this is triggered by something real happening. */}
-      <Band mod="band--a">
+      {/* ── 2. What they came for. The one dark band on the screen. ──────
+          A calendar they did not ask for produces guilt; this is triggered by
+          something real happening. It took the dark band on 2026-09-18, when
+          the written week below it was removed: the band goes to whatever the
+          reader came for, and by then this was it. */}
+      <Band mod="band--dark">
         <Make workspaceId={workspaceId} services={services} />
         <Made made={made} />
-      </Band>
-
-      {/* ── 3. What they came for. The one dark band on the screen. ─────── */}
-      <Band mod="band--dark">
-        <h2 className="t-section">This week</h2>
-        <p className="t-doc-sm">
-          The days are a suggestion. A day later is fine, and nothing here is ever late.
-        </p>
-        <div className="posts" id="this-week">
-          {written.map((p) => (
-            <article className="card" key={p.date}>
-              <div className="card__head card__head--base">
-                <span className="t-card">{day(p.date)}</span>
-                <span className="t-meta">{CHANNEL[p.channel].label}</span>
-                <span className="t-kind">{p.purpose}</span>
-              </div>
-              <div className="card__body">
-                {p.title ? (
-                  <div className="inset">
-                    <p className="t-kind">Title</p>
-                    <p className="t-row">{p.title}</p>
-                  </div>
-                ) : null}
-                <Words words={p.words} />
-                <div className="inset">
-                  <p className="t-kind">{CHANNEL[p.channel].medium === "video" ? "Film" : "Photograph"}</p>
-                  <p className="t-row">{p.shot}</p>
-                </div>
-                <p className="t-meta">{p.why}</p>
-              </div>
-              <PostControls
-                workspaceId={workspaceId}
-                postDate={p.date}
-                channel={p.channel}
-                state={postState[`${p.date}|${p.channel}`] ?? {}}
-              />
-            </article>
-          ))}
-        </div>
-        <SendWeek />
+        {/* Under the posts, because it is what you do once there are some. */}
+        {made.length ? <SendPosts workspaceId={workspaceId} knownEmail={knownEmail} /> : null}
       </Band>
 
       {/* ── 4. Reading stops, doing starts. Its own ground says so. ─────── */}
@@ -175,7 +110,8 @@ export default function PlanView({
       <Band mod="band--b band--last">
         <h2 className="t-section">The rest of the month</h2>
         <p className="t-doc-sm">
-          Every day and channel is already set. The words arrive at the start of each week.
+          The shape of the month, so a blank Tuesday has somewhere to start.
+          Write any of them whenever you like, up above.
         </p>
         <div className="card">
           <ul className="feed">

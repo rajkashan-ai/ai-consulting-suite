@@ -108,7 +108,7 @@ export default function Make({
 
   return (
     <div className="panel">
-      <h2 className="t-sub">Make a post</h2>
+      <h2 className="t-section">Make a post</h2>
       <p className="t-doc u-measure">
         For when something has just happened, or when you have half an hour and
         no idea what to say.

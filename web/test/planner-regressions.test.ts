@@ -187,7 +187,10 @@ test("the spec still holds a contract worth checking against", () => {
 });
 
 test("the screen carries every section the spec promises", () => {
-  const view = screen("plan.tsx") + screen("resizer.tsx");
+  /* make.tsx joined the list on 2026-09-18: "Make a post" is a section of this
+     screen and its heading lives in the component, not in plan.tsx. A contract
+     that only read the parent would have called it missing. */
+  const view = screen("plan.tsx") + screen("resizer.tsx") + screen("make.tsx");
   /* Two of the contract's names are the spec's words for things the screen
      says in its own: the cadence panel and the blanks count. Named here so the
      exception is visible rather than the test being loosened to let anything
@@ -243,7 +246,7 @@ test("every control on the designed screen is on the built one", () => {
      opener in one file pair with a closer in the next and swallow everything
      between, which hid two of the resizer's buttons and reported them missing. */
   const built = [
-    "plan.tsx", "resizer.tsx", "post-controls.tsx", "send-week.tsx",
+    "plan.tsx", "resizer.tsx", "post-controls.tsx", "send-posts.tsx",
   ]
     .map((f) => code(screen(f)))
     .join("\n");
@@ -268,7 +271,11 @@ test("every control on the designed screen is on the built one", () => {
      visible rather than the test being loosened until it passes. Both of the
      connect buttons used to live here; the line that explained them was inside
      "What you have posted", which went on 2026-09-18. */
-  const saidDifferently: Record<string, string> = {};
+  const saidDifferently: Record<string, string> = {
+    /* Same control, renamed when it stopped lying. On the mockup it said "Send
+       me this week" and downloaded a file; it now emails the posts they made. */
+    "Send me this week": "Email these to me",
+  };
 
   /**
    * On the mockup and deliberately not built, Raj 2026-09-16.
@@ -359,7 +366,7 @@ test("every class this tool uses is defined in a stylesheet", () => {
     [...css.matchAll(/(^|[\s,>+~])\.([a-zA-Z][a-zA-Z0-9_-]*)/g)].map((m) => m[2]),
   );
 
-  const views = ["plan.tsx", "resizer.tsx", "post-controls.tsx", "send-week.tsx", "content-social-planner.tsx"];
+  const views = ["plan.tsx", "resizer.tsx", "post-controls.tsx", "send-posts.tsx", "content-social-planner.tsx"];
   const used = new Set<string>();
   for (const v of views) {
     /* Interpolations are code, not classes. `className={`band ${mod}`}` was
@@ -396,7 +403,9 @@ test("the page is laid out in bands, which is the only landmark the system has",
      Checked across every file that renders one: this asserted plan.tsx alone
      and passed while the resizer's own heading, in its own file, stayed t-sub
      and rendered three points smaller than the six around it. */
-  const everyView = ["plan.tsx", "resizer.tsx", "post-controls.tsx", "send-week.tsx"]
+  /* make.tsx joined on 2026-09-18: it heads the dark band now, so its heading
+     is a section heading and has to be checked like the others. */
+  const everyView = ["plan.tsx", "resizer.tsx", "post-controls.tsx", "send-posts.tsx", "make.tsx"]
     .map(screen)
     .join("\n");
   const subHeadings = [...everyView.matchAll(/<h2 className="([^"]+)"/g)].map((m) => m[1]);
@@ -735,7 +744,7 @@ test("this tool writes no fetch of its own", () => {
    * and queues per host, and a comment arguing an exception is how a rule stops
    * being a rule.
    */
-  const files = ["plan.tsx", "resizer.tsx", "post-controls.tsx", "send-week.tsx", "channels.tsx", "content-social-planner.tsx"];
+  const files = ["plan.tsx", "resizer.tsx", "post-controls.tsx", "send-posts.tsx", "channels.tsx", "content-social-planner.tsx"];
   for (const f of files) {
     assert.doesNotMatch(code(screen(f)), /\bfetch\(/, `${f} fetches the web without going through lib/research`);
   }

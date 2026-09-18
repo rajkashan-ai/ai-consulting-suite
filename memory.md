@@ -388,3 +388,13 @@ was broken on purpose and watched go red.
   Graduate Stylist" through to "- Creative Director"), which is twelve long buttons on the photo
   path. Correct, and awkward to pick from on a phone. Grouping by service with the stylist grade
   as a second choice would be the fix, and it needs Raj's call before building.
+- `post-controls.tsx` and the `markPosted` action are referenced by nothing since "This week"
+  was removed on 18 September. Marking a post as gone out, with the link, no longer exists
+  anywhere in the planner, although `content_made` already has `posted_at` and `posted_url`
+  columns waiting for it. Left in place rather than deleted: Raj may want it on generated posts,
+  and that is his call.
+- Brand Persona is not in the screen's section contract in `references/not-written.md`. It is a
+  top-level band on the page and nothing would notice if it vanished, which is the exact failure
+  that list exists to stop. It happened to the resizer once already.
+- Emailing the posts needs AGENTMAIL_API_KEY and AGENTMAIL_INBOX. Until both are set the button
+  refuses and says so. The send itself has never run.

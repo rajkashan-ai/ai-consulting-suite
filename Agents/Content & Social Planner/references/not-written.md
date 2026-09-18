@@ -16,14 +16,24 @@ to this export before anything checked.
 
 ### The screen is a different list, and it is also a contract
 
-    This week
+    Make a post
     Resize a photo
     The rest of the month
 
 The screen holds one thing the document does not, and it does not belong in a
 file sent to a customer: the resizer.
 
-**Four sections were removed on 2026-09-18, on Raj's instruction**, and are not
+**"This week" was removed on 2026-09-18**, the written week of posts along with
+it. The generator above replaced it: a month written in advance is a calendar
+nobody asked for, and the posts an owner actually uses are the ones they ask for
+on the day. "The rest of the month" stays as the prompter for a blank Tuesday,
+and it no longer promises words that arrive on their own.
+
+Taking the posts away with you moved with it. It used to sit under the written
+week as "Send me this week", and it did not send: it read the rendered page for
+text and downloaded a file. It is now an email of the posts they made.
+
+**Four more sections were removed the same day, on Raj's instruction**, and are not
 coming back by accident: "What you have posted", "How often we suggest you
 post", "What you sound like" and "What we did not write", along with the summary
 strip and the three number cards above them. How they sound is now Brand Persona
