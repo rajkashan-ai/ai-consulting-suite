@@ -1,4 +1,5 @@
 import { test } from "node:test";
+import { asInspiration } from "../tools/content-social-planner/persona.ts";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -203,7 +204,28 @@ test("the planner counts nothing off a platform we are asked not to read", () =>
     .map((f) => readFileSync(join(dir, f), "utf8"))
     .join("\n");
 
-  for (const platform of ["instagram.com", "facebook.com", "tiktok.com", "linkedin.com"]) {
-    assert.ok(!source.includes(platform), `the planner fetches ${platform}`);
+  /**
+   * Fetched, not mentioned.
+   *
+   * This asserted the word appeared nowhere, which was right while the tool
+   * read only their own site. Brand Persona asks for a page whose writing they
+   * admire, so the planner now names these platforms in order to refuse them,
+   * which is honouring the block rather than working around it. A guard that
+   * cannot tell those apart would have to be weakened or ignored, and an
+   * ignored guard protects nothing.
+   *
+   * So: no read of one of these, and a refusal that a test can watch happen.
+   */
+  const reads = /\b(ctx\.read|fetchPage|fetch)\s*\(\s*[`"'][^`"']*(instagram|facebook|tiktok|linkedin|x)\.com/i;
+  assert.doesNotMatch(source, reads, "the planner fetches a platform that disallows us");
+
+  for (const handle of [
+    "https://www.instagram.com/someone/",
+    "https://facebook.com/someone",
+    "https://www.tiktok.com/@someone",
+  ]) {
+    const got = asInspiration(handle);
+    assert.ok(got && "error" in got, `${handle} was accepted as somewhere to read`);
+    assert.match(got.error, /asks us not to read it/);
   }
 });
