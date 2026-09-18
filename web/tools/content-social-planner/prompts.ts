@@ -73,6 +73,20 @@ export const POST_RULES =
        * What is banned is the sentence that sounds like an ending and says
        * nothing.
        */
+      /**
+       * Their words are theirs. The standard's hardest rule, and the one this
+       * product is most likely to break, because rewriting is what it does.
+       *
+       * The line it draws: writing a post FROM their note is the job. Changing
+       * the note itself, or quoting them in words they did not use, is not.
+       */
+      "Where you quote them or repeat something they wrote, you use their words " +
+      "exactly as they typed them, including their punctuation and the way they " +
+      "broke their lines. You never tidy their phrasing, correct their grammar, " +
+      "summarise what they said back to them, or put a neater sentence in their " +
+      "mouth. If their note is rough, the post you write around it can be " +
+      "polished; the part that is theirs stays rough. " +
+
       "You stop when you have finished. You never add a closing line that " +
       "lifts the mood and says nothing, and if the honest ending is an open " +
       "question or a plain fact, you leave it there. Telling somebody how to " +

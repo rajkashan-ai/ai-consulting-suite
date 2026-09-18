@@ -82,9 +82,43 @@ export const THOUGHT_MAX = 600;
  * from it goes through the same guards as every other post, so an invented
  * price in the output is caught where every other invented price is caught.
  */
+
+/**
+ * Their own words, tidied and not rewritten.
+ *
+ * CRITICAL, and this got it wrong. Both places that took the owner's raw prose
+ * ran `.replace(/\s+/g, " ")`, which collapses newlines along with spaces. So
+ *
+ *     Balayage, £95
+ *     Book two weeks ahead
+ *     Ask for Sarah
+ *
+ * reached the writer as one flat line, and the shape they typed, which is their
+ * cadence, was gone before anything read it. We then asked the writer to sound
+ * like them.
+ *
+ * Runs of spaces and tabs collapse, because "a" then eleven spaces then "b" is
+ * not thirteen characters of thought and the length guards depend on that. Line
+ * breaks survive. More than one blank line in a row becomes one, which is
+ * tidying the gaps rather than the prose.
+ *
+ * Nothing else is touched: not their capitals, not their punctuation, not their
+ * spelling, not a full stop they left off.
+ */
+export function asTheyTypedIt(raw: string): string {
+  return raw
+    .replace(/\r\n?/g, "\n")
+    .replace(/[^\S\n]+/g, " ")
+    .split("\n")
+    .map((line) => line.trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export function asThought(raw: unknown): { text: string } | { error: string } {
   if (typeof raw !== "string") return { error: "Tell us what happened and we will write it up." };
-  const text = raw.trim().replace(/\s+/g, " ");
+  const text = asTheyTypedIt(raw);
   if (text.length < THOUGHT_MIN) {
     return { error: "A few more words and we can work with it. What happened?" };
   }
@@ -245,7 +279,7 @@ export const NOTES_MAX = 500;
  */
 export function asNotes(raw: unknown): string {
   if (typeof raw !== "string") return "";
-  return raw.trim().replace(/\s+/g, " ").slice(0, NOTES_MAX);
+  return asTheyTypedIt(raw).slice(0, NOTES_MAX);
 }
 
 /**
