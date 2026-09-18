@@ -271,6 +271,17 @@ text on screen; the watchdog killing a resumed run; an American listing read
 for a UK town; a whole platform skipped; the writing step deciding who was on
 the card; prices never checked against the page they cite.
 
+- **A model told to refuse writes something anyway.** Told "if the photo is not that service,
+  say false and write nothing", it answered `shows: false` and wrote a full post in the same
+  reply. The design that works is to ask it to observe and to decide ourselves: the boolean is
+  read, the post is discarded. Never build a refusal that depends on the model withholding
+  output.
+- **The guards cannot see a mismatched source.** A post about a desk carrying the real £51 cut
+  price, cited to the real price list page, passes every check in `unsafe`: the price is
+  published, the page was read, the numbers are right. What was wrong was that the photo did not
+  show the service. Nothing numeric or named was false, and that is the only kind of false those
+  guards test for.
+
 ### Pending
 1. Prompt caching. Input went 78k to 179k when the grid split into four
    parallel calls. Time halved, money roughly flat. This buys it back.
@@ -342,6 +353,17 @@ was broken on purpose and watched go red.
 - **Three ways to ask for a post** in the planner: eight intent categories, a rough thought
   expanded, and starting from a photo shown disabled. The month plan stays as the prompter.
 
+- **A model told to refuse writes something anyway.** Told "if the photo is not that service,
+  say false and write nothing", it answered `shows: false` and wrote a full post in the same
+  reply. The design that works is to ask it to observe and to decide ourselves: the boolean is
+  read, the post is discarded. Never build a refusal that depends on the model withholding
+  output.
+- **The guards cannot see a mismatched source.** A post about a desk carrying the real £51 cut
+  price, cited to the real price list page, passes every check in `unsafe`: the price is
+  published, the page was read, the numbers are right. What was wrong was that the photo did not
+  show the service. Nothing numeric or named was false, and that is the only kind of false those
+  guards test for.
+
 ### Pending
 
 - **Workspace `2b6a7451-57fd-4cab-bf3a-c36d1e95e589` is a duplicate of A Cut Above and must
@@ -362,3 +384,7 @@ was broken on purpose and watched go red.
   reads as a live feature and is not one. Left in place on 18 September because deleting it
   deletes those assertions too. Either give it a consumer or drop it with its tests, but do
   not leave it looking wired up.
+- A Cut Above's services read off their site are twelve long names ("Ladies Cut & Finish -
+  Graduate Stylist" through to "- Creative Director"), which is twelve long buttons on the photo
+  path. Correct, and awkward to pick from on a phone. Grouping by service with the stylist grade
+  as a second choice would be the fix, and it needs Raj's call before building.
