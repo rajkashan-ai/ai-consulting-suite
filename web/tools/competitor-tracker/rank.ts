@@ -95,7 +95,7 @@ export function rank(found: Found[], you: You, take = 5): Scored[] {
   const everywhere = you.town ? [you.town] : [];
   const mostReviews = Math.max(1, ...found.map((f) => f.reviews ?? 0));
 
-  return found
+  const scored = found
     .map((f) => {
       const reasons: string[] = [];
       let score = 0;
@@ -157,8 +157,36 @@ export function rank(found: Found[], you: You, take = 5): Scored[] {
         because: reasons.length ? reasons.join(", ") : "nothing published we could compare",
       };
     })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, take);
+    .sort((a, b) => b.score - a.score);
+
+  /**
+   * Somebody we can compare, before somebody who is merely nearby.
+   *
+   * 2026-09-18. A Cut Above's comparison came back with five businesses and
+   * not one price in it. Every one of the five was an unclaimed Fresha stub:
+   * the venue page says in as many words "the business is not currently
+   * affiliated with or partnered with Fresha", which is why it prints service
+   * names and a phone number and no figures. Fresha prints prices for venues
+   * that book through Fresha, and these do not.
+   *
+   * Proximity is the heaviest factor at 3.0, and a business with nothing
+   * published beat one with everything published on being four hundred metres
+   * closer. The scoring already knew: those five came out carrying the words
+   * "nothing published we could compare", and went into the comparison anyway.
+   *
+   * So a published price now decides who is in before score decides the order.
+   * Within each half the score still ranks, so the nearest comparable business
+   * still wins among comparable businesses.
+   *
+   * NOT A FILTER, ON PURPOSE
+   * The ones with nothing top up the list rather than being thrown away. A run
+   * that refuses everybody produces the empty table this tool has already
+   * failed with twice, and a near neighbour we cannot price is still worth
+   * naming to the owner: they know who is across the road.
+   */
+  const comparable = scored.filter((f) => f.price !== null);
+  const unpriced = scored.filter((f) => f.price === null);
+  return [...comparable, ...unpriced].slice(0, take);
 }
 
 /**

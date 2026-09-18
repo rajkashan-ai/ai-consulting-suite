@@ -217,7 +217,12 @@ export const SPECIALIST: Directory[] = [
     covers: ["hair-and-beauty", "wellness"],
     carries: ["names", "ratings", "reviewCount", "prices", "services"],
     source: BIRDEYE,
-    reachable: { state: "untested" },
+    reachable: { state: "yes", checked: "2026-09-18" },
+    note:
+      "Read on 2026-09-18: robots allows /places/, and the St Albans hair salon " +
+      "list printed a ladies' cut and blow dry price for four salons. The one " +
+      "place we have found that carries women's salon prices: Booksy's hair " +
+      "salon category for the same town is barbers almost throughout.",
   },
   {
     name: "AutoTrader UK",
@@ -787,6 +792,30 @@ export function sourcesFor(trade: string | null): Directory[] {
  *
  * Never worked around, per CLAUDE.md 1.5. Left out, not retried.
  */
+/**
+ * Every platform that publishes prices for this trade, and that we can reach.
+ *
+ * 2026-09-18, and the rule behind it: never conclude a price is unpublished
+ * until every industry-equivalent platform has been asked. A single site check
+ * answers only whether that site prints a price.
+ *
+ * A Cut Above is the case. Booksy and Fresha were searched, and the honest
+ * answer from those two is that no comparable salon in St Albans publishes
+ * anything: Booksy's hair-salon category for that town is barbers almost
+ * throughout, and the five Fresha entries are unclaimed stubs that say so on
+ * the page. Treatwell prints a ladies' cut and blow dry for four St Albans
+ * salons. We stopped at two platforms and reported the answer the first two
+ * gave as though it were the answer.
+ *
+ * Returned in the list's own order, so the best-read platform is asked first
+ * and the caller decides how many it can afford.
+ */
+export function pricedSourcesFor(trade: string | null): Directory[] {
+  return sourcesFor(trade).filter(
+    (d) => d.carries.includes("prices") && d.reachable.state !== "blocked",
+  );
+}
+
 export function blockedHosts(): string[] {
   return [...GENERAL, ...SPECIALIST]
     .filter((d) => d.reachable.state === "blocked")

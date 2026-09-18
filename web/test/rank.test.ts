@@ -190,3 +190,51 @@ test("a street with no locality after it is still the same street", () => {
   assert.equal(sameArea("Smithfield Road", "37 Smithfield Road"), true);
   assert.equal(sameArea("Business Park", "37 Smithfield Road"), false);
 });
+
+/**
+ * 2026-09-18, from A Cut Above's comparison.
+ *
+ * Five businesses, no prices, every cell "Not published". All five were
+ * unclaimed Fresha stubs: their venue pages say "the business is not
+ * currently affiliated with or partnered with Fresha", so Fresha prints
+ * service names and a phone number and no figures.
+ *
+ * Proximity is the heaviest factor, so a business with nothing published beat
+ * one with everything published on being slightly closer.
+ */
+test("a business we can price beats a nearer one we cannot", () => {
+  const out = rank(
+    [
+      one({ name: "stub", area: "High Street", miles: 0.1, price: null }),
+      one({ name: "priced", area: "Far Lane", miles: 2.5, price: 48 }),
+    ],
+    { area: "High Street", town: "St Albans", price: 51 },
+    2,
+  );
+  assert.equal(out[0].name, "priced", "a comparison with no prices in it is not a comparison");
+});
+
+test("the unpriced still top up the list, so the table is never empty", () => {
+  const out = rank(
+    [
+      one({ name: "priced", price: 48 }),
+      one({ name: "stub a", price: null, reviews: 400 }),
+      one({ name: "stub b", price: null, reviews: 10 }),
+    ],
+    { area: null, price: 51 },
+    3,
+  );
+  assert.deepEqual(out.map((o) => o.name), ["priced", "stub a", "stub b"]);
+});
+
+test("score still decides the order among businesses we can price", () => {
+  const out = rank(
+    [
+      one({ name: "far", price: 50, miles: 2.8 }),
+      one({ name: "near", price: 50, miles: 0.2 }),
+    ],
+    { area: null, price: 51 },
+    2,
+  );
+  assert.equal(out[0].name, "near");
+});

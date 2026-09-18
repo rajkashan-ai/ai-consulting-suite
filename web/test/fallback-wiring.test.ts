@@ -253,8 +253,24 @@ test("a host we searched for and got nothing from is carried back as blank", asy
     { playbook: null },
   );
 
-  assert.deepEqual(state.targetedHosts, ["bark.com", "trustpilot.com"]);
-  assert.deepEqual(state.blankHosts, ["bark.com", "trustpilot.com"]);
+  /**
+   * The owner's two, then every platform that publishes a price for this trade.
+   *
+   * It was the owner's two and nothing else. Two searches then decided whether
+   * anybody in the town publishes a price, and for A Cut Above the two we ran
+   * said no while Treatwell said four salons.
+   */
+  assert.deepEqual(state.targetedHosts, [
+    "bark.com",
+    "trustpilot.com",
+    "booksy.com",
+    "fresha.com",
+    "treatwell.co.uk",
+  ]);
+  // Bark and Trustpilot were asked and gave nothing. So were the price
+  // platforms the fixture has no results for.
+  assert.ok(state.blankHosts?.includes("bark.com"));
+  assert.ok(state.blankHosts?.includes("trustpilot.com"));
 });
 
 test("a host that gave us a listing is never counted blank", async () => {
@@ -262,7 +278,12 @@ test("a host that gave us a listing is never counted blank", async () => {
 
   const learned = (state.learned ?? []).map((p) => p.host);
   assert.ok(learned.includes("booksy.com"), `the listing was not learned: ${learned.join()}`);
-  assert.deepEqual(state.blankHosts, [], "a host that worked was counted against itself");
+  // Booksy served the listing, so it is not blank. Treatwell is asked now too,
+  // and the fixture has nothing for it, so being blank is the honest record.
+  assert.ok(
+    !(state.blankHosts ?? []).includes("booksy.com"),
+    "a host that worked was counted against itself",
+  );
 });
 
 // ---------------------------------------------------------------------------

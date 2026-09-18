@@ -22,6 +22,7 @@ import type { Business, ToolContext } from "../types.ts";
 import { isProfile, profileFor } from "./profile.ts";
 import { exhausted, isDeadEnd, type Playbook } from "./playbook.ts";
 import { bestFirst, whereToLook } from "./where.ts";
+import { pricedSourcesFor } from "../sources/uk-directories.ts";
 import { ageOf, enoughToUse, type Kept } from "./remember.ts";
 import { fetchable } from "../identity.ts";
 import { townInUrl } from "../place.ts";
@@ -695,7 +696,23 @@ async function search(state: RunState, business: Business, ctx: ToolContext): Pr
    * ones are the floor: they are what worked before any playbook existed, and
    * they cost a few pence against a run that otherwise fails entirely.
    */
-  const targetedHosts = known.slice(0, 2);
+  /**
+   * The first two, and every platform that publishes prices, whichever they are.
+   *
+   * It was `known.slice(0, 2)`, so a trade with three price-carrying platforms
+   * only ever had two of them asked. For hair and beauty the third is
+   * Treatwell, and Treatwell is the one that prints a ladies' cut and blow dry
+   * for St Albans salons. Two searches produced "nobody publishes a price",
+   * which was true of the two we ran and false of the town.
+   *
+   * Never conclude a price is unpublished until every industry-equivalent
+   * platform has been asked. Uncapped on purpose: the most any trade has is
+   * four (restaurants), and hair, barbering and garages have three, two and
+   * none. The term budget below is what keeps it honest, and the broad terms
+   * still get two slots, which is what worked before any of this existed.
+   */
+  const priced = pricedSourcesFor(business.trade).map((d) => d.host);
+  const targetedHosts = [...new Set([...known.slice(0, 2), ...priced.filter((h) => known.includes(h))])];
   const targeted = targetedHosts.map((host) => ({
     term: `${profile.trade} ${profile.town} site:${host}`,
     why:
@@ -706,7 +723,7 @@ async function search(state: RunState, business: Business, ctx: ToolContext): Pr
           : `${host} is recorded as listing this trade`,
   }));
 
-  const terms = [...targeted, ...buildSearchTerms(profile)].slice(0, 5);
+  const terms = [...targeted, ...buildSearchTerms(profile)].slice(0, 8);
 
   // The search tool config comes from the agent because it carries
   // user_location. Without it this same search returns Shrewsbury Pennsylvania
@@ -779,7 +796,29 @@ async function listings(state: RunState, business: Business, ctx: ToolContext): 
 
       // A listing, for this country, for this town. All three, or it is
       // somebody else's town or somebody else's country.
-      const isListing = /\/(s|lp|search|browse)\//.test(url) || /\/in\/gb-/.test(url);
+      /**
+       * 2026-09-18. `places` was missing, and it cost every women's salon price
+       * in St Albans.
+       *
+       * The two shapes here were Booksy's `/s/` and Fresha's `/lp/` and
+       * `/in/gb-`, written around the two platforms a working run happened to
+       * use. Treatwell's listing is `/places/at-hair-salon/in-st-albans-uk/`,
+       * so it matched neither and was thrown away before it was ever fetched,
+       * although it sits in our own vetted directory list marked as carrying
+       * prices.
+       *
+       * That page prints a ladies' cut and blow dry price for four St Albans
+       * salons: Sanrizz from £44, Alley Cats £50, Quadrant from £52, Lee Moran
+       * from £40. Directly comparable with A Cut Above's £51 to £68, which is
+       * the comparison this tool exists to make, and we never saw it.
+       *
+       * Booksy's hair-salon category in this town returns twelve barbers and a
+       * make-up artist, so on Booksy alone the honest answer for a women's
+       * salon is that nobody comparable publishes anything. On Treatwell it is
+       * four salons with prices. One platform was the whole difference.
+       */
+      const isListing =
+        /\/(s|lp|places|search|browse)\//.test(url) || /\/in\/gb-/.test(url);
 
       /**
        * A trusted host still has to serve a listing.
