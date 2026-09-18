@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  body { margin: 0; background: #0f1620; }
+  a { color: #8c9aad; text-decoration: none; }
+  a:hover { color: #f2547d; }
+  @keyframes pulseDim { 0%,100% { opacity: 0.35; } 50% { opacity: 1; } }
+</style>
+</helmet>
+
+<section style="font-family: 'Manrope', system-ui, sans-serif; background: #0f1620; color: #fafaf8; width: max-content; min-width: 100%; box-sizing: border-box; padding: 64px 64px 96px; display: flex; flex-direction: column; gap: 56px;">
+
+  <div style="display: flex; flex-direction: column; gap: 18px; max-width: 900px;">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: #7a879a;">Turn 2 · direction 1a · instrument</div>
+    <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 56px; line-height: 1.03; letter-spacing: -0.03em; font-weight: 700;">Instrument, built out</h1>
+    <p style="margin: 0; font-size: 19px; line-height: 1.55; color: #a7b3c2; max-width: 62ch; text-wrap: pretty;">Suite home, the Content &amp; Social Planner, and the tracker on a phone. Same tokens throughout: navy grounds, berry for anything that acts, lime used only where an agent is alive. The component spec at the bottom is the handoff.</p>
+    <div style="display: flex; gap: 28px; flex-wrap: wrap; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: #7a879a; padding-top: 6px;">
+      <span>ids: <a href="#2a">2a</a> home · <a href="#2b">2b</a> planner · <a href="#2c">2c</a> mobile · <a href="#2d">2d</a> spec</span>
+    </div>
+  </div>
+
+  <!-- ============ 2a · SUITE HOME ============ -->
+  <div id="2a" style="display: flex; flex-direction: column; gap: 22px;">
+    <div style="display: flex; align-items: baseline; gap: 16px;">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #fafaf8; background: #a61e4d; padding: 5px 9px; border-radius: 4px;">2a</span>
+      <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 30px; letter-spacing: -0.02em; font-weight: 600;">Suite home</h2>
+      <span style="font-size: 15px; color: #8c9aad;">What the agents did overnight, and what needs you.</span>
+    </div>
+
+    <div style="width: 1240px; border-radius: 18px; overflow: hidden; background: #121a26; border: 1px solid #263449; box-shadow: 0 30px 60px -30px rgba(0,0,0,0.8);">
+      <div style="display: grid; grid-template-columns: 216px minmax(0,1fr);">
+
+        <div style="background: #0e1520; border-right: 1px solid #263449; padding: 20px 14px; display: flex; flex-direction: column; gap: 24px;">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 0 6px;">
+            <div style="width: 28px; height: 28px; border-radius: 8px; background: #a61e4d; color: #fafaf8; display: grid; place-items: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px;">H</div>
+            <div style="display: flex; flex-direction: column;">
+              <span style="font-family: 'Space Grotesk', sans-serif; font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em;">A Cut Above</span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #7a879a;">st albans · 6 staff</span>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <sc-for list="{{ navHome }}" as="n" hint-placeholder-count="6">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 9px; background: {{ n.bg }}; cursor: pointer;" style-hover="background: #1a2536">
+                <span style="width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; background: {{ n.chip }}; color: {{ n.chipFg }};">{{ n.k }}</span>
+                <span style="font-size: 14px; font-weight: 600; color: {{ n.fg }};">{{ n.label }}</span>
+                <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8c9aad;">{{ n.state }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="margin-top: auto; padding: 12px; border-radius: 12px; background: #1a2536; border: 1px solid #263449; display: flex; flex-direction: column; gap: 8px;">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #7a879a;">this month</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 22px; color: #fafaf8;">14h 20m</span>
+            <span style="font-size: 12px; color: #8c9aad; line-height: 1.4;">saved across 3 agents</span>
+          </div>
+        </div>
+
+        <div style="min-width: 0; display: flex; flex-direction: column;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px 28px; border-bottom: 1px solid #263449;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a879a;">Thursday 18 September</span>
+              <span style="display: flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #d7ff4f;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #d7ff4f; animation: pulseDim 2.4s ease-in-out infinite;"></span>3 agents running</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="display: flex; align-items: center; gap: 8px; background: #1a2536; border: 1px solid #2c3b52; border-radius: 8px; padding: 8px 12px; width: 230px;">
+                <span style="font-size: 13px; color: #7a879a;">Find a service, salon or post</span>
+                <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #8c9aad;">⌘K</span>
+              </div>
+              <button style="font-family: 'Manrope', sans-serif; font-size: 13px; font-weight: 700; color: #fafaf8; background: #a61e4d; border: none; border-radius: 8px; padding: 10px 14px; cursor: pointer;" style-hover="background: #c42d5f">New post</button>
+            </div>
+          </div>
+
+          <div style="padding: 28px; display: flex; flex-direction: column; gap: 26px;">
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 27px; letter-spacing: -0.02em; font-weight: 600;">Three things worth your attention</h3>
+              <p style="margin: 0; font-size: 14.5px; color: #8c9aad;">Everything else is handled. Nothing here needs more than a minute.</p>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px;">
+              <sc-for list="{{ attention }}" as="a" hint-placeholder-count="3">
+                <div style="display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 14px; background: #1a2536; border: 1px solid #263449; cursor: pointer;" style-hover="border-color: #3a4c68">
+                  <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; padding: 4px 7px; border-radius: 4px; background: {{ a.tagBg }}; color: {{ a.tagFg }};">{{ a.tag }}</span>
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #8c9aad;">{{ a.when }}</span>
+                  </div>
+                  <span style="font-family: 'Space Grotesk', sans-serif; font-size: 18px; line-height: 1.25; letter-spacing: -0.01em; font-weight: 600;">{{ a.title }}</span>
+                  <span style="font-size: 13.5px; line-height: 1.5; color: #a7b3c2;">{{ a.body }}</span>
+                  <div style="display: flex; align-items: center; gap: 10px; margin-top: auto; padding-top: 6px;">
+                    <button style="font-family: 'Manrope', sans-serif; font-size: 12.5px; font-weight: 700; color: #fafaf8; background: #a61e4d; border: none; border-radius: 7px; padding: 8px 12px; cursor: pointer;" style-hover="background: #c42d5f">{{ a.action }}</button>
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #7a879a;">{{ a.second }}</span>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="display: grid; grid-template-columns: minmax(0,1.25fr) minmax(0,1fr); gap: 24px;">
+              <div style="display: flex; flex-direction: column; gap: 12px;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a879a;">Your tools</span>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                  <sc-for list="{{ tools }}" as="t" hint-placeholder-count="2">
+                    <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 12px; background: {{ t.bg }}; border: 1px solid {{ t.border }};">
+                      <div style="display: flex; align-items: center; gap: 9px;">
+                        <span style="width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; background: {{ t.chip }}; color: {{ t.chipFg }};">{{ t.k }}</span>
+                        <span style="font-size: 14.5px; font-weight: 700; color: {{ t.fg }};">{{ t.name }}</span>
+                        <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: {{ t.stateFg }};">{{ t.state }}</span>
+                      </div>
+                      <span style="font-size: 12.5px; line-height: 1.45; color: #8c9aad;">{{ t.line }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #8c9aad; line-height: 1.5;">{{ coming }}</span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 12px; min-width: 0;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a879a;">Overnight</span>
+                <div style="display: flex; flex-direction: column;">
+                  <sc-for list="{{ activity }}" as="v" hint-placeholder-count="5">
+                    <div style="display: grid; grid-template-columns: 54px minmax(0,1fr); gap: 12px; padding: 10px 0; border-bottom: 1px solid #1e2a3a;">
+                      <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8c9aad;">{{ v.time }}</span>
+                      <span style="font-size: 13px; line-height: 1.45; color: #a7b3c2;">{{ v.text }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 2b · CONTENT PLANNER ============ -->
+  <div id="2b" style="display: flex; flex-direction: column; gap: 22px;">
+    <div style="display: flex; align-items: baseline; gap: 16px;">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #fafaf8; background: #a61e4d; padding: 5px 9px; border-radius: 4px;">2b</span>
+      <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 30px; letter-spacing: -0.02em; font-weight: 600;">Content &amp; Social Planner</h2>
+      <span style="font-size: 15px; color: #8c9aad;">Three ways in, one draft open, the month as a rail not a grid.</span>
+    </div>
+
+    <div style="width: 1240px; border-radius: 18px; overflow: hidden; background: #121a26; border: 1px solid #263449; box-shadow: 0 30px 60px -30px rgba(0,0,0,0.8);">
+      <div style="display: grid; grid-template-columns: 216px minmax(0,1fr);">
+        <div style="background: #0e1520; border-right: 1px solid #263449; padding: 20px 14px; display: flex; flex-direction: column; gap: 24px;">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 0 6px;">
+            <div style="width: 28px; height: 28px; border-radius: 8px; background: #a61e4d; color: #fafaf8; display: grid; place-items: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px;">H</div>
+            <span style="font-family: 'Space Grotesk', sans-serif; font-size: 14.5px; font-weight: 600;">A Cut Above</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <sc-for list="{{ navPlanner }}" as="n" hint-placeholder-count="6">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 9px; background: {{ n.bg }}; cursor: pointer;" style-hover="background: #1a2536">
+                <span style="width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; background: {{ n.chip }}; color: {{ n.chipFg }};">{{ n.k }}</span>
+                <span style="font-size: 14px; font-weight: 600; color: {{ n.fg }};">{{ n.label }}</span>
+                <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8c9aad;">{{ n.state }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px;">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #7a879a;">September</span>
+            <div style="display: flex; gap: 3px; flex-wrap: wrap;">
+              <sc-for list="{{ month }}" as="d" hint-placeholder-count="30">
+                <span style="width: 21px; height: 21px; border-radius: 4px; display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; background: {{ d.bg }}; color: {{ d.fg }};">{{ d.n }}</span>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <div style="min-width: 0; display: grid; grid-template-columns: minmax(0,1fr) 352px;">
+          <div style="min-width: 0; border-right: 1px solid #263449; display: flex; flex-direction: column;">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 26px; border-bottom: 1px solid #263449;">
+              <div style="display: flex; align-items: baseline; gap: 12px;">
+                <span style="font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 600;">3 posts you made</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #7a879a;">today · 1 scheduled, 2 drafts</span>
+              </div>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #7a879a;">the month is only the prompter</span>
+            </div>
+
+            <div style="display: flex; gap: 10px; padding: 16px 26px; border-bottom: 1px solid #1e2a3a;">
+              <sc-for list="{{ starters }}" as="s" hint-placeholder-count="3">
+                <div style="display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 11px; background: {{ s.bg }}; border: 1px solid {{ s.border }}; cursor: pointer; min-width: 0; flex: 1;" style-hover="border-color: #a61e4d">
+                  <span style="font-size: 14px; font-weight: 700; color: {{ s.fg }};">{{ s.label }}</span>
+                  <span style="font-size: 12px; color: #8c9aad;">{{ s.hint }}</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="padding: 20px 26px; display: flex; flex-direction: column; gap: 12px;">
+              <sc-for list="{{ drafts }}" as="d" hint-placeholder-count="3">
+                <div style="display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 14px; background: {{ d.bg }}; border: 1px solid {{ d.border }};">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; padding: 4px 7px; border-radius: 4px; background: {{ d.tagBg }}; color: {{ d.tagFg }};">{{ d.tag }}</span>
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #7a879a;">{{ d.date }}</span>
+                    <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: {{ d.stateFg }};">{{ d.state }}</span>
+                  </div>
+                  <p style="margin: 0; font-size: 15px; line-height: 1.55; color: #e6ebf2; max-width: 58ch; text-wrap: pretty;">{{ d.body }}</p>
+                  <div style="display: flex; align-items: center; gap: 10px; padding-top: 4px;">
+                    <button style="font-family: 'Manrope', sans-serif; font-size: 12.5px; font-weight: 700; color: #fafaf8; background: #a61e4d; border: none; border-radius: 7px; padding: 8px 12px; cursor: pointer;" style-hover="background: #c42d5f">{{ d.action }}</button>
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #7a879a;">edit</span>
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #7a879a;">rewrite</span>
+                    <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #8c9aad;">{{ d.meta }}</span>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="padding: 20px; background: #0e1520; display: flex; flex-direction: column; gap: 18px; min-width: 0;">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a879a;">The photograph to take</span>
+            <div style="height: 168px; border-radius: 12px; border: 1px dashed #2c3b52; background-image: repeating-linear-gradient(135deg, #16202d 0 8px, #1a2536 8px 16px); display: grid; place-items: center;">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #7a879a;">your photo goes here</span>
+            </div>
+            <p style="margin: 0; font-size: 13.5px; line-height: 1.55; color: #a7b3c2;">Close side profile of the finished cut, focus on the graduated colour from root to tip, soft natural light, no face visible.</p>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <sc-for list="{{ evidence }}" as="e" hint-placeholder-count="3">
+                <div style="display: flex; flex-direction: column; gap: 2px; padding: 9px 11px; background: #121a26; border-left: 2px solid {{ e.rule }};">
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: {{ e.rule }};">{{ e.k }}</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8c9aad; line-height: 1.45;">{{ e.v }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px;">
+              <button style="font-family: 'Manrope', sans-serif; font-size: 13.5px; font-weight: 700; color: #fafaf8; background: #a61e4d; border: none; border-radius: 9px; padding: 12px; cursor: pointer;" style-hover="background: #c42d5f">Schedule all three</button>
+              <button style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #8c9aad; background: transparent; border: 1px solid #263449; border-radius: 9px; padding: 11px; cursor: pointer;" style-hover="border-color: #3a4c68">export to buffer</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 2c · MOBILE ============ -->
+  <div id="2c" style="display: flex; flex-direction: column; gap: 22px;">
+    <div style="display: flex; align-items: baseline; gap: 16px;">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #fafaf8; background: #a61e4d; padding: 5px 9px; border-radius: 4px;">2c</span>
+      <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 30px; letter-spacing: -0.02em; font-weight: 600;">Competitor Tracker, 390px</h2>
+      <span style="font-size: 15px; color: #8c9aad;">The table becomes a list. One tier at a time, tier switched at the top.</span>
+    </div>
+
+    <div style="display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap;">
+      <div style="width: 390px; border-radius: 34px; overflow: hidden; background: #121a26; border: 8px solid #060a12; box-shadow: 0 30px 60px -24px rgba(0,0,0,0.9);">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 22px 6px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #fafaf8;">
+          <span>9:41</span><span style="display: flex; gap: 5px;"><span style="width: 16px; height: 8px; border-radius: 2px; background: #7a879a;"></span><span style="width: 20px; height: 8px; border-radius: 2px; background: #fafaf8;"></span></span>
+        </div>
+
+        <div style="padding: 10px 18px 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #263449;">
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #7a879a;">Competitor tracker</span>
+            <span style="font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 600; letter-spacing: -0.01em;">Cut &amp; finish</span>
+          </div>
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: #1a2536; border: 1px solid #2c3b52; display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8c9aad;">⌄</div>
+        </div>
+
+        <div style="display: flex; gap: 8px; padding: 12px 18px; overflow: hidden;">
+          <sc-for list="{{ tiers }}" as="t" hint-placeholder-count="3">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 9px 12px; border-radius: 8px; white-space: nowrap; background: {{ t.bg }}; color: {{ t.fg }}; border: 1px solid {{ t.border }};">{{ t.label }}</span>
+          </sc-for>
+        </div>
+
+        <div style="margin: 0 18px 14px; padding: 14px; border-radius: 12px; background: #1a2536; border: 1px solid #263449; display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; flex-direction: column; gap: 3px;">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #7a879a;">Market median</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 22px; color: #fafaf8;">£85.50</span>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 3px;">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #7a879a;">You</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 22px; color: #fafaf8;">£98.00</span>
+          </div>
+        </div>
+
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+          <div style="padding: 14px 18px; border-bottom: 1px solid #1e2a3a; display: flex; flex-direction: column; gap: 9px; min-height: 44px;">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px;">
+              <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+                <span style="font-size: 15px; font-weight: 700; color: #fafaf8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ r.name }}</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #7a879a; border: 1px solid #2c3b52; border-radius: 3px; padding: 2px 5px;">{{ r.tag }}</span>
+              </div>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; color: #d3dbe6;">{{ r.t3 }}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="position: relative; height: 5px; flex: 1; border-radius: 3px; background: #1e2a3a;">
+                <div style="position: absolute; top: 0; bottom: 0; left: 0; border-radius: 3px; background: #33465f; width: {{ r.pos }};"></div>
+                <div style="position: absolute; top: -3px; width: 2px; height: 11px; background: #fafaf8; left: {{ r.pos }};"></div>
+              </div>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: {{ r.deltaDark }}; width: 62px; text-align: right;">{{ r.delta }}</span>
+            </div>
+          </div>
+        </sc-for>
+
+        <div style="padding: 14px 18px; display: flex; flex-direction: column; gap: 10px;">
+          <button style="font-family: 'Manrope', sans-serif; font-size: 15px; font-weight: 700; color: #fafaf8; background: #a61e4d; border: none; border-radius: 12px; padding: 15px; cursor: pointer; width: 100%;">Re-check prices</button>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #8c9aad; text-align: center;">last read 17 Sept · 4 price lists</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid #263449; background: #0e1520;">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 12px 0 20px; min-height: 44px;">
+              <span style="width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; background: {{ t.chip }}; color: {{ t.chipFg }};">{{ t.k }}</span>
+              <span style="font-size: 10.5px; font-weight: 600; color: {{ t.fg }};">{{ t.label }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="width: 390px; border-radius: 34px; overflow: hidden; background: #121a26; border: 8px solid #060a12; box-shadow: 0 30px 60px -24px rgba(0,0,0,0.9); display: flex; flex-direction: column;">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 22px 6px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #fafaf8;">
+          <span>9:41</span><span style="display: flex; gap: 5px;"><span style="width: 16px; height: 8px; border-radius: 2px; background: #7a879a;"></span><span style="width: 20px; height: 8px; border-radius: 2px; background: #fafaf8;"></span></span>
+        </div>
+        <div style="padding: 24px 18px 18px; border-bottom: 1px solid #263449; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #7a879a;">The Chair</span>
+          <span style="font-family: 'Space Grotesk', sans-serif; font-size: 34px; font-weight: 600; letter-spacing: -0.02em;">£60.00</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #f2547d;">29.8% under your director price</span>
+        </div>
+        <div style="padding: 18px; display: flex; flex-direction: column; gap: 10px;">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a879a;">Where this came from</span>
+          <sc-for list="{{ evidenceMobile }}" as="e" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; background: #1a2536; border-left: 2px solid {{ e.rule }};">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: {{ e.rule }};">{{ e.k }}</span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8c9aad; line-height: 1.45;">{{ e.v }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="padding: 4px 18px 18px; display: flex; flex-direction: column; gap: 10px; margin-top: auto;">
+          <div style="display: flex; align-items: center; gap: 9px; padding: 13px 14px; border-radius: 11px; background: #1a2536; border: 1px solid #263449;">
+            <span style="width: 7px; height: 7px; border-radius: 50%; background: #d7ff4f; animation: pulseDim 1.6s ease-in-out infinite;"></span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #a7b3c2;">writing a response post…</span>
+          </div>
+          <button style="font-family: 'Manrope', sans-serif; font-size: 15px; font-weight: 700; color: #fafaf8; background: #a61e4d; border: none; border-radius: 12px; padding: 15px; cursor: pointer;">Watch this salon</button>
+        </div>
+      </div>
+
+      <div style="width: 300px; display: flex; flex-direction: column; gap: 14px;">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a879a;">Mobile rules</span>
+        <sc-for list="{{ mobileRules }}" as="m" hint-placeholder-count="5">
+          <div style="display: flex; flex-direction: column; gap: 3px; padding-bottom: 12px; border-bottom: 1px solid #1e2a3a;">
+            <span style="font-size: 13.5px; font-weight: 700; color: #d3dbe6;">{{ m.k }}</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #8c9aad; line-height: 1.5;">{{ m.v }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 2d · SPEC ============ -->
+  <div id="2d" style="display: flex; flex-direction: column; gap: 22px;">
+    <div style="display: flex; align-items: baseline; gap: 16px;">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #fafaf8; background: #a61e4d; padding: 5px 9px; border-radius: 4px;">2d</span>
+      <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 30px; letter-spacing: -0.02em; font-weight: 600;">The handoff</h2>
+      <span style="font-size: 15px; color: #8c9aad;">Tokens shared with the website, components owned by the product.</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 32px; max-width: 1240px;">
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a879a;">Colour</span>
+        <sc-for list="{{ palette }}" as="p" hint-placeholder-count="9">
+          <div style="display: grid; grid-template-columns: 40px 1fr 90px; gap: 12px; align-items: center; padding-bottom: 9px; border-bottom: 1px solid #1e2a3a;">
+            <div style="height: 28px; border-radius: 6px; border: 1px solid #2c3b52; background: {{ p.hex }};"></div>
+            <div style="display: flex; flex-direction: column;">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #d3dbe6;">{{ p.name }}</span>
+              <span style="font-size: 11.5px; color: #7a879a;">{{ p.use }}</span>
+            </div>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8c9aad; text-align: right;">{{ p.hex }}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a879a;">Type, space, motion</span>
+        <sc-for list="{{ system }}" as="s" hint-placeholder-count="9">
+          <div style="display: grid; grid-template-columns: 96px minmax(0,1fr); gap: 14px; padding-bottom: 9px; border-bottom: 1px solid #1e2a3a;">
+            <span style="font-size: 13px; font-weight: 700; color: #d3dbe6;">{{ s.k }}</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #8c9aad; line-height: 1.55;">{{ s.v }}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a879a;">Components to build</span>
+        <sc-for list="{{ components }}" as="c" hint-placeholder-count="8">
+          <div style="display: flex; flex-direction: column; gap: 3px; padding-bottom: 9px; border-bottom: 1px solid #1e2a3a;">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #f2547d;">{{ c.k }}</span>
+            <span style="font-size: 12.5px; color: #8c9aad; line-height: 1.5;">{{ c.v }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="max-width: 1240px; padding: 22px 24px; border-radius: 14px; background: #121a26; border: 1px solid #263449; display: flex; flex-direction: column; gap: 10px;">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a879a;">Shared with highintentlabs.com</span>
+      <p style="margin: 0; font-size: 14.5px; line-height: 1.6; color: #a7b3c2; max-width: 84ch; text-wrap: pretty;">The site keeps the navy logo, the off-white ground and berry as its one accent — it sells, so it stays light, editorial and roomy. The product inverts the same three tokens onto a navy ground and adds two the site never uses: charge lime for a live agent, and the evidence stamp. Nothing else differs. Same fonts, same 4px step, same radii, same 160ms curve.</p>
+    </div>
+  </div>
+</section>
+
+
+<section style="font-family: 'Manrope', system-ui, sans-serif; background: #0f1620; color: #fafaf8; width: max-content; min-width: 100%; box-sizing: border-box; padding: 0 64px 96px; display: flex; flex-direction: column; gap: 56px;">
+
+  <!-- ============ 2e · FIRST RUN ============ -->
+  <div id="2e" style="display: flex; flex-direction: column; gap: 22px;">
+    <div style="display: flex; align-items: baseline; gap: 16px;">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #fafaf8; background: #a61e4d; padding: 5px 9px; border-radius: 4px;">2e</span>
+      <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 30px; letter-spacing: -0.02em; font-weight: 600;">Day one</h2>
+      <span style="font-size: 15px; color: #8c9aad;">No agents, no history, nothing worth your attention yet. Same shell, three steps.</span>
+    </div>
+
+    <div style="width: 1240px; border-radius: 18px; overflow: hidden; background: #121a26; border: 1px solid #263449; box-shadow: 0 30px 60px -30px rgba(0,0,0,0.8);">
+      <div style="display: grid; grid-template-columns: 216px minmax(0,1fr);">
+        <div style="background: #0e1520; border-right: 1px solid #263449; padding: 20px 14px; display: flex; flex-direction: column; gap: 24px;">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 0 6px;">
+            <div style="width: 28px; height: 28px; border-radius: 8px; background: #a61e4d; color: #fafaf8; display: grid; place-items: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px;">H</div>
+            <span style="font-family: 'Space Grotesk', sans-serif; font-size: 14.5px; font-weight: 600; color: #8c9aad;">Your business</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <sc-for list="{{ navFirst }}" as="n" hint-placeholder-count="6">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 9px; background: {{ n.bg }};">
+                <span style="width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; background: {{ n.chip }}; color: {{ n.chipFg }};">{{ n.k }}</span>
+                <span style="font-size: 14px; font-weight: 600; color: {{ n.fg }};">{{ n.label }}</span>
+                <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8c9aad;">{{ n.state }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="margin-top: auto; padding: 12px; border-radius: 12px; background: #141d2a; border: 1px dashed #263449;">
+            <span style="font-size: 12px; color: #8c9aad; line-height: 1.45;">Time saved shows up here once an agent has run.</span>
+          </div>
+        </div>
+
+        <div style="min-width: 0; display: flex; flex-direction: column;">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; border-bottom: 1px solid #263449;">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a879a;">Thursday 18 September · first visit</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8c9aad;">no agents running yet</span>
+          </div>
+
+          <div style="padding: 32px 28px; display: flex; flex-direction: column; gap: 28px;">
+            <div style="display: flex; flex-direction: column; gap: 10px; max-width: 60ch;">
+              <h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 32px; line-height: 1.1; letter-spacing: -0.025em; font-weight: 600;">Three things from you, then it runs on its own</h3>
+              <p style="margin: 0; font-size: 15.5px; line-height: 1.6; color: #a7b3c2; text-wrap: pretty;">You will not see a dashboard until there is something real in it. Start with the first step — the other two can wait until tomorrow.</p>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px;">
+              <sc-for list="{{ setup }}" as="s" hint-placeholder-count="3">
+                <div style="display: flex; flex-direction: column; gap: 12px; padding: 20px; border-radius: 14px; background: {{ s.bg }}; border: 1px solid {{ s.border }};">
+                  <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <span style="width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-size: 12px; background: {{ s.tone }}; color: {{ s.fg }};">{{ s.n }}</span>
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #8c9aad;">{{ s.state }}</span>
+                  </div>
+                  <span style="font-family: 'Space Grotesk', sans-serif; font-size: 18px; line-height: 1.25; letter-spacing: -0.01em; font-weight: 600;">{{ s.title }}</span>
+                  <span style="font-size: 13.5px; line-height: 1.5; color: #a7b3c2;">{{ s.body }}</span>
+                  <button style="font-family: 'Manrope', sans-serif; font-size: 12.5px; font-weight: 700; color: #fafaf8; background: #a61e4d; border: none; border-radius: 7px; padding: 9px 13px; cursor: pointer; align-self: flex-start; margin-top: auto;" style-hover="background: #c42d5f">{{ s.action }}</button>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 24px; padding-top: 4px;">
+              <div style="display: flex; flex-direction: column; gap: 12px;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a879a;">What happens after that</span>
+                <sc-for list="{{ firstThings }}" as="v" hint-placeholder-count="3">
+                  <div style="display: grid; grid-template-columns: 82px minmax(0,1fr); gap: 12px; padding: 10px 0; border-bottom: 1px solid #1e2a3a;">
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8c9aad;">{{ v.time }}</span>
+                    <span style="font-size: 13px; line-height: 1.45; color: #a7b3c2;">{{ v.text }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 12px;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a879a;">Your tools</span>
+                <div style="padding: 18px; border-radius: 14px; background: #141d2a; border: 1px dashed #263449; display: flex; flex-direction: column; gap: 8px;">
+                  <span style="font-size: 14.5px; font-weight: 700; color: #8c9aad;">Nothing needs you yet</span>
+                  <span style="font-size: 13px; line-height: 1.5; color: #8c9aad;">The Content Planner and Competitor Tracker switch on as soon as step one is done. They will bring you three things a day at most.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 2f · WHAT CHANGED ============ -->
+  <div id="2f" style="display: flex; flex-direction: column; gap: 22px;">
+    <div style="display: flex; align-items: baseline; gap: 16px;">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #fafaf8; background: #a61e4d; padding: 5px 9px; border-radius: 4px;">2f</span>
+      <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 30px; letter-spacing: -0.02em; font-weight: 600;">What changed since you last looked</h2>
+      <span style="font-size: 15px; color: #8c9aad;">The default view of the tracker. The full table is one click behind it.</span>
+    </div>
+
+    <div style="width: 1240px; border-radius: 18px; overflow: hidden; background: #121a26; border: 1px solid #263449; box-shadow: 0 30px 60px -30px rgba(0,0,0,0.8);">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 28px; border-bottom: 1px solid #263449;">
+        <div style="display: flex; align-items: baseline; gap: 12px;">
+          <span style="font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 600; letter-spacing: -0.015em;">3 changes since 12 September</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8c9aad;">director tier · 5 salons watched</span>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 8px 12px; border-radius: 7px; background: #a61e4d; color: #fafaf8;">Changed only</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 8px 12px; border-radius: 7px; background: #1a2536; border: 1px solid #2c3b52; color: #8c9aad;">Full table</span>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: minmax(0,1.3fr) 110px 110px 120px 96px minmax(0,1.1fr); padding: 12px 28px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: #8c9aad; border-bottom: 1px solid #263449;">
+        <span>Salon</span><span style="text-align: right;">Was</span><span style="text-align: right;">Now</span><span style="text-align: right;">Move</span><span style="text-align: right;">Read</span><span style="padding-left: 24px;">Worth knowing</span>
+      </div>
+
+      <sc-for list="{{ changed }}" as="c" hint-placeholder-count="5">
+        <div style="display: grid; grid-template-columns: minmax(0,1.3fr) 110px 110px 120px 96px minmax(0,1.1fr); align-items: center; padding: 16px 28px; border-bottom: 1px solid #1e2a3a; border-left: 3px solid {{ c.rule }}; background: {{ c.bg }};" style-hover="background: #16202d">
+          <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+            <span style="font-size: 15px; font-weight: 600; color: {{ c.nameFg }}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ c.name }}</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8c9aad; border: 1px solid #2c3b52; border-radius: 3px; padding: 2px 5px;">{{ c.tag }}</span>
+          </div>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; text-align: right; color: #8c9aad; text-decoration: {{ c.strike }};">{{ c.was }}</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; text-align: right; color: {{ c.nowFg }};">{{ c.now }}</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; text-align: right; color: {{ c.moveFg }};">{{ c.move }}</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; text-align: right; color: #8c9aad;">{{ c.when }}</span>
+          <span style="padding-left: 24px; font-size: 13px; color: #a7b3c2; line-height: 1.4;">{{ c.note }}</span>
+        </div>
+      </sc-for>
+
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px 28px; background: #0e1520;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #d7ff4f; animation: pulseDim 1.6s ease-in-out infinite;"></span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #a7b3c2;">writing a response post about The Chair…</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #8c9aad;">marked as read · <span style="color: #f2547d;">undo</span></span>
+          <button style="font-family: 'Manrope', sans-serif; font-size: 13px; font-weight: 700; color: #fafaf8; background: #a61e4d; border: none; border-radius: 8px; padding: 10px 14px; cursor: pointer;" style-hover="background: #c42d5f">Re-check prices</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 28px; max-width: 1240px; padding-top: 4px;">
+      <sc-for list="{{ fixes }}" as="x" hint-placeholder-count="4">
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #f2547d;">{{ x.k }}</span>
+          <span style="font-size: 14px; line-height: 1.6; color: #a7b3c2;">{{ x.v }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section></x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:&quot;100%&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const navRaw = [
+      { label: "Home", k: "H", state: "" },
+      { label: "Content Planner", k: "C", state: "" },
+      { label: "Competitor Tracker", k: "T", state: "" },
+      { label: "Profile Builder", k: "P", state: "soon" },
+      { label: "Reviews", k: "R", state: "soon" },
+      { label: "Settings", k: "S", state: "" }
+    ];
+    const nav = active => navRaw.map(n => {
+      const on = n.label === active;
+      return { ...n,
+        bg: on ? "#1a2536" : "transparent",
+        fg: on ? "#fafaf8" : "#8c9aad",
+        chip: on ? "#a61e4d" : "#1e293b",
+        chipFg: on ? "#fafaf8" : "#7a879a" };
+    });
+
+    const rows = [
+      { name: "A Cut Above", tag: "you", t3: "£98.00", pos: "88%", delta: "+£12.50" },
+      { name: "Salon Thirty Four", tag: "premium", t3: "£110.00", pos: "96%", delta: "+£24.50" },
+      { name: "Bloom & Blow", tag: "close", t3: "£89.00", pos: "68%", delta: "+£3.50" },
+      { name: "Hair by Elle", tag: "partial", t3: "—", pos: "42%", delta: "no tier" },
+      { name: "Mirror Image", tag: "value", t3: "£72.00", pos: "28%", delta: "−£13.50" },
+      { name: "The Chair", tag: "cheapest", t3: "£60.00", pos: "8%", delta: "−£25.50" }
+    ].map(r => ({ ...r, deltaDark: r.delta === "no tier" ? "#8c9aad" : "#d3dbe6" }));
+
+    const month = Array.from({ length: 30 }, (_, i) => {
+      const n = i + 1;
+      const posted = [2, 5, 9, 12, 16].includes(n);
+      const today = n === 18;
+      return { n,
+        bg: today ? "#a61e4d" : posted ? "#1e2a3a" : "transparent",
+        fg: today ? "#fafaf8" : posted ? "#d3dbe6" : "#7a879a" };
+    });
+
+    return {
+      rows, month,
+      navHome: nav("Home"),
+      navFirst: navRaw.map(n => ({ ...n,
+        bg: n.label === "Home" ? "#1a2536" : "transparent",
+        fg: n.label === "Home" ? "#fafaf8" : "#8c9aad",
+        chip: n.label === "Home" ? "#a61e4d" : "#1e293b",
+        chipFg: n.label === "Home" ? "#fafaf8" : "#8c9aad",
+        state: n.state ? n.state : n.label === "Home" ? "" : "off" })),
+      fixes: [
+        { k: "colour carries no verdict", v: "A price above yours is not good news and a price below is not bad news. Deltas are neutral; the sign does the work. Lime now means one thing only: an agent is alive." },
+        { k: "what changed is the default", v: "Opening the tracker answers the question people actually have. The full six-column table is still there, one click behind Full table." },
+        { k: "unbuilt tools stopped shouting", v: "Profile Builder and Reviews are one line of text under the live tools instead of two dimmed tiles, so the suite stops looking half-finished." },
+        { k: "every dismissal is undoable", v: "Marked as read, ignored, sent — each leaves an undo in place for the rest of the session. Nothing an agent did is one tap from gone." }
+      ],
+      navPlanner: nav("Content Planner"),
+      attention: [
+        { tag: "price", tagBg: "#2b0e19", tagFg: "#f2547d", when: "06:10", title: "The Chair dropped their director cut to £60", body: "That is 29.8% under you, and the third cut in six weeks. A response post is drafted.", action: "Read the draft", second: "or ignore" },
+        { tag: "review", tagBg: "#1e293b", tagFg: "#8c9aad", when: "22:41", title: "A 3-star review mentions the wait, not the cut", body: "Reply written in your voice. It offers a Tuesday slot and does not apologise twice.", action: "Send reply", second: "edit first" },
+        { tag: "post", tagBg: "#1e293b", tagFg: "#8c9aad", when: "07:02", title: "Thursday's post needs one photo from you", body: "Everything else is written and scheduled for 18:30. The brief is one line long.", action: "Add the photo", second: "see brief" }
+      ],
+      tools: [
+        { name: "Content Planner", k: "C", state: "live", line: "3 posts today, 1 waiting on a photo", bg: "#1a2536", border: "#263449", chip: "#a61e4d", chipFg: "#fafaf8", fg: "#fafaf8", stateFg: "#d7ff4f" },
+        { name: "Competitor Tracker", k: "T", state: "live", line: "6 salons watched, 2 price changes this week", bg: "#1a2536", border: "#263449", chip: "#a61e4d", chipFg: "#fafaf8", fg: "#fafaf8", stateFg: "#d7ff4f" },
+      ],
+      activity: [
+        { time: "06:10", text: "Read 4 competitor price lists. One changed." },
+        { time: "05:55", text: "Wrote Thursday and Saturday posts from last week's photos." },
+        { time: "23:04", text: "Checked 11 new reviews across Google and Facebook." },
+        { time: "22:41", text: "Drafted one reply, held it for your approval." },
+        { time: "21:00", text: "Nothing needed doing. Went quiet." }
+      ],
+      starters: [
+        { label: "No ideas", hint: "we pick from what happened", bg: "#2b0e19", border: "#4a1a2c", fg: "#f2547d" },
+        { label: "Something happened", hint: "tell us in one line", bg: "#1a2536", border: "#263449", fg: "#fafaf8" },
+        { label: "From a photo", hint: "drop it, we write it", bg: "#1a2536", border: "#263449", fg: "#fafaf8" }
+      ],
+      drafts: [
+        { tag: "promote", tagBg: "#2b0e19", tagFg: "#f2547d", date: "18 Sept", state: "needs your photo", stateFg: "#f2547d", bg: "#1a2536", border: "#33465f", action: "Add the photo", meta: "18:30 · instagram, facebook",
+          body: "This colour and cut was worked by our Creative Director, that soft blend from dark roots into those lighter, tousled ends takes a proper eye for placement. Ladies Cut & Finish with our Creative Director is £68.00. Book online or give us a call, 01727 861124, we are at 19 High Street, St Albans." },
+        { tag: "answer", tagBg: "#1e293b", tagFg: "#8c9aad", date: "19 Sept", state: "ready", stateFg: "#8c9aad", bg: "#141d2a", border: "#263449", action: "Schedule", meta: "12:00 · instagram",
+          body: "Asked more than anything else this month: how long does a balayage take. Three hours with us, because the toner goes on after a wash and we will not rush that part." },
+        { tag: "quiet", tagBg: "#1e293b", tagFg: "#8c9aad", date: "21 Sept", state: "draft", stateFg: "#8c9aad", bg: "#141d2a", border: "#263449", action: "Open", meta: "not scheduled",
+          body: "Sunday is a slow day for posts, so this one is short. A before and after from Friday, no copy beyond the service and the price." }
+      ],
+      evidence: [
+        { k: "src", rule: "#1f7a4d", v: "your photo, added 2026-09-18" },
+        { k: "src", rule: "#1f7a4d", v: "acutabovestalbans.co.uk/services-price-list, read 2026-09-17" },
+        { k: "ours", rule: "#a61e4d", v: "the description of the work, from the photo" }
+      ],
+      evidenceMobile: [
+        { k: "src", rule: "#1f7a4d", v: "walk-in board photo, 17 Sept 08:40" },
+        { k: "src", rule: "#1f7a4d", v: "thechair-salon.co.uk/prices, read 17 Sept" },
+        { k: "ours", rule: "#a61e4d", v: "tier match inferred from service name" }
+      ],
+      tiers: [
+        { label: "Director", bg: "#a61e4d", fg: "#fafaf8", border: "#a61e4d" },
+        { label: "Stylist", bg: "#1a2536", fg: "#8c9aad", border: "#2c3b52" },
+        { label: "Graduate", bg: "#1a2536", fg: "#8c9aad", border: "#2c3b52" }
+      ],
+      tabs: [
+        { label: "Home", k: "H", chip: "#1e293b", chipFg: "#7a879a", fg: "#7a879a" },
+        { label: "Posts", k: "C", chip: "#1e293b", chipFg: "#7a879a", fg: "#7a879a" },
+        { label: "Prices", k: "T", chip: "#a61e4d", chipFg: "#fafaf8", fg: "#fafaf8" },
+        { label: "You", k: "S", chip: "#1e293b", chipFg: "#7a879a", fg: "#7a879a" }
+      ],
+      mobileRules: [
+        { k: "One tier at a time", v: "the three columns become a segmented control. never a horizontal scroll" },
+        { k: "44px minimum", v: "rows 66px, tabs 56px, primary button 52px" },
+        { k: "Delta is the headline", v: "the price is secondary to how it compares to you. sign only, never colour" },
+        { k: "Evidence is a screen", v: "on desktop it is a rail, on mobile a push. same content" },
+        { k: "Agent state is visible", v: "a lime dot and one line of text. never a spinner" }
+      ],
+      coming: "Profile Builder and Reviews are being built. Nothing you need to do.",
+      setup: [
+        { n: "1", title: "Tell us about the business", body: "Name, address, opening hours, who does what. Two minutes, typed or pasted.", action: "Start", state: "now", tone: "#a61e4d", fg: "#fafaf8", bg: "#1a2536", border: "#33465f" },
+        { n: "2", title: "Add your price list", body: "Paste it, or photograph the board. We read the tiers and the services from it.", action: "Add prices", state: "next", tone: "#1e293b", fg: "#8c9aad", bg: "#141d2a", border: "#263449" },
+        { n: "3", title: "Name three salons you watch", body: "The ones customers mention. We find their prices, you never have to look again.", action: "Add salons", state: "next", tone: "#1e293b", fg: "#8c9aad", bg: "#141d2a", border: "#263449" }
+      ],
+      firstThings: [
+        { time: "tonight", text: "We read your three salons' price lists and tell you where you sit." },
+        { time: "tomorrow", text: "First post drafted from your services. You approve it or bin it." },
+        { time: "this week", text: "Reviews watched. Nothing sent without you." }
+      ],
+      changed: [].concat([
+        { name: "The Chair", tag: "cheapest", now: "£60.00", was: "£68.00", move: "−£8.00", when: "17 Sept", note: "third cut in six weeks", changed: true },
+        { name: "Salon Thirty Four", tag: "premium", now: "£110.00", was: "£105.00", move: "+£5.00", when: "14 Sept", note: "colour also up £6", changed: true },
+        { name: "Mirror Image", tag: "value", now: "£72.00", was: "—", move: "new tier", when: "16 Sept", note: "director tier listed for the first time", changed: true },
+        { name: "Bloom & Blow", tag: "close", now: "£89.00", was: "£89.00", move: "—", when: "12 Sept", note: "", changed: false },
+        { name: "Hair by Elle", tag: "partial", now: "—", move: "—", was: "—", when: "12 Sept", note: "still no director tier listed", changed: false }
+      ]).map(c => ({ ...c,
+        rule: c.changed ? "#a61e4d" : "transparent",
+        bg: c.changed ? "#1a2536" : "transparent",
+        nameFg: c.changed ? "#fafaf8" : "#8c9aad",
+        nowFg: c.changed ? "#fafaf8" : "#8c9aad",
+        moveFg: c.changed ? "#d3dbe6" : "#8c9aad",
+        strike: c.changed && c.was !== "—" ? "line-through" : "none" })),
+      palette: [
+        { name: "navy", hex: "#1C2B40", use: "brand, site headers, chrome" },
+        { name: "ground", hex: "#121A26", use: "app background" },
+        { name: "surface", hex: "#1A2536", use: "cards, inputs, rows" },
+        { name: "surface-dim", hex: "#141D2A", use: "not-yet-built tools" },
+        { name: "line", hex: "#263449", use: "borders, dividers" },
+        { name: "paper", hex: "#FAFAF8", use: "primary text, light mode ground" },
+        { name: "muted", hex: "#8C9AAD", use: "secondary text" },
+        { name: "berry", hex: "#A61E4D", use: "every action. nothing else" },
+        { name: "berry-lift", hex: "#F2547D", use: "berry on dark, needs-you states" },
+        { name: "charge", hex: "#D7FF4F", use: "agent alive. nothing else" },
+        { name: "source", hex: "#1F7A4D", use: "evidence stamps only" }
+      ],
+      system: [
+        { k: "Display", v: "Space Grotesk 600, -0.02em. 20 / 27 / 30 / 56" },
+        { k: "UI", v: "Manrope 400 / 600 / 700. 12.5 / 13.5 / 14.5 / 15" },
+        { k: "Figures", v: "JetBrains Mono 400. every price, date, delta, id" },
+        { k: "Step", v: "4px. gaps 10 / 14 / 22 / 26 / 56" },
+        { k: "Radii", v: "18 shell · 14 card · 12 mobile control · 8 button · 4 chip" },
+        { k: "Rows", v: "desktop 46px, mobile 66px" },
+        { k: "Rail", v: "216px expanded, 72px collapsed, same items" },
+        { k: "Motion", v: "160ms ease-out. hover brightens the border, not the fill" },
+        { k: "Focus", v: "2px berry-lift ring, 2px offset. never removed" },
+        { k: "Contrast", v: "paper on ground 14.8:1, muted on surface 5.1:1" }
+      ],
+      components: [
+        { k: "AppRail", v: "items with live/soon states. soon items are visible but dimmed and unclickable — the roadmap is part of the product" },
+        { k: "AttentionCard", v: "tag, timestamp, headline, one sentence, primary + secondary action. max three on screen" },
+        { k: "ToolTile", v: "two visual states, live and soon. one line of current status, never a description" },
+        { k: "DataRow", v: "name, mono figures, position ruler, delta. the ruler tick is always your own price" },
+        { k: "EvidenceStamp", v: "src (green) or ours (berry). always visible, never inside a disclosure" },
+        { k: "AgentPulse", v: "lime dot plus one line of plain text. replaces every spinner and skeleton" },
+        { k: "StarterChips", v: "three ways into a blank page. the first is highlighted because it asks nothing of the user" },
+        { k: "MonthRail", v: "30 squares, posted / today / empty. a prompter, not a calendar" }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

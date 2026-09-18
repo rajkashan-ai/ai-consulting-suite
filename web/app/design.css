@@ -284,7 +284,120 @@ button:disabled{cursor:not-allowed}
 /* -----------------------------------------------------------------------------
    5. SHELL
    -------------------------------------------------------------------------- */
-.app{min-height:100vh; background:var(--sand)}
+/* =============================================================================
+   THE INSTRUMENT. The app's own ground, from the design handoff of 2026-09-18.
+
+   WHY IT IS SCOPED TO .app AND NOT TO :root
+   One stylesheet serves the marketing site and the product, and the handoff is
+   explicit that they must not converge: "Do not let the product drift into
+   marketing gradients, and do not let the site adopt the dark ground." Shared
+   tokens, different personalities. `.app` wraps the chrome, the nav and the
+   main of every workspace screen and nothing else, so this is the seam.
+
+   WHY THE OLD NAMES ARE KEPT AND REMAPPED
+   290 classes already read these names. Renaming them would be a second
+   vocabulary for the same idea, which is how the two halves of one question end
+   up disagreeing. So the handoff's palette is mapped onto the names that exist,
+   and the genuinely new ideas get new names.
+
+   ONE NAME COLLISION, CALLED OUT
+   The handoff's `paper` is the primary TEXT colour on dark, #FAFAF8. This
+   file's `--paper` has always been a ground. They are not the same thing and
+   they are not merged: the handoff's paper becomes `--ink`, which is what this
+   file calls "the colour you read".
+   ========================================================================== */
+.app{
+  /* Grounds, darkest to lightest. */
+  --shell:#0E1520;        /* sidebars, footer bars, right rails */
+  --sand:#121A26;         /* the app background */
+  --paper:#141D2A;        /* inert or not-yet-available surfaces */
+  --card:#1A2536;         /* cards, inputs, table rows, active nav */
+  --card-2:#141D2A;
+  --navy:#1C2B40;         /* the brand ground, shared with the website */
+
+  /* Lines. Hover brightens the border and never the fill. */
+  --line:#263449;
+  --line-soft:#1E2A3A;    /* row separators inside a list */
+  --line-hover:#3A4C68;
+
+  /* The colours you read. --muted is the floor: nothing dimmer carries text. */
+  --ink:#FAFAF8;
+  --ink-soft:#D3DBE6;     /* figures, secondary headings */
+  --body:#A7B3C2;         /* body copy */
+  --muted:#8C9AAD;
+
+  /* Berry means "this acts". If it is not clickable it is not berry. */
+  --brand:#A61E4D;
+  --brand-hover:#C42D5F;
+  --brand-ink:#F2547D;    /* berry lifted, for text and links on a dark ground */
+  --brand-wash:#2B0E19;
+  --brand-wash-line:#4A1A2C;
+  --btn-bg:#A61E4D; --btn-fg:#FAFAF8;
+
+  /* An agent is running right now. Nothing else, ever. It never marks data. */
+  --charge:#D7FF4F;
+  /* Evidence stamps only. */
+  --source:#1F7A4D;
+
+  /**
+   * Deltas are neutral, and this is the rule the old palette broke.
+   *
+   * `--teal` meant "good news" and dressed .t-win and .tag--ahead. A competitor
+   * priced above you is not good news and below is not bad news: the sign
+   * carries the meaning and colour does not. Pointed at the neutral figure
+   * colour so every existing use becomes correct without hunting them down.
+   */
+  --teal:#D3DBE6; --teal-wash:#1E2A3A;
+
+  --good:#4CC38A; --good-wash:#10241A;
+  --warn:#E0A33C; --warn-wash:#241A09;
+  --bad:#F2867C;  --bad-wash:#2A1513;
+  --info:#7FA9F5; --info-wash:#132033;
+
+  --chrome:#0E1520; --chrome-soft:#8C9AAD; --chrome-line:#263449;
+
+  /* No gradients, no glows, one flat fill per surface. */
+  --glow-a:transparent; --glow-b:transparent;
+
+  --ground-a:var(--sand);
+  --ground-b:var(--card);
+
+  /* Radii, from the handoff. */
+  --r-shell:18px; --r-card:14px; --r-nav:9px;
+  --r-control:8px; --r-sm:7px; --r-chip:4px; --r-pill:999px;
+
+  /* Space Grotesk names a thing, Manrope explains it, the mono measures it. */
+  --display:var(--font-display),var(--font-sys),system-ui,sans-serif;
+
+  min-height:100vh; background:var(--sand); color:var(--ink);
+}
+
+/* Headings are the display face. Prose and figures are not. */
+.app .t-page,.app .t-section,.app .t-sub,.app .t-card{
+  font-family:var(--display); letter-spacing:-.02em}
+
+/* Every figure, date, count and id is mono. Prose never is. */
+.app .t-kind{font-family:var(--mono); letter-spacing:.14em}
+
+/* Hover brightens the border, never the fill. 160ms, nothing longer. */
+.app .card:hover,.app .panel:hover{border-color:var(--line-hover)}
+
+/* Focus is never removed. 2px lifted berry, 2px offset. */
+.app :focus-visible{outline:2px solid var(--brand-ink); outline-offset:2px}
+
+/**
+ * A figure is never berry, and never good or bad news.
+ *
+ * Berry means "this acts": if it is not clickable it is not berry. The big
+ * figure carried `--brand-ink` under `.kpi--gap`, so "£51.00, what you charge"
+ * rendered in the action colour while doing nothing. `.kpi--win` did the same
+ * in teal on "62 businesses we found", which is a count and not a win.
+ *
+ * Both are now the neutral figure colour, which is the handoff's third rule: a
+ * competitor priced above you is not good news and below is not bad news. The
+ * sign carries the meaning; colour does not.
+ */
+.app .kpi__n,.app .kpi--gap .kpi__n,.app .kpi--win .kpi__n{color:var(--ink-soft)}
 
 /* The frame. One dark block carrying the identity and the six tools, so a tool
    never has to introduce itself and the content below it is all content. Warm
@@ -1192,8 +1305,17 @@ main{padding:0}
 .toolhead{background:var(--chrome); color:#f3f0eb; padding:var(--s7) 0 var(--s10)}
 .toolhead__kind{margin:0 0 var(--s3); font-family:var(--mono); font-size:11px;
   line-height:14px; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
-  color:var(--brand-wash)}
-.toolhead__h{margin:0; color:#f3f0eb; max-width:var(--measure)}
+  /**
+   * The lifted berry, not the wash.
+   *
+   * This said `--brand-wash`, which was a pale pink written for a dark header
+   * inside the light theme. On the Instrument ground the wash is #2B0E19, so
+   * the tool name rendered at 1.03:1 and was invisible. Berry on a dark ground
+   * is `--brand-ink` and always was; that is the whole reason the token exists.
+   * Found by sweeping the page for contrast, not by looking at it.
+   */
+  color:var(--brand-ink)}
+.toolhead__h{margin:0; color:var(--ink); max-width:var(--measure)}
 /* What the tool does, under the business it is doing it for. Quiet, because a
    reader who clicked the tab already knows, and it is here for the one who
    arrived by a link. */

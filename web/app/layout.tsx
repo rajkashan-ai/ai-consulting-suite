@@ -1,31 +1,39 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Inter } from "next/font/google";
+import { JetBrains_Mono, Manrope, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
 /**
- * The two faces, loaded once, here and nowhere else.
+ * The three faces, loaded once, here and nowhere else.
  *
- * Inter is the brand face. The app had silently fallen back to the system
- * stack, because design.css was kept as a hand copy of UI/app.css and the copy
- * lost the font declaration. Nothing noticed, because a fallback stack does not
- * fail, it just looks like somebody else's product.
+ * The Instrument handoff, 2026-09-18. Space Grotesk names a thing, Manrope
+ * explains it, JetBrains Mono measures it. Three registers, so a reader can
+ * tell a heading from a sentence from a figure without reading any of them.
  *
- * The mono is for figures only. A column of prices set in a proportional face
- * is a paragraph; set in a mono one it is a column.
+ * Inter did all three jobs before, which is why £68.00 and "a proper eye for
+ * placement" had identical texture and nothing on the screen said "this was
+ * measured".
  *
- * next/font self-hosts both and emits the CSS variables design.css already
- * names, so there is no network request to Google and no flash of a fallback.
+ * next/font self-hosts all three and emits the CSS variables design.css names,
+ * so there is no request to Google, no flash of a fallback, and the privacy
+ * promise in STYLE-GUIDE.md survives a web font.
  */
-const inter = Inter({
+const display = Space_Grotesk({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["600"],
+  variable: "--font-display",
+  display: "swap",
+});
+
+const ui = Manrope({
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
   variable: "--font-sys",
   display: "swap",
 });
 
-const mono = IBM_Plex_Mono({
+const mono = JetBrains_Mono({
   subsets: ["latin"],
-  weight: ["500", "600"],
+  weight: ["400", "500"],
   variable: "--font-mono",
   display: "swap",
 });
@@ -42,7 +50,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en-GB" className={`${inter.variable} ${mono.variable}`}>
+    <html lang="en-GB" className={`${display.variable} ${ui.variable} ${mono.variable}`}>
       <body>{children}</body>
     </html>
   );

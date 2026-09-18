@@ -10,6 +10,18 @@ import type { NextConfig } from "next";
  */
 const nextConfig: NextConfig = {
   turbopack: { root: path.join(import.meta.dirname, "..") },
+
+  /**
+   * Left for Node to require at runtime instead of bundled.
+   *
+   * `agentmail` declares an OPTIONAL peer dependency on `@x402/fetch`, which is
+   * for crypto payments and which we do not install. Optional or not, the
+   * bundler tries to resolve it, fails, and takes the whole app down with a 500
+   * on every route. Every test passed throughout, because lib/mail/send.ts is
+   * server-only and no test imports it: the bundler was the only thing that
+   * ever looked at it, and nothing runs the bundler on the way to green.
+   */
+  serverExternalPackages: ["agentmail"],
   outputFileTracingRoot: path.join(import.meta.dirname, ".."),
 
   /**

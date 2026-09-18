@@ -91,7 +91,8 @@ test("every custom property the stylesheet uses is defined in it", () => {
   );
 
   // Set by next/font in the layout, not by this file.
-  for (const fromLayout of ["--font-sys", "--font-mono"]) defined.add(fromLayout);
+  /* Emitted by next/font in app/layout.tsx, not declared in the stylesheet. */
+  for (const fromLayout of ["--font-sys", "--font-mono", "--font-display"]) defined.add(fromLayout);
 
   const missing = [...used].filter((t) => !defined.has(t)).sort();
   assert.deepEqual(missing, [], `used but never defined:\n  ${missing.join("\n  ")}`);
@@ -112,14 +113,24 @@ test("the spacing scale and the radii are all present", () => {
 // The fonts, and where they are loaded.
 // ---------------------------------------------------------------------------
 
-test("both faces are loaded, once, in the layout and nowhere else", () => {
-  // The app fell back to the system stack and nothing failed, because a
-  // fallback stack does not fail.
+test("all three faces are loaded, once, in the layout and nowhere else", () => {
+  /**
+   * The app fell back to the system stack once and nothing failed, because a
+   * fallback stack does not fail, it just looks like somebody else's product.
+   *
+   * Three since the Instrument handoff of 2026-09-18: Space Grotesk names a
+   * thing, Manrope explains it, JetBrains Mono measures it. One face doing all
+   * three jobs is why a price and a sentence used to have the same texture.
+   */
   assert.match(layout, /from "next\/font\/google"/);
-  assert.match(layout, /Inter\(/);
-  assert.match(layout, /IBM_Plex_Mono\(/);
-  assert.match(layout, /inter\.variable/);
-  assert.match(layout, /mono\.variable/);
+  assert.match(layout, /Space_Grotesk\(/);
+  assert.match(layout, /Manrope\(/);
+  assert.match(layout, /JetBrains_Mono\(/);
+  for (const v of ["display.variable", "ui.variable", "mono.variable"]) {
+    assert.ok(layout.includes(v), `${v} is loaded and never reaches the html element`);
+  }
+  /* Self-hosted, so a web font does not break the privacy promise. */
+  assert.doesNotMatch(layout, /fonts\.googleapis\.com|fonts\.gstatic\.com/);
 });
 
 test("the stylesheet reads the faces from the layout, not from a hardcoded name", () => {
@@ -165,7 +176,13 @@ test("no tool defines its own colours or faces", () => {
 
 test("figures are set in the mono face and aligned", () => {
   // A column of prices in a proportional face is a paragraph.
-  const kpi = css.slice(css.indexOf(".kpi__n"), css.indexOf(".kpi__n") + 300);
+  /* The rule that DEFINES it, not the first mention of the name. `.app` now
+     carries an override that sits earlier in the file, and a positional slice
+     from the first occurrence read that instead and reported the mono face
+     missing from a file that still sets it. */
+  const at = css.indexOf("\n.kpi__n{");
+  assert.ok(at > -1, "the rule that defines the figure is gone");
+  const kpi = css.slice(at, at + 300);
   assert.match(kpi, /font-family:var\(--mono\)/);
   assert.match(kpi, /tabular-nums/);
 });
