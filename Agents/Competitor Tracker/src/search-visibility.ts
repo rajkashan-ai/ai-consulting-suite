@@ -19,7 +19,7 @@
  * test that keeps it out.
  */
 import type { Claim } from './types.ts';
-import { normaliseName, sameBusiness } from './normalise.ts';
+import { normaliseName } from './normalise.ts';
 
 export interface SearchProfile {
   name: string;
@@ -251,7 +251,7 @@ export function measure(term: string, results: SearchResult[], p: SearchProfile,
  */
 export function summarise(
   seen: Visibility[],
-  p: SearchProfile,
+  _p: SearchProfile,
   competitors: string[],
   readOn: string,
 ): Claim[] {

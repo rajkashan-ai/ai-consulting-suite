@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { advance, type RunState } from "../tools/competitor-tracker/stages.ts";
-import { aBusiness, fakeContext, type Recorded , ownerAgrees} from "./fake.ts";
+import { aBusiness, type Recorded , ownerAgrees} from "./fake.ts";
 
 /**
  * What an owner is shown when something throws.

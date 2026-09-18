@@ -14,7 +14,7 @@
 import type {
   Cadence, Capacity, Channel, KnownFacts, LastMonth, Reason, Recommendation,
 } from './types.ts';
-import { CADENCE_LABEL, CADENCES, MIX, CHANNEL } from './types.ts';
+import { CADENCE_LABEL, CADENCES, CHANNEL } from './types.ts';
 import { postCount } from './plan-shape.ts';
 
 /** Once a week is the floor. Below it the tool has stopped being worth opening. */
@@ -87,7 +87,7 @@ export function recommendCadence(
   return { cadence, because, stepUp: stepUp(cadence, known, channels) };
 }
 
-function fromLastMonth(last: LastMonth, capacity: Capacity, channels: Channel[]): Recommendation {
+function fromLastMonth(last: LastMonth, _capacity: Capacity, channels: Channel[]): Recommendation {
   const rate = last.done / last.written;
   const was = cadenceOf(last.written);
   const because: Reason[] = [{

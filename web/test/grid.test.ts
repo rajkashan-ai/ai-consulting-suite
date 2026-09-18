@@ -50,7 +50,7 @@ const aGrid = (columns: string[]) => ({
       rows: [
         {
           attribute: "Classic cut",
-          cells: columns.map((c, i) => ({
+          cells: columns.map((_c, i) => ({
             value: i === 0 ? "£15" : `£${15 + i * 2}`,
             source: { url: LISTING_URL, fetchedOn: "2026-09-15" },
           })),

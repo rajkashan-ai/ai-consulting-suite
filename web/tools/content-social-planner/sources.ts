@@ -112,3 +112,26 @@ export function citeRules(list: Page[]): string {
     `not go in the post.`
   );
 }
+
+/**
+ * Whether there is enough of their own site to write a post from.
+ *
+ * WHY THIS IS A RULE AND NOT AN `IF`
+ * Every post has to cite a page on their own site, and `unsafe` refuses one
+ * that does not. With nothing read there is no post that could pass, so the
+ * model must never be called: paying for an answer we already know we will
+ * refuse is the waste this stops. It was written inline in one screen's action,
+ * which meant the next screen that writes a post would have had to remember it.
+ *
+ * A page that was fetched and came back broken is not a page. `read` is
+ * whatever came back ok, so a site we tried and failed on is zero, not some.
+ *
+ * Returns the sentence the owner sees, or null to go ahead.
+ */
+export function tooThinToWrite(
+  pages: readonly Page[],
+  read: readonly { ok: boolean }[],
+): string | null {
+  if (pages.length && read.some((p) => p.ok)) return null;
+  return "We have not read your website yet. Run the planner once and then come back.";
+}

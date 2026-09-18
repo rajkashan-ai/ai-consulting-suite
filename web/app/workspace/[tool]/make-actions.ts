@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { POST_RULES } from "@/tools/content-social-planner/prompts";
-import { cite, citeRules, type Page } from "@/tools/content-social-planner/sources";
+import { cite, citeRules, tooThinToWrite, type Page } from "@/tools/content-social-planner/sources";
 import { knownFacts, priceRules, type ReadPage } from "@/tools/content-social-planner/stages";
 import { unsafe } from "@/tools/content-social-planner/scrub";
 import {
@@ -103,19 +103,10 @@ export async function makePost(
   const pages = state.pages ?? [];
   const read = (state.read ?? []).filter((p) => p.ok);
 
-  /**
-   * Pre-generation gate. Nothing is written from nothing.
-   *
-   * A post has to cite a page on their own site, and `unsafe` refuses one that
-   * does not. Without pages there is no post that could pass, so the model is
-   * never called: paying for an answer we already know we will refuse is the
-   * waste this gate exists to stop.
-   */
-  if (!pages.length || !read.length) {
-    return {
-      error: "We have not read your website yet. Run the planner once and then come back.",
-    };
-  }
+  // Pre-generation gate. Nothing is written from nothing, and the rule lives in
+  // sources.ts so the next screen that writes a post cannot forget it.
+  const thin = tooThinToWrite(pages, read);
+  if (thin) return { error: thin };
 
   const business: Business = {
     id: w.id,

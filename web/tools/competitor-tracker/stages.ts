@@ -20,21 +20,18 @@ import type {
 } from "../../../Agents/Competitor Tracker/src/types.ts";
 import type { Business, ToolContext } from "../types.ts";
 import { isProfile, profileFor } from "./profile.ts";
-import { confidence, exhausted, isDeadEnd, type Playbook } from "./playbook.ts";
+import { exhausted, isDeadEnd, type Playbook } from "./playbook.ts";
 import { bestFirst, whereToLook } from "./where.ts";
 import { ageOf, enoughToUse, type Kept } from "./remember.ts";
 import { fetchable } from "../identity.ts";
 import { townInUrl } from "../place.ts";
 import { dropBad, sayDropped, stillWrong, worthShowing } from "./dropActions.ts";
 import { sayMoved, sayStill, whatMoved, type Move } from "./changed.ts";
-import { BATTLECARD_RULES, MEND_RULES, REPAIR_RULES } from "./prompts.ts";
+import { BATTLECARD_RULES, MEND_RULES } from "./prompts.ts";
 import {
   AREA_MEANS,
-  BATTLECARD_SHAPE,
   GRID_AREAS,
-  GRID_SHAPE,
   NARRATIVE_SHAPE,
-  REPAIR_SHAPE,
   gridShapeFor,
   type GridArea,
 } from "./shapes.ts";
@@ -48,7 +45,6 @@ import {
  */
 export { GRID_AREAS, type GridArea };
 import {
-  NAMES_SHAPE,
   askFor,
   distinct,
   namesFrom,
@@ -56,7 +52,6 @@ import {
   searchFor,
   type Checked,
   type Judged,
-  type Named,
 } from "./naming.ts";
 import { rank, type Found, type Scored } from "./rank.ts";
 import { namesABusiness, notYou, oneEach, rightTrade, sift } from "./sift.ts";
@@ -69,7 +64,6 @@ import { rankActions } from "./rankActions.ts";
 import { plainly } from "../../lib/plainly.ts";
 import {
   cite,
-  citeRules,
   dropMisattributed,
   dropMisattributedClaims,
   numberPages,
@@ -773,15 +767,6 @@ async function listings(state: RunState, business: Business, ctx: ToolContext): 
   const town = townInUrl(profile.town);
   const wanted = new Set<string>();
 
-  /**
-   * Hosts a listing is accepted from without the /en-gb/ marker.
-   *
-   * Was the playbook alone. Now the seeded list too, for the same reason: a
-   * source we have recorded as listing this trade in the UK is one whose
-   * addresses we have reason to trust. The country test below still applies,
-   * so this buys a shape, not a pass.
-   */
-  const knownHosts = state.knownHosts ?? [];
 
   for (const { results } of seen) {
     for (const r of results) {
@@ -794,7 +779,6 @@ async function listings(state: RunState, business: Business, ctx: ToolContext): 
       // A listing, for this country, for this town. All three, or it is
       // somebody else's town or somebody else's country.
       const isListing = /\/(s|lp|search|browse)\//.test(url) || /\/in\/gb-/.test(url);
-      const isOurs = url.includes("/en-gb/") || url.includes("/gb-") || url.includes(".co.uk");
 
       /**
        * A trusted host still has to serve a listing.
@@ -806,7 +790,6 @@ async function listings(state: RunState, business: Business, ctx: ToolContext): 
        *
        * Being on Booksy is not the same as being Booksy's list of everybody.
        */
-      const trusted = knownHosts.some((h) => url.includes(h));
 
       // Their isVenuePage, not a pattern of my own. Mine flagged the real
       // Booksy listing as a venue, because /s/barber/1227928_shrewsbury also
@@ -1600,7 +1583,7 @@ async function picking(state: RunState, business: Business): Promise<Step> {
  */
 async function finding(
   state: RunState,
-  business: Business,
+  _business: Business,
   ctx: ToolContext,
 ): Promise<Step> {
   const profile = state.profile;
@@ -2138,7 +2121,7 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
 
 // ---------------------------------------------------------------------------
 
-function check(state: RunState, business: Business): Step {
+function check(state: RunState, _business: Business): Step {
   let card = state.card;
   if (!card) return stop(state, "Nothing was built. Run it again.");
 

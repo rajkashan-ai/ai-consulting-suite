@@ -10,7 +10,7 @@ import {
   type Recommendation,
   type Slot,
 } from "../../../Agents/Content & Social Planner/src/types.ts";
-import { planDates, slotWeeks, validateShape } from "../../../Agents/Content & Social Planner/src/plan-shape.ts";
+import { validateShape } from "../../../Agents/Content & Social Planner/src/plan-shape.ts";
 import {
   recommendCadence,
   validateRecommendation,

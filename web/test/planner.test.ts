@@ -7,7 +7,7 @@ import { advance, channelsFor, firstLine, knownFacts, worthReading, type ReadPag
 import { buildBody, hollow } from "../tools/content-social-planner/document.ts";
 import { unsafe } from "../tools/content-social-planner/scrub.ts";
 import { contentSocialPlanner } from "../tools/content-social-planner/index.ts";
-import { expand, numberPages, cite, citeRules } from "../tools/content-social-planner/sources.ts";
+import { expand, numberPages, cite } from "../tools/content-social-planner/sources.ts";
 import { shapeMonth, expectedPosts } from "../tools/content-social-planner/shape.ts";
 import { validateShape } from "../../Agents/Content & Social Planner/src/plan-shape.ts";
 import { CHANNEL } from "../../Agents/Content & Social Planner/src/types.ts";
@@ -108,6 +108,12 @@ async function runToEnd(ctx: ToolContext, business = BUSINESS, cap = 25) {
     state = step.state;
     seen.push(stage);
   }
+  // Loud on exhaustion. Silently returning the stage it happened to stop on
+  // reads as a wrong answer when it is really a stuck one.
+  assert.ok(
+    stage === "done" || stage === "failed",
+    `the planner never settled in ${cap} steps. Went: ${seen.join(" -> ")}`,
+  );
   return { stage, state, seen };
 }
 

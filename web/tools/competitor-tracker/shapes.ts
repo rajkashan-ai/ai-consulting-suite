@@ -9,7 +9,6 @@
  * wanders, and a maxLength in a schema is not.
  */
 
-import type { Source } from "../../../Agents/Competitor Tracker/src/types.ts";
 
 export const BATTLECARD_SHAPE = {
   name: "battlecard",

@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useReducer, useState } from "react";
 import { useRouter } from "next/navigation";
 import { makePost } from "./make-actions";
 import {
   CONVERTS,
   INTENTS,
+  START,
   THOUGHT_MAX,
-  THOUGHT_MIN,
-  type Intent,
-  type Path,
+  next,
+  readyToAsk,
+  showsThoughtBox,
 } from "@/tools/content-social-planner/paths";
 
 /**
@@ -28,18 +29,14 @@ export default function Make({ workspaceId }: { workspaceId: string }) {
   // Every hook together at the top. A hook below a closure that uses it works
   // and reads as a mistake, and a hook below a return crashed a live run.
   const router = useRouter();
-  const [path, setPath] = useState<Path>("category");
-  const [intent, setIntent] = useState<Intent | null>(null);
-  const [thought, setThought] = useState("");
+  const [state, act] = useReducer(next, START);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const ready =
-    path === "category" ? intent !== null : thought.trim().length >= THOUGHT_MIN;
+  const { path, intent, thought, error } = state;
+  const ready = readyToAsk(state);
 
   const ask = async () => {
     setBusy(true);
-    setError(null);
     try {
       const { error: refused } = await makePost(
         workspaceId,
@@ -48,11 +45,10 @@ export default function Make({ workspaceId }: { workspaceId: string }) {
         path === "thought" ? thought : null,
       );
       if (refused) {
-        setError(refused);
+        act({ did: "refused", error: refused });
         return;
       }
-      setThought("");
-      setIntent(null);
+      act({ did: "written" });
       // Reload so the new post is drawn by the same code that draws every
       // other one. One path, not two.
       router.refresh();
@@ -60,7 +56,7 @@ export default function Make({ workspaceId }: { workspaceId: string }) {
       /* The network, or our own server. Theirs to try again, ours to keep the
          reason. No error is discarded: CLAUDE.md 1.4c. */
       console.error(`[make] asking for a post failed: ${String(e)}`);
-      setError("We could not reach our own server. Try again in a moment.");
+      act({ did: "refused", error: "We could not reach our own server. Try again in a moment." });
     } finally {
       setBusy(false);
     }
@@ -80,7 +76,7 @@ export default function Make({ workspaceId }: { workspaceId: string }) {
           role="tab"
           aria-selected={path === "category"}
           disabled={busy}
-          onClick={() => { setPath("category"); setError(null); }}
+          onClick={() => act({ did: "pick-path", path: "category" })}
         >
           No ideas
         </button>
@@ -89,7 +85,7 @@ export default function Make({ workspaceId }: { workspaceId: string }) {
           role="tab"
           aria-selected={path === "thought"}
           disabled={busy}
-          onClick={() => { setPath("thought"); setError(null); }}
+          onClick={() => act({ did: "pick-path", path: "thought" })}
         >
           Something happened
         </button>
@@ -99,7 +95,7 @@ export default function Make({ workspaceId }: { workspaceId: string }) {
         </button>
       </div>
 
-      {path === "category" ? (
+      {!showsThoughtBox(state) ? (
         <>
           <p className="t-meta u-measure">
             Pick what the post is for. Five of these build trust and ask for
@@ -113,7 +109,7 @@ export default function Make({ workspaceId }: { workspaceId: string }) {
                 className="intent"
                 aria-pressed={intent === i.id}
                 disabled={busy}
-                onClick={() => { setIntent(i.id); setError(null); }}
+                onClick={() => act({ did: "pick-intent", intent: i.id })}
               >
                 <span className="intent__kind">
                   {CONVERTS.has(i.id) ? "Asks for the business" : "Builds trust"}
@@ -137,7 +133,7 @@ export default function Make({ workspaceId }: { workspaceId: string }) {
             value={thought}
             disabled={busy}
             placeholder="Bride in at 6am, had her in the chair before the shop opened"
-            onChange={(e) => { setThought(e.target.value); setError(null); }}
+            onChange={(e) => act({ did: "type", thought: e.target.value })}
           />
           <p className="t-micro">
             Your words, not ours. We give it a shape and keep what you said true.

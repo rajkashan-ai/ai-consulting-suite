@@ -107,3 +107,70 @@ export function wrongWithRequest(path: unknown, intent: unknown, thought: unknow
   const said = asThought(thought);
   return "error" in said ? said.error : null;
 }
+
+/**
+ * The Make screen's state, and the only place its transitions are decided.
+ *
+ * WHY THIS IS NOT LEFT IN THE COMPONENT
+ * The button's "can they ask yet" and the action's "will we accept this" were
+ * two separate rules for the same question, and they disagreed. The letter "a",
+ * eleven spaces and the letter "b" is thirteen characters, so the button lit;
+ * asThought collapses the run of spaces to one, leaves three characters, and
+ * refuses. Two halves of one question disagreeing is how every fault in this
+ * product has started, so there is one rule now and both ask it.
+ *
+ * Keeping the transitions here as well means they can be checked without a
+ * browser: no click, no render, just a state and an action.
+ */
+export type MakeState = {
+  path: Path;
+  intent: Intent | null;
+  thought: string;
+  error: string | null;
+};
+
+export const START: MakeState = { path: "category", intent: null, thought: "", error: null };
+
+export type MakeAction =
+  | { did: "pick-path"; path: Path }
+  | { did: "pick-intent"; intent: Intent }
+  | { did: "type"; thought: string }
+  | { did: "refused"; error: string }
+  | { did: "written" };
+
+export function next(state: MakeState, action: MakeAction): MakeState {
+  switch (action.did) {
+    /**
+     * A path we have not built never becomes the path.
+     *
+     * The screen draws that button disabled. This is what makes it true, so a
+     * later change to the markup cannot quietly let it through.
+     */
+    case "pick-path":
+      if (NOT_BUILT.has(action.path)) return state;
+      // Whatever they were told was about the last request, and the last
+      // request is over the moment they start a different one.
+      return { ...state, path: action.path, error: null };
+
+    case "pick-intent":
+      return { ...state, intent: action.intent, error: null };
+
+    case "type":
+      return { ...state, thought: action.thought, error: null };
+
+    case "refused":
+      return { ...state, error: action.error };
+
+    // Written and saved. The screen is ready for the next one, and the words
+    // they used are gone rather than sitting there looking unsent.
+    case "written":
+      return { ...state, intent: null, thought: "", error: null };
+  }
+}
+
+/** Whether the button is live. The same rule the action applies, asked once. */
+export const readyToAsk = (s: MakeState): boolean =>
+  wrongWithRequest(s.path, s.intent, s.thought) === null;
+
+/** Which half of the screen is drawn. */
+export const showsThoughtBox = (s: MakeState): boolean => s.path !== "category";

@@ -172,7 +172,10 @@ test("the action refuses before it spends, not after", () => {
    */
   const action = read("make-actions.ts");
   const validate = action.indexOf("wrongWithRequest");
-  const gate = action.indexOf("We have not read your website yet");
+  // The refusal itself now lives in sources.ts as `tooThinToWrite`, so the
+  // marker here is the call rather than the sentence. test/gates.test.ts runs
+  // the rule; this one only checks it is asked before the model is paid.
+  const gate = action.indexOf("tooThinToWrite(pages");
   const call = action.indexOf("anthropic.messages");
   assert.ok(validate > 0 && gate > validate && call > gate, "the model is called before the gates");
 

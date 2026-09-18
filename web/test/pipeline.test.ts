@@ -21,6 +21,16 @@ const recorded = JSON.parse(
 ) as Recorded;
 
 /** Run the stages until it stops, or until it clearly is not going to. */
+/**
+ * The ceiling on a loop that walks the pipeline.
+ *
+ * Not three. Three is the ceiling on retrying one thing; this counts distinct
+ * stages, and a finished competitor run is searching, listings, choosing,
+ * picking, finding, reading, writing, checking, fixing, done. Twenty five
+ * leaves room for the repair passes without letting a circling run spin.
+ */
+const MOST_STEPS = 25;
+
 async function runTo(
   finish: Stage,
   opts: Parameters<typeof fakeContext>[1] = {},
@@ -31,13 +41,29 @@ async function runTo(
   let state: RunState = {};
   const seen: Stage[] = [];
 
-  for (let i = 0; i < 25; i++) {
+  /**
+   * Bounded, and loud when the bound is reached.
+   *
+   * It stopped silently and returned whatever stage it had got to, so a
+   * pipeline that circled showed up as "expected done, got reading" and read
+   * like a wrong answer rather than a stuck one. Raj, 2026-09-18: a mock loop
+   * breaks immediately and says so, rather than hanging or trailing off.
+   */
+  let stopped = false;
+  for (let i = 0; i < MOST_STEPS; i++) {
     const step = await advance(stage, state, business, ctx);
     stage = step.stage;
     state = ownerAgrees(step) as RunState;
     seen.push(stage);
-    if (stage === finish || stage === "failed" || stage === "done") break;
+    if (stage === finish || stage === "failed" || stage === "done") {
+      stopped = true;
+      break;
+    }
   }
+  assert.ok(
+    stopped,
+    `never reached ${finish} in ${MOST_STEPS} steps. Went: ${seen.join(" -> ")}`,
+  );
   return { stage, state, calls, seen };
 }
 

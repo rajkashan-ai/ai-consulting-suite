@@ -24,6 +24,9 @@ const recorded = JSON.parse(
   readFileSync(join(import.meta.dirname, "fixtures", "shrewsbury.json"), "utf8"),
 ) as Recorded;
 
+/** Stages, not attempts. See the note on the same constant in pipeline.test.ts. */
+const MOST_STEPS = 25;
+
 async function runTo(
   finish: Stage,
   business: Business = aBusiness(),
@@ -32,12 +35,24 @@ async function runTo(
   const { ctx, calls } = fakeContext(recorded);
   let stage: Stage = "searching";
   let state: RunState = start;
-  for (let i = 0; i < 25; i++) {
+  const seen: Stage[] = [];
+  // Bounded, and loud when the bound is reached. A loop that trails off quietly
+  // reports a stuck pipeline as a wrong answer.
+  let stopped = false;
+  for (let i = 0; i < MOST_STEPS; i++) {
     const step = await advance(stage, state, business, ctx);
     stage = step.stage;
     state = ownerAgrees(step) as RunState;
-    if (stage === finish || stage === "failed" || stage === "done") break;
+    seen.push(stage);
+    if (stage === finish || stage === "failed" || stage === "done") {
+      stopped = true;
+      break;
+    }
   }
+  assert.ok(
+    stopped,
+    `never reached ${finish} in ${MOST_STEPS} steps. Went: ${seen.join(" -> ")}`,
+  );
   return { stage, state, calls };
 }
 

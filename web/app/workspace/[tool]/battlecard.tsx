@@ -1,4 +1,4 @@
-import type { Battlecard, Claim, Competitor } from "../../../../Agents/Competitor Tracker/src/types";
+import type { Claim, Competitor } from "../../../../Agents/Competitor Tracker/src/types";
 import { groupNotChecked } from "@/tools/competitor-tracker/coverage";
 import { gapReads } from "@/tools/competitor-tracker/rankActions";
 import { funnelReads } from "@/tools/competitor-tracker/shortfall";

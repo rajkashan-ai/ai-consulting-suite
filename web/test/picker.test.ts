@@ -13,7 +13,6 @@ import {
   readsAs,
   waitedLongEnough,
   wrongWith,
-  type Offer,
 } from "../tools/competitor-tracker/shortlist.ts";
 import { advance, type RunState, type Stage } from "../tools/competitor-tracker/stages.ts";
 import { namesABusiness } from "../tools/competitor-tracker/sift.ts";

@@ -103,7 +103,6 @@ export default function PlanView({
    * nothing about where they were standing.
    */
   const thisWeek = plan.posts.find((p) => isWrittenPost(p))?.week ?? 1;
-  const posted = plan.posts.filter((p) => postState[`${p.date}|${p.channel}`]?.postedAt).length;
   const last = plan.posts.map((p) => p.date).sort().pop();
 
   return (

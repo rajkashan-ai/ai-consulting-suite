@@ -1,10 +1,10 @@
-import type { Db, Step, ToolRun } from "../contract.ts";
-import type { Business, ToolContext } from "../types.ts";
+import type { Step, ToolRun } from "../contract.ts";
+import type { ToolContext } from "../types.ts";
 import { advance as advanceStage, type RunState } from "./stages.ts";
 import { buildBody, hollow } from "./document.ts";
 import { EMPTY, learn as fold, type Playbook } from "./playbook.ts";
 import { playbookKey } from "./where.ts";
-import { enoughToUse, rowsFor, type Kept } from "./remember.ts";
+import { rowsFor, type Kept } from "./remember.ts";
 
 /** The hostname, or "" for anything that will not parse. Never throws. */
 function hostOf(url: string): string {
