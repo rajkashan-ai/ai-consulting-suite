@@ -356,3 +356,9 @@ was broken on purpose and watched go red.
   ceiling once three runs have been through it.
 - Two of the five discovery search terms produced nothing on the one run measured. Two more
   runs would say whether to cut them, and they are the largest single line in the bill.
+- `state.knownHosts` is written by the `choosing` stage and read by no production code.
+  Its only consumer was `trusted`, which the country test replaced. Three tests in
+  `fallback-wiring.test.ts` still assert it is populated and excludes blocked hosts, so it
+  reads as a live feature and is not one. Left in place on 18 September because deleting it
+  deletes those assertions too. Either give it a consumer or drop it with its tests, but do
+  not leave it looking wired up.
