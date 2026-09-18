@@ -50,17 +50,28 @@ export default function SendPosts({
 
   return (
     <div className="card">
-      <div className="card__foot">
-        <p className="t-doc-sm">
-          Take them with you. The words, what to photograph and where each one
-          came from, in one email you can open on your phone.
-        </p>
-        <button className="btn" type="button" onClick={send} disabled={busy}>
-          {busy ? "Sending" : "Email these to me"}
-        </button>
-      </div>
+      {/**
+       * One block, not two.
+       *
+       * The offer and the button sat in `.card__foot`, which pads itself, and
+       * the address line sat under it in a `.make` that did not. So the two
+       * sentences in one small panel started at different left edges, sixteen
+       * pixels apart, and the address line looked like it belonged to
+       * something else. The button had no `justify-content` either, so it sat
+       * wherever the sentence stopped wrapping with four hundred pixels of
+       * nothing beside it.
+       */}
+      <div className="card__foot send">
+        <div className="send__row">
+          <p className="t-doc-sm send__say">
+            Take them with you. The words, what to photograph and where each one
+            came from, in one email you can open on your phone.
+          </p>
+          <button className="btn" type="button" onClick={send} disabled={busy}>
+            {busy ? "Sending" : "Email these to me"}
+          </button>
+        </div>
 
-      <div className="make">
         {elsewhere ? (
           <>
             <label className="t-meta" htmlFor="to">
@@ -85,7 +96,7 @@ export default function SendPosts({
           </p>
         )}
 
-        {said ? <p className="t-doc">{said}</p> : null}
+        {said ? <p className="t-doc-sm">{said}</p> : null}
       </div>
     </div>
   );

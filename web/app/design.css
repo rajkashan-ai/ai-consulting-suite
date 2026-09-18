@@ -1417,6 +1417,23 @@ main{padding:0}
 .intent__kind{font-size:11px; line-height:14px; font-weight:600;
   letter-spacing:.06em; text-transform:uppercase; color:var(--muted)}
 
+/* TAKE THEM WITH YOU: one padded block, two rows, one left edge.
+   The offer and its button lived in .card__foot, which pads itself, and the
+   address line lived under it in a .make, which does not. Two sentences in one
+   small panel started 16px apart, so the address line read as belonging to
+   something else. And .card__foot packs left with no justify-content, so the
+   button sat wherever the sentence stopped wrapping, with 400px of nothing
+   beside it on a wide screen.
+   A co-class, never a change to .card__foot: four other screens use it as a
+   centred single row and that is right for them. */
+.send{flex-direction:column; align-items:stretch; gap:var(--s2)}
+.send__row{display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:var(--s2) var(--s3)}
+/* Takes the space and stops at its own measure. The basis is what decides when
+   the button drops below rather than squeezing to two words. */
+.send__say{margin:0; flex:1 1 34ch}
+.send__row > .btn{flex:0 0 auto}
+
 .make{display:flex; flex-direction:column; gap:var(--s3); margin:var(--s4) 0}
 .make__row{display:flex; align-items:center; flex-wrap:wrap; gap:var(--s3)}
 

@@ -34,3 +34,7 @@ yarn-error.log*
 
 # Next writes this and it is regenerated on every build.
 web/next-env.d.ts
+
+# Point-in-time copies of real customer rows, taken before deleting any.
+# Business data: kept on disk for recovery, never in version control.
+backups/
