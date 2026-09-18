@@ -92,27 +92,35 @@ test("exactly one of the three views is drawn, whatever the path", () => {
   }
 });
 
-test("the photo path needs the photo and the service, in either order", () => {
-  const photoFirst = walk(
+test("a photo on its own is enough to ask for a post", () => {
+  /**
+   * It used to need a service picked from a list too. For a salon whose site
+   * names twelve grades of the same cut that is twelve long buttons and a
+   * decision nobody wants to make on a phone, and the photo may be of something
+   * the list does not name. Raj, 2026-09-18: ask for notes, and generate the
+   * post anyway when there are none.
+   */
+  const s = walk({ did: "pick-path", path: "asset" }, { did: "pick-photo", photo: PHOTO });
+  assert.equal(readyToAsk(s), true, "a photo with no notes cannot be asked for");
+});
+
+test("notes are optional and never block the button", () => {
+  const withNotes = walk(
     { did: "pick-path", path: "asset" },
     { did: "pick-photo", photo: PHOTO },
+    { did: "note", notes: "Balayage, £95. Book two weeks ahead." },
   );
-  assert.equal(readyToAsk(photoFirst), false, "asked with no service to price it against");
-  assert.equal(readyToAsk(next(photoFirst, { did: "pick-service", service: "Balayage" })), true);
-
-  const serviceFirst = walk(
-    { did: "pick-path", path: "asset" },
-    { did: "pick-service", service: "Balayage" },
-  );
-  assert.equal(readyToAsk(serviceFirst), false, "asked with no photo");
-  assert.equal(readyToAsk(next(serviceFirst, { did: "pick-photo", photo: PHOTO })), true);
+  assert.equal(readyToAsk(withNotes), true);
+  /* And emptying them again does not take the button away. */
+  assert.equal(readyToAsk(next(withNotes, { did: "note", notes: "" })), true);
+  assert.equal(readyToAsk(next(withNotes, { did: "note", notes: "   " })), true);
 });
 
 test("taking the photo back takes the button with it", () => {
   const ready = walk(
     { did: "pick-path", path: "asset" },
     { did: "pick-photo", photo: PHOTO },
-    { did: "pick-service", service: "Balayage" },
+    { did: "note", notes: "Balayage" },
   );
   assert.equal(readyToAsk(ready), true);
   assert.equal(readyToAsk(next(ready, { did: "pick-photo", photo: null })), false);
@@ -123,12 +131,12 @@ test("a written photo post leaves nothing of the last one on screen", () => {
     walk(
       { did: "pick-path", path: "asset" },
       { did: "pick-photo", photo: PHOTO },
-      { did: "pick-service", service: "Balayage" },
+      { did: "note", notes: "Balayage, £95" },
     ),
     { did: "written" },
   );
   assert.equal(after.photo, null, "the photo is still held after the post was written");
-  assert.equal(after.service, null);
+  assert.equal(after.notes, "", "their notes are still in the box");
   assert.equal(readyToAsk(after), false, "the same photo could be sent twice");
 });
 

@@ -20,7 +20,7 @@ import {
   asPhoto,
   drawAt,
 } from "../tools/content-social-planner/photo.ts";
-import { creditLine, servicesToOffer } from "../tools/content-social-planner/sources.ts";
+import { creditLine, notesHint } from "../tools/content-social-planner/sources.ts";
 
 /* ── what size goes to the writer ───────────────────────────────────────── */
 
@@ -113,24 +113,61 @@ test("a photo too big for a server action is refused here, not by a 413", () => 
 
 /* ── the list they pick from ────────────────────────────────────────────── */
 
-test("the services offered are theirs, with the priced ones first", () => {
-  const got = servicesToOffer([
+test("the greyed example is their own service and their own price", () => {
+  const hint = notesHint([
     { name: "Dry cut", price: null },
     { name: "Balayage", price: "£95" },
     { name: "Blow dry", price: "£25" },
   ]);
-  assert.deepEqual(got, ["Balayage", "Blow dry", "Dry cut"]);
+  assert.match(hint, /Balayage, £95/, "the example is not one of theirs");
+  assert.match(hint, /Blow dry, £25/, "only one example, so the shape is not shown");
+  assert.doesNotMatch(hint, /Dry cut/, "an unpriced service crowded out a priced one");
 });
 
-test("a site that named no services offers none, rather than a list we made up", () => {
-  assert.deepEqual(servicesToOffer([]), []);
-  assert.deepEqual(servicesToOffer(null), []);
-  assert.deepEqual(servicesToOffer(undefined), []);
-  assert.deepEqual(servicesToOffer([{ name: "  ", price: "£10" }]), []);
+test("a business we could read no prices for still gets the unpriced names", () => {
+  const hint = notesHint([{ name: "Haircut" }, { name: "Beard trim" }]);
+  assert.match(hint, /Haircut/);
+  assert.match(hint, /Beard trim/);
 });
 
-test("the same service listed twice is offered once", () => {
-  assert.deepEqual(servicesToOffer([{ name: "Cut", price: "£10" }, { name: "Cut" }]), ["Cut"]);
+test("a business we could read no services for gets the shape without an example", () => {
+  /**
+   * Never a made-up price. Showing a barber "Balayage, £95" would be this
+   * product inventing a service and a price for somebody else's business,
+   * which is the one thing it exists not to do.
+   */
+  for (const none of [[], null, undefined, [{ name: "  " }]]) {
+    const hint = notesHint(none as never);
+    assert.match(hint, /what it costs/i, `${JSON.stringify(none)} produced no guidance`);
+    assert.doesNotMatch(hint, /£/, "a price appeared for a business with none");
+  }
+});
+
+test("twelve grades of one cut show as one example, not two", () => {
+  /**
+   * A Cut Above's price list is "Ladies Cut & Finish - Graduate Stylist"
+   * through to "- Creative Director": twelve rows, one service. Taking the
+   * first two gave "Ladies Cut & Finish - Graduate Stylist, £51.00. Ladies Cut
+   * & Finish - Stylist, £57.00", which shows the same thing twice. That list is
+   * exactly what made the old picker unusable.
+   */
+  const theirs = [
+    { name: "Ladies Cut & Finish - Graduate Stylist", price: "£51.00" },
+    { name: "Ladies Cut & Finish - Stylist", price: "£57.00" },
+    { name: "Ladies Cut & Finish - Creative Director", price: "£68.00" },
+    { name: "Restyle & Finish - Stylist", price: "£62.00" },
+  ];
+  const hint = notesHint(theirs);
+  assert.match(hint, /Ladies Cut & Finish, £51\.00/, "the grade is still in the example");
+  assert.match(hint, /Restyle & Finish, £62\.00/, "the second example is the same service again");
+  assert.equal((hint.match(/£/g) ?? []).length, 2, "more than two examples");
+});
+
+test("the example never runs longer than the box it sits in", () => {
+  const many = Array.from({ length: 12 }, (_x, i) => ({ name: `Service ${i}`, price: "£51" }));
+  const hint = notesHint(many);
+  assert.ok(hint.length < 120, `the placeholder is ${hint.length} characters`);
+  assert.equal((hint.match(/£51/g) ?? []).length, 2, "more than two examples");
 });
 
 /* ── what the owner is told is behind the post ──────────────────────────── */

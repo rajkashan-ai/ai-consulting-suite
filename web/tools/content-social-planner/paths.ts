@@ -107,7 +107,6 @@ export function wrongWithRequest(
   intent: unknown,
   thought: unknown,
   photo: unknown = null,
-  service: unknown = null,
 ): string | null {
   if (!isPath(path)) return "Choose how you want to start.";
   if (NOT_BUILT.has(path)) return "That way of starting is not ready yet.";
@@ -118,9 +117,19 @@ export function wrongWithRequest(
 
   if (path === "asset") {
     if (typeof photo !== "string" || !photo) return "Choose a photo.";
-    if (typeof service !== "string" || !service.trim()) {
-      return "Which of your services is this? We need it for the price and the link.";
-    }
+    /**
+     * The notes are optional, and that is deliberate.
+     *
+     * This asked them to pick one of their services from a list, and for a
+     * salon whose site lists twelve grades of the same cut that is twelve long
+     * buttons and a decision nobody wants to make on a phone between clients.
+     * Worse, a list can be wrong: the photo may be of something the list does
+     * not name.
+     *
+     * So they write what they want mentioned, or they write nothing and we
+     * work from the photo and their own pages. A post nobody could be bothered
+     * to configure is still worth more than no post.
+     */
     return null;
   }
 
@@ -150,8 +159,8 @@ export type MakeState = {
   thought: string;
   /** The downscaled photo as a data url, held in memory and never stored. */
   photo: string | null;
-  /** Which of their own services the photo shows. Their words, off their page. */
-  service: string | null;
+  /** What they want mentioned, in their own words. Empty is allowed. */
+  notes: string;
   error: string | null;
 };
 
@@ -160,7 +169,7 @@ export const START: MakeState = {
   intent: null,
   thought: "",
   photo: null,
-  service: null,
+  notes: "",
   error: null,
 };
 
@@ -169,7 +178,7 @@ export type MakeAction =
   | { did: "pick-intent"; intent: Intent }
   | { did: "type"; thought: string }
   | { did: "pick-photo"; photo: string | null }
-  | { did: "pick-service"; service: string }
+  | { did: "note"; notes: string }
   | { did: "refused"; error: string }
   | { did: "written" };
 
@@ -196,8 +205,8 @@ export function next(state: MakeState, action: MakeAction): MakeState {
     case "pick-photo":
       return { ...state, photo: action.photo, error: null };
 
-    case "pick-service":
-      return { ...state, service: action.service, error: null };
+    case "note":
+      return { ...state, notes: action.notes, error: null };
 
     case "refused":
       return { ...state, error: action.error };
@@ -205,15 +214,36 @@ export function next(state: MakeState, action: MakeAction): MakeState {
     // Written and saved. The screen is ready for the next one, and the words
     // they used are gone rather than sitting there looking unsent.
     case "written":
-      return { ...state, intent: null, thought: "", photo: null, service: null, error: null };
+      return { ...state, intent: null, thought: "", photo: null, notes: "", error: null };
   }
 }
 
 /** Whether the button is live. The same rule the action applies, asked once. */
 export const readyToAsk = (s: MakeState): boolean =>
-  wrongWithRequest(s.path, s.intent, s.thought, s.photo, s.service) === null;
+  wrongWithRequest(s.path, s.intent, s.thought, s.photo) === null;
 
 /** Which of the three the screen is drawing. One path, one answer. */
 export const showsThoughtBox = (s: MakeState): boolean => s.path === "thought";
 export const showsPhotoBox = (s: MakeState): boolean => s.path === "asset";
 export const showsIntents = (s: MakeState): boolean => s.path === "category";
+
+/** The most we carry from the notes box. A few points, not an essay. */
+export const NOTES_MAX = 500;
+
+/**
+ * Their notes, tidied, or nothing.
+ *
+ * Never an error. Notes are optional by design, so an empty box, whitespace, or
+ * something that is not a string all mean the same thing: write the post from
+ * the photo and their pages. The one thing that is enforced is a length, so a
+ * pasted page does not become the prompt.
+ *
+ * What they write is not a claim we publish. It is the owner telling us what to
+ * mention, and the post written from it goes through the same guards as every
+ * other post, so an invented price in the output is caught where every other
+ * invented price is caught.
+ */
+export function asNotes(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  return raw.trim().replace(/\s+/g, " ").slice(0, NOTES_MAX);
+}

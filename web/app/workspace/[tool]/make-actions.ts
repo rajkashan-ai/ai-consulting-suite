@@ -9,6 +9,7 @@ import { asPhoto } from "@/tools/content-social-planner/photo";
 import { knownFacts, priceRules, type ReadPage } from "@/tools/content-social-planner/stages";
 import { unsafe } from "@/tools/content-social-planner/scrub";
 import {
+  asNotes,
   asThought,
   intentAsks,
   isIntent,
@@ -39,9 +40,9 @@ export async function makePost(
   intent: Intent | null,
   thought: string | null,
   photo: string | null = null,
-  service: string | null = null,
+  notes: string | null = null,
 ): Promise<{ error: string | null }> {
-  const wrong = wrongWithRequest(path, intent, thought, photo, service);
+  const wrong = wrongWithRequest(path, intent, thought, photo);
   if (wrong) return { error: wrong };
 
   /**
@@ -154,9 +155,13 @@ export async function makePost(
    * agree to be described in a caption. The work is the subject; whoever is
    * wearing it is not.
    */
+  const wanted = asNotes(notes);
+
   const aboutThePhoto =
     `A PHOTO THEY JUST TOOK, ATTACHED ABOVE\n` +
-    `They say it shows: ${service}\n\n` +
+    (wanted
+      ? `What they want mentioned, in their words: "${wanted}"\n\n`
+      : `They wrote no notes. Work from the photo and their pages.\n\n`) +
     `Describe what you can actually see of the work. That description is the ` +
     `one thing the photo is a source for, so do not stretch it: if the photo ` +
     `does not show it, do not say it.\n\n` +
@@ -167,10 +172,12 @@ export async function makePost(
     `carries "from" like any other fact. Say which of these the post turned ` +
     `out to be: educate, inspire, entertain, inform, connect, prove, promote, ` +
     `engage.\n\n` +
-    `First, answer "shows": is this photo actually a photo of ${service}? If it ` +
-    `is not, say false and write nothing. Do not write a post about what is in ` +
-    `the picture instead, and do not attach the price of work the picture does ` +
-    `not show.\n\n`;
+    (wanted
+      ? `First, answer "fits": do their notes describe what is actually in this ` +
+        `photo? If they do not, say false. Do not write the post around the ` +
+        `notes instead of the picture, and do not attach the price of work the ` +
+        `picture does not show.\n\n`
+      : ``);
 
   const asking = sent
     ? aboutThePhoto
@@ -183,7 +190,7 @@ export async function makePost(
     : `WHAT THIS POST IS FOR\n${intentAsks(intent as Intent)}\n\n` +
       `Write one post that does that, about something on their pages below.\n\n`;
 
-  let answer: { words?: string; shot?: string; why?: string; from?: unknown; intent?: string; shows?: boolean };
+  let answer: { words?: string; shot?: string; why?: string; from?: unknown; intent?: string; fits?: boolean };
   try {
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
@@ -273,16 +280,16 @@ export async function makePost(
                  * and finish price anyway. Honest about the picture and wrong
                  * for the owner. It plainly can tell; it was never asked.
                  */
-                ...(sent
+                ...(sent && wanted
                   ? {
-                      shows: {
+                      fits: {
                         type: "boolean",
-                        description: "Is this photo actually a photo of the service they named?",
+                        description: "Do their notes describe what is actually in this photo?",
                       },
                     }
                   : {}),
               },
-              required: ["words", "shot", "why", "intent", "from", ...(sent ? ["shows"] : [])],
+              required: ["words", "shot", "why", "intent", "from", ...(sent && wanted ? ["fits"] : [])],
             },
           } as never,
         ],
@@ -319,9 +326,11 @@ export async function makePost(
    * two halves disagreeing again: the photo backs one thing and the page backs
    * another, and nothing on the screen would say so.
    */
-  if (sent && answer.shows === false) {
+  if (sent && wanted && answer.fits === false) {
     return {
-      error: `That photo does not look like ${service}. Pick the service it shows, or choose another photo.`,
+      error:
+        "That photo does not look like what you described. Change the note, or " +
+        "choose another photo.",
     };
   }
 
@@ -363,7 +372,8 @@ export async function makePost(
     source_on: post.source?.fetchedOn ?? null,
     from_photo: Boolean(sent),
     photo_on: sent ? today : null,
-    service: sent ? service : null,
+    service: null,
+    notes: sent && wanted ? wanted : null,
   });
 
   if (saving) {

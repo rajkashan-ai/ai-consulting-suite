@@ -176,3 +176,52 @@ export function creditLine(
   if (!fromPhoto) return `From ${page}`;
   return `From your photo${photoOn ? `, added ${photoOn}` : ""}, and ${page}`;
 }
+
+/**
+ * The greyed example in the notes box, built from their own price list.
+ *
+ * WHY NOT A WRITTEN EXAMPLE
+ * A placeholder showing "Balayage, £95" to a barber is us inventing a service
+ * and a price for somebody else's business, in the one product whose whole
+ * promise is that it does not. Their own priced services are the only honest
+ * example, and they are already on the run.
+ *
+ * Two, because a placeholder long enough to read is a placeholder that gets in
+ * the way of the box it is in. Priced first, so the example shows a price,
+ * which is the half people forget to mention.
+ *
+ * A business we could read no services for gets the shape without the example.
+ * It still says what to write; it just cannot show them.
+ */
+export function notesHint(
+  services: readonly { name: string; price?: string | null }[] | null | undefined,
+): string {
+  const named = (services ?? []).filter((s) => s?.name?.trim());
+  const priced = named.filter((s) => s.price);
+
+  /**
+   * Two DIFFERENT services, not one service twice.
+   *
+   * A Cut Above's price list is twelve grades of the same cut, "Ladies Cut &
+   * Finish - Graduate Stylist" through to "- Creative Director", which is the
+   * list that made the old picker unusable in the first place. Taking the first
+   * two produced "Ladies Cut & Finish - Graduate Stylist, £51.00. Ladies Cut &
+   * Finish - Stylist, £57.00", which shows the shape twice and the range once.
+   *
+   * So the grade is dropped for the purpose of telling two services apart, and
+   * the first of each family is shown with its own real price.
+   */
+  const family = (name: string) => name.split(/\s[-–:]\s/)[0].trim().toLowerCase();
+  const distinct: typeof named = [];
+  for (const s of [...priced, ...named.filter((x) => !x.price)]) {
+    if (distinct.some((d) => family(d.name) === family(s.name))) continue;
+    distinct.push(s);
+    if (distinct.length === 2) break;
+  }
+  const show = distinct;
+
+  if (!show.length) return "What is in the photo, what it costs, anything worth saying";
+
+  const bits = show.map((s) => (s.price ? `${s.name.trim().split(/\s[-–:]\s/)[0].trim()}, ${s.price}` : s.name.trim()));
+  return `${bits.join(". ")}. Anything else worth saying`;
+}

@@ -385,10 +385,10 @@ was broken on purpose and watched go red.
   reads as a live feature and is not one. Left in place on 18 September because deleting it
   deletes those assertions too. Either give it a consumer or drop it with its tests, but do
   not leave it looking wired up.
-- A Cut Above's services read off their site are twelve long names ("Ladies Cut & Finish -
-  Graduate Stylist" through to "- Creative Director"), which is twelve long buttons on the photo
-  path. Correct, and awkward to pick from on a phone. Grouping by service with the stylist grade
-  as a second choice would be the fix, and it needs Raj's call before building.
+- The twelve-long-buttons problem on the photo path is solved, 2026-09-18: the service picker is
+  gone. The owner writes a few points instead, or writes nothing, and the greyed example in the
+  box is two of their own services with their own real prices, deduped by family so twelve grades
+  of one cut show as one example.
 - `post-controls.tsx` and the `markPosted` action are referenced by nothing since "This week"
   was removed on 18 September. Marking a post as gone out, with the link, no longer exists
   anywhere in the planner, although `content_made` already has `posted_at` and `posted_url`

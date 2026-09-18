@@ -52,8 +52,8 @@ export default function PlanView({
   workspaceId: string;
   /** Posts they asked for on the day, newest first. See Made. */
   made: MadePost[];
-  /** Their own services, off their own site, for the photo path. See Make. */
-  services: string[];
+  /** Their own services, off their own site, for the notes hint. See Make. */
+  services: { name: string; price?: string | null }[];
   /** The address they signed in with, so we do not ask for one we have. */
   knownEmail: string | null;
   /** How they sound, and the voice they chose. See BrandPersona. */

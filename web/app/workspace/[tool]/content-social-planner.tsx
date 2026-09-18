@@ -4,7 +4,6 @@ import { FIRST_STAGE, lastPlan } from "@/tools/content-social-planner/index";
 import Channels from "./channels";
 import PlanView from "./plan";
 import { isStyle } from "@/tools/content-social-planner/persona";
-import { servicesToOffer } from "@/tools/content-social-planner/sources";
 import Running from "./running";
 import { tooOldToResume } from "@/tools/cadence";
 
@@ -159,7 +158,7 @@ export default async function ContentSocialPlanner({
         plan={document.body as never}
         workspaceId={workspaceId}
         made={(made ?? []) as never}
-        services={servicesToOffer(workspace?.services as never)}
+        services={(workspace?.services ?? []) as never}
         knownEmail={(await supabase.auth.getUser()).data.user?.email ?? null}
         voice={{
           persona: (voice?.persona ?? null) as never,

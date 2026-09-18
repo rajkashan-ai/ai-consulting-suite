@@ -6,10 +6,12 @@ import { sourceOf } from "./tool-source.ts";
 import {
   CONVERTS,
   INTENTS,
+  NOTES_MAX,
   NOT_BUILT,
   PATHS,
   THOUGHT_MAX,
   THOUGHT_MIN,
+  asNotes,
   asThought,
   intentAsks,
   isIntent,
@@ -43,24 +45,34 @@ test("the 80/20 split is five that build trust and three that ask", () => {
   assert.equal(CONVERTS.size / INTENTS.length, 0.375, "three of eight, which is the ratio to show");
 });
 
-test("starting from a photo is built, and asks for both halves", () => {
+test("a photo on its own is enough, and notes are optional", () => {
   /**
-   * Built 2026-09-18. A photo on its own can only produce a description: it
-   * carries no price and no booking line. So the path asks for two things, and
-   * refuses with the reason rather than failing somewhere deeper.
+   * Built 2026-09-18 as photo-plus-a-chosen-service, changed the same day.
+   * A list of services can be wrong about a photo, and twelve buttons on a
+   * phone between clients is a decision nobody makes. Raj: ask for notes, and
+   * generate the post anyway when there are none.
    */
   assert.ok((PATHS as readonly string[]).includes("asset"));
   assert.equal(NOT_BUILT.has("asset"), false, "the path is built and still marked as not");
 
   const photo = "data:image/jpeg;base64,/9j/4AAQ";
-  assert.match(wrongWithRequest("asset", null, null, null, null)!, /choose a photo/i);
-  assert.match(wrongWithRequest("asset", null, null, photo, null)!, /which of your services/i);
-  assert.match(wrongWithRequest("asset", null, null, photo, "   ")!, /which of your services/i);
-  assert.equal(wrongWithRequest("asset", null, null, photo, "Balayage"), null);
+  assert.match(wrongWithRequest("asset", null, null, null)!, /choose a photo/i);
+  assert.equal(wrongWithRequest("asset", null, null, photo), null, "a photo alone is refused");
 
   /* A category is not what this path asks for, so supplying one changes
-     nothing: the photo and the service are the two halves. */
-  assert.match(wrongWithRequest("asset", "prove", null, null, "Balayage")!, /choose a photo/i);
+     nothing: the photo is the whole requirement. */
+  assert.match(wrongWithRequest("asset", "prove", null, null)!, /choose a photo/i);
+});
+
+test("notes are tidied, never refused, and capped", () => {
+  /* Never an error. An empty box, whitespace, or something that is not a
+     string all mean the same thing: write from the photo and their pages. */
+  assert.equal(asNotes("  Balayage,   £95  "), "Balayage, £95");
+  assert.equal(asNotes(""), "");
+  assert.equal(asNotes("   "), "");
+  assert.equal(asNotes(null), "");
+  assert.equal(asNotes(42), "");
+  assert.equal(asNotes("x".repeat(NOTES_MAX + 200)).length, NOTES_MAX, "a pasted page became the prompt");
 });
 
 test("nothing that is still unbuilt can be selected or run", () => {
@@ -70,7 +82,7 @@ test("nothing that is still unbuilt can be selected or run", () => {
    * still works rather than checking the set is empty.
    */
   for (const path of NOT_BUILT) {
-    assert.match(wrongWithRequest(path, "prove", null, null, null)!, /not ready yet/i);
+    assert.match(wrongWithRequest(path, "prove", null, null)!, /not ready yet/i);
   }
 });
 
@@ -191,36 +203,31 @@ test("the photo is downscaled here and stored nowhere", () => {
   assert.match(src, /not kept/i, "nothing tells them it is not stored");
 });
 
-test("a photo that is not the service they named is refused, not written around", () => {
+test("a photo that does not match their own notes is refused, not written around", () => {
   /**
    * Found on a live call, 2026-09-18. Handed a photo of a desk and told it was
-   * a Ladies Cut & Finish, the writer described the desk accurately, said in
-   * the shot line that no haircut was visible, and attached the £51 cut price
-   * anyway. Honest about the picture and wrong for the owner.
+   * a Ladies Cut & Finish, the writer described the desk accurately, said no
+   * haircut was visible, and attached the £51 cut price anyway.
    *
-   * It can plainly tell. It was never asked. So it is asked, and the decision
-   * is ours: on the same photo it now answers shows:false and still writes a
-   * post, because a model told to write nothing writes something. We do not
-   * depend on it obeying, only on it observing.
+   * The named service is gone, so the question changed with it: it now asks
+   * whether their own notes describe the picture. Only asked when they wrote
+   * notes, because with none there is no claim to contradict, and the post is
+   * written from the photo and their pages like every other post.
    */
   const action = read("make-actions.ts");
   const code = action.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");
 
-  assert.match(code, /shows: \{/, "the writer is never asked whether the photo is the service");
-  assert.match(code, /required: \["words", "shot", "why", "intent", "from", \.\.\.\(sent \? \["shows"\] : \[\]\)\]/,
-    "shows is optional, so a silent model would pass the check");
-  assert.match(code, /answer\.shows === false/, "the answer is asked for and not read");
+  assert.match(code, /fits: \{/, "the writer is never asked whether the photo matches");
+  assert.match(code, /sent && wanted \? \["fits"\] : \[\]/, "fits is optional, so a silent model would pass");
+  assert.match(code, /answer\.fits === false/, "the answer is asked for and not read");
+  /* No notes, no question: asking a model to check a claim nobody made invites
+     it to invent one. */
+  assert.match(code, /sent && wanted && answer\.fits === false/);
 
-  /* Refused before anything is saved, and before the guard, because the guard
-     cannot see this: a real price cited to a real page passes every check. */
   assert.ok(
-    code.indexOf("answer.shows === false") < code.indexOf('from("content_made")'),
+    code.indexOf("answer.fits === false") < code.indexOf('from("content_made")'),
     "a mismatched photo is saved and then refused",
   );
-
-  /* In their words, naming the service, with something to do about it. */
-  const refusal = /does not look like \$\{service\}[^`]*/.exec(action)?.[0] ?? "";
-  assert.match(refusal, /Pick the service it shows|choose another photo/i, "the refusal says nothing to do");
 });
 
 test("the action is handed a photo and never a file", () => {
@@ -350,4 +357,31 @@ test("a post is asked for in the shape cite understands", () => {
     /if \("from" in record\)/,
     "cite looks for a different key now",
   );
+});
+
+test("with no notes the post is still written, and nothing extra is asked of the model", () => {
+  /**
+   * Raj, 2026-09-18: "What happens if they don't provide anything. Post should
+   * be generated anyway."
+   *
+   * Two halves to that. The button has to be live, which make-state.test.ts
+   * covers, and the action has to go through to the writer rather than refuse
+   * on a missing field. What is checked here is that nothing on the photo path
+   * is conditional on notes except the mismatch question, which cannot be asked
+   * when there is no claim to check.
+   */
+  const action = read("make-actions.ts");
+  const code = action.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");
+
+  /* The only gate before the writer is the pre-generation one, which is about
+     their pages and not about notes. */
+  assert.doesNotMatch(code, /if \(!wanted\)\s*return/, "an empty note stops the post");
+  assert.doesNotMatch(code, /wanted\s*\?\?\s*["'].*["']/, "an empty note is filled in with words of ours");
+
+  /* And the prompt says so out loud rather than leaving the model to guess. */
+  assert.match(action, /They wrote no notes\. Work from the photo and their pages/);
+
+  /* The saved row carries null rather than an empty string, so "they wrote
+     nothing" and "they wrote a blank" are the same fact in the database. */
+  assert.match(code, /notes: sent && wanted \? wanted : null/);
 });

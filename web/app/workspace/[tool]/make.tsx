@@ -6,6 +6,7 @@ import { makePost } from "./make-actions";
 import {
   CONVERTS,
   INTENTS,
+  NOTES_MAX,
   START,
   THOUGHT_MAX,
   next,
@@ -14,6 +15,7 @@ import {
   showsPhotoBox,
 } from "@/tools/content-social-planner/paths";
 import { QUALITY, SENT_AS, TAKES, drawAt } from "@/tools/content-social-planner/photo";
+import { notesHint } from "@/tools/content-social-planner/sources";
 
 /**
  * Three ways to ask for a post.
@@ -28,15 +30,16 @@ import { QUALITY, SENT_AS, TAKES, drawAt } from "@/tools/content-social-planner/
  * here, in their browser, carried inside the one call that writes the post, and
  * never stored. Nothing about it reaches a database except that there was one.
  *
- * `services` comes off their own site. A list we typed would contain work they
- * do not sell, and a post about work they do not sell is worse than no post.
+ * `services` comes off their own site, and is used only to show them a real
+ * example in the notes box. A price we typed would be a price that is not
+ * theirs, in the one product whose promise is that it never does that.
  */
 export default function Make({
   workspaceId,
   services,
 }: {
   workspaceId: string;
-  services: string[];
+  services: { name: string; price?: string | null }[];
 }) {
   // Every hook together at the top. A hook below a closure that uses it works
   // and reads as a mistake, and a hook below a return crashed a live run.
@@ -44,7 +47,7 @@ export default function Make({
   const [state, act] = useReducer(next, START);
   const [busy, setBusy] = useState(false);
 
-  const { path, intent, thought, photo, service, error } = state;
+  const { path, intent, thought, photo, notes, error } = state;
   const ready = readyToAsk(state);
 
   /**
@@ -86,7 +89,7 @@ export default function Make({
         path === "category" ? intent : null,
         path === "thought" ? thought : null,
         path === "asset" ? photo : null,
-        path === "asset" ? service : null,
+        path === "asset" ? notes : null,
       );
       if (refused) {
         act({ did: "refused", error: refused });
@@ -196,33 +199,31 @@ export default function Make({
             to write the post, and not kept.
           </p>
 
-          <label className="t-meta" htmlFor="service">
-            Which of your services is this?
+          <label className="t-meta" htmlFor="notes">
+            Anything you want mentioned? You can leave this empty.
           </label>
-          {services.length ? (
-            <div className="controls">
-              {services.map((name) => (
-                <button
-                  key={name}
-                  className="toggle"
-                  type="button"
-                  aria-pressed={service === name}
-                  disabled={busy}
-                  onClick={() => act({ did: "pick-service", service: name })}
-                >
-                  {name}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="t-micro">
-              We could not find a list of your services on your site, so there is
-              nothing to price this against yet.
-            </p>
-          )}
+          <textarea
+            id="notes"
+            className="field field--area"
+            rows={3}
+            maxLength={NOTES_MAX}
+            value={notes}
+            disabled={busy}
+            /**
+             * The suggestions are their own services and their own prices,
+             * read off their own price list, not a generic example.
+             *
+             * A placeholder disappears the moment they type, which is the
+             * behaviour asked for, and it costs nothing when they type nothing.
+             * A made-up example would be us showing a salon a price that is not
+             * theirs.
+             */
+            placeholder={notesHint(services)}
+            onChange={(e) => act({ did: "note", notes: e.target.value })}
+          />
           <p className="t-micro">
-            The photo says what it looks like. This is how we get the price and
-            the booking line right, off your own page.
+            Write nothing and we will work from the photo and your own pages.
+            Anything you do write, we keep true.
           </p>
         </div>
       ) : (
