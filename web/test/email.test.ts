@@ -150,3 +150,48 @@ test("an address that is not one is refused before anything is sent", () => {
   const send = action.indexOf("sendEmail(");
   assert.ok(check > 0 && check < send, "a bad address reaches the sender");
 });
+
+/* ── throwing one away ──────────────────────────────────────────────────── */
+
+test("a post they throw away is deleted, not hidden", () => {
+  /**
+   * Nothing else points at a made post, so there is no reason to keep one they
+   * told us to let go of. Hiding it would mean holding the words of somebody's
+   * business after they asked us not to.
+   */
+  const action = code(file("app", "workspace", "[tool]", "send-actions.ts"));
+  const fn = action.slice(action.indexOf("export async function deletePost"));
+  assert.match(fn, /\.from\("content_made"\)\s*\.delete\(\)/, "it is not a delete");
+  assert.doesNotMatch(fn, /deleted_at|hidden|archived|\.update\(/, "it hides the post instead");
+});
+
+test("whose post it is, is decided by row level security and not by us", () => {
+  /**
+   * The policy on content_made already answers this. Checking it here as well
+   * would be two rules for one question, which is how they end up disagreeing.
+   */
+  const action = code(file("app", "workspace", "[tool]", "send-actions.ts"));
+  assert.match(action, /createClient\(\)/);
+  assert.doesNotMatch(action, /createAdminClient/, "it deletes past row level security");
+
+  const sql = file("supabase", "content-planner-2026-09-17-made-posts.sql");
+  assert.match(sql, /for all/, "the policy does not cover deleting");
+  assert.match(sql, /owner_id = auth\.uid\(\)/);
+});
+
+test("the page redraws, or the post they deleted stays on screen", () => {
+  const action = code(file("app", "workspace", "[tool]", "send-actions.ts"));
+  const fn = action.slice(action.indexOf("export async function deletePost"));
+  assert.match(fn, /revalidatePath/, "the list is not redrawn after a delete");
+});
+
+test("it asks once before throwing anything away", () => {
+  /* One stray tap should not lose a post. Two presses, and the second says
+     what it does rather than saying "confirm". */
+  const screen = file("app", "workspace", "[tool]", "delete-post.tsx");
+  const c = code(screen);
+  assert.match(c, /if \(!asking\)/, "the first press deletes it");
+  assert.match(screen, /Throw it away\?/, "the second press does not say what it does");
+  assert.match(screen, /Keep it/, "there is no way to change your mind");
+  assert.doesNotMatch(c, /window\.confirm|alert\(/, "it puts a browser box over the screen");
+});

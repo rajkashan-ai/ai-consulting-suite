@@ -1,5 +1,6 @@
 import { INTENTS, type Intent } from "@/tools/content-social-planner/paths";
 import { creditLine } from "@/tools/content-social-planner/sources";
+import DeletePost from "./delete-post";
 
 export type MadePost = {
   id: string;
@@ -70,6 +71,10 @@ export default function Made({ made }: { made: MadePost[] }) {
               <span className="t-micro">
                 {creditLine(p.from_photo, p.source_on, p.photo_on)}
               </span>
+
+              {/* Beside where it came from, at the bottom, because throwing one
+                  away is the last thing you do with it and not the first. */}
+              <DeletePost id={p.id} />
             </span>
           </div>
         ))}

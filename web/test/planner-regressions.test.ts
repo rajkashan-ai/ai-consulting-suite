@@ -392,9 +392,19 @@ test("the page is laid out in bands, which is the only landmark the system has",
   assert.ok(bands.length >= 4, `only ${bands.length} bands for the sections on the screen`);
   assert.ok(bands[0].includes("band--first"), "the first band does not sit under the nav");
   assert.ok(bands[bands.length - 1].includes("band--last"), "the last band has no closing space");
-  assert.equal(
-    bands.filter((b) => b.includes("band--dark")).length,
-    1,
+  /**
+   * At most one, which is what the rule always said. It asserted exactly one
+   * while the written week existed, because that week was designed for a dark
+   * ground and nothing else was.
+   *
+   * With the week gone there is no section built for it. Moving the generator
+   * onto `band--dark` was tried on 2026-09-18 and made the screen unreadable:
+   * the dark band restores the ink colour inside `.card` and `.action` and not
+   * inside `.panel`, so every line of every post came out white on cream. The
+   * screen has no dark band until something is designed for one.
+   */
+  assert.ok(
+    bands.filter((b) => b.includes("band--dark")).length <= 1,
     "a screen gets at most one dark band, and it goes to whatever the reader came for",
   );
 

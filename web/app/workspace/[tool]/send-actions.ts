@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/mail/send";
 import { postsAsEmail, type Sendable } from "@/tools/content-social-planner/email";
@@ -66,4 +67,36 @@ export async function sendPosts(
   if (sending) return { error: sending, sentTo: null };
 
   return { error: null, sentTo: address };
+}
+
+/**
+ * Throw one of their posts away.
+ *
+ * They asked for it, they read it, they are done with it. Without this the list
+ * only ever grows, and a page that only grows stops being looked at.
+ *
+ * Deleted rather than hidden. A post they threw away is not a record we have
+ * any reason to keep: nothing else points at it, and keeping it would mean
+ * holding the words of somebody's business after they told us to let go.
+ *
+ * Row level security decides whose it is. The action does not check ownership
+ * itself, because the policy on content_made already does and two checks for
+ * one question is how they end up disagreeing.
+ */
+export async function deletePost(id: string): Promise<{ error: string | null }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Sign in and try again." };
+
+  const { error } = await supabase.from("content_made").delete().eq("id", id);
+
+  if (error) {
+    console.error(`[made] could not delete a post: ${error.message}`);
+    return { error: "We could not throw that away just now. Try again in a moment." };
+  }
+
+  revalidatePath("/workspace");
+  return { error: null };
 }

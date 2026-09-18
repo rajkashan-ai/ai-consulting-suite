@@ -89,12 +89,17 @@ export default function PlanView({
         />
       </Band>
 
-      {/* ── 2. What they came for. The one dark band on the screen. ──────
+      {/* ── 2. What they came for ────────────────────────────────────────
           A calendar they did not ask for produces guilt; this is triggered by
-          something real happening. It took the dark band on 2026-09-18, when
-          the written week below it was removed: the band goes to whatever the
-          reader came for, and by then this was it. */}
-      <Band mod="band--dark">
+          something real happening.
+
+          It is NOT the dark band, and that was tried. `.band--dark` puts back
+          the ink colour inside `.card` and `.action` but not inside `.panel`,
+          which is what these two are, so every line of every post rendered
+          white on cream and the screen was unreadable. Giving this band the
+          dark ground is a design job, not a class swap: there is no section
+          designed for it now that the written week has gone. */}
+      <Band mod="band--a">
         <Make workspaceId={workspaceId} services={services} />
         <Made made={made} />
         {/* Under the posts, because it is what you do once there are some. */}
