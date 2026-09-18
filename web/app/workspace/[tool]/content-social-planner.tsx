@@ -3,6 +3,7 @@ import { decidePlan, sayNext } from "@/tools/content-social-planner/freshness";
 import { FIRST_STAGE, lastPlan } from "@/tools/content-social-planner/index";
 import Channels from "./channels";
 import PlanView from "./plan";
+import { isStyle } from "@/tools/content-social-planner/persona";
 import Running from "./running";
 import { tooOldToResume } from "@/tools/cadence";
 
@@ -137,7 +138,7 @@ export default async function ContentSocialPlanner({
         .eq("workspace_id", workspaceId),
       supabase
         .from("content_voice_note")
-        .select("corrections")
+        .select("corrections, persona, style, samples, inspiration")
         .eq("workspace_id", workspaceId)
         .maybeSingle(),
       /**
@@ -172,6 +173,12 @@ export default async function ContentSocialPlanner({
         postState={postState}
         corrections={(voice?.corrections ?? []) as string[]}
         made={(made ?? []) as never}
+        voice={{
+          persona: (voice?.persona ?? null) as never,
+          style: (isStyle(voice?.style) ? voice.style : "original") as never,
+          samples: (voice?.samples ?? []) as string[],
+          inspiration: (voice?.inspiration ?? null) as string | null,
+        }}
       />
       {/* Kept on the finished plan, not only before the first run. A channel
           they started last week is the most likely thing to be wrong, and a
@@ -243,6 +250,12 @@ export default async function ContentSocialPlanner({
    * first tick. Changing the default would change the Tracker's behaviour, so
    * this says what it wants instead.
    */
+  const { data: persona } = await supabase
+    .from("content_voice_note")
+    .select("persona, style")
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+
   const { data: started, error } = await supabase
     .from("runs")
     .insert({
@@ -259,7 +272,16 @@ export default async function ContentSocialPlanner({
        * type a tool is handed cannot express "this tool's newest document".
        * The screen holds both already.
        */
-      state: { told: confirmed ?? [], before: lastPlan(document?.body) },
+      state: {
+        told: confirmed ?? [],
+        before: lastPlan(document?.body),
+        /* And the voice they chose, carried the same way and for the same
+           reason. A run that read its own voice would use the one it found on
+           the day, and the point of Brand Persona is that they can change how
+           they sound without waiting for the next run. */
+        persona: (persona?.persona ?? null) as never,
+        style: (persona?.style ?? "original") as never,
+      },
     })
     .select("id, started_at")
     .single();

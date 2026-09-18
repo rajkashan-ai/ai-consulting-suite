@@ -15,6 +15,7 @@ import {
   type Intent,
   type Path,
 } from "@/tools/content-social-planner/paths";
+import { isStyle, personaFor, type Persona } from "@/tools/content-social-planner/persona";
 import type { Business } from "@/tools/types";
 
 /**
@@ -79,7 +80,26 @@ export async function makePost(
     return { error: "We could not reach your last plan. Try again in a moment." };
   }
 
+  /**
+   * The voice they chose, not the one we read.
+   *
+   * Read from content_voice_note rather than from the run's state: a run is a
+   * snapshot from whenever it happened, and the whole point of Brand Persona
+   * is that they can change how they sound without waiting for the next one.
+   * Falls back to the run's two sentences where no persona has been worked out
+   * yet, so nothing that worked yesterday stops working.
+   */
+  const { data: note } = await supabase
+    .from("content_voice_note")
+    .select("persona, style")
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+
   const state = (run?.state ?? {}) as { pages?: Page[]; read?: ReadPage[]; voice?: { words?: string } };
+  const persona = (note?.persona ?? null) as Persona | null;
+  const voice = persona
+    ? personaFor(persona, isStyle(note?.style) ? note.style : "original")
+    : `HOW THEY SOUND\n${state.voice?.words ?? ""}\n\n`;
   const pages = state.pages ?? [];
   const read = (state.read ?? []).filter((p) => p.ok);
 
@@ -146,7 +166,7 @@ export async function makePost(
             role: "user",
             content:
               `${citeRules(pages)}\n\nTHEIR PAGES\n\n${text}\n\n` +
-              `HOW THEY SOUND\n${state.voice?.words ?? ""}\n\n` +
+              voice +
               priceRules(business) +
               asking +
               `One post, finished words ready to paste, one line saying what to ` +

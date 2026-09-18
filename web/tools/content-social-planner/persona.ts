@@ -207,3 +207,27 @@ export function asInspiration(raw: unknown): { url: string } | { error: string }
 
   return { url: withScheme.replace(/\/$/, "") };
 }
+
+/**
+ * What the writers are given, in one place so both of them agree.
+ *
+ * Lives here rather than beside the actions because everything exported from a
+ * "use server" file has to be an async function, and because the monthly
+ * writer and the on-demand one both need it. Two copies of this would be two
+ * things to keep true, and a post written in the wrong voice is the kind of
+ * wrong nobody notices until a customer does.
+ */
+export function personaFor(persona: Persona | null, style: StyleId): string {
+  if (!persona) return "";
+  const chosen = style !== "original" ? `\nWrite in this voice: ${STYLE_RULES[style]}\n` : "";
+  return (
+    `HOW THEY SOUND\n${persona.tone}\n${persona.style}\n` +
+    (persona.uses.length ? `Words they use: ${persona.uses.join(", ")}\n` : "") +
+    (persona.avoids.length ? `Words they never use: ${persona.avoids.join(", ")}\n` : "") +
+    chosen +
+    (style !== "original"
+      ? `Their own habits above still hold where the two do not clash.\n`
+      : "") +
+    `\n`
+  );
+}

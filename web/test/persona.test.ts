@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { sourceOf } from "./tool-source.ts";
 import {
   SAMPLES_MAX,
   SAMPLE_MIN,
@@ -8,7 +11,9 @@ import {
   asInspiration,
   asSamples,
   isStyle,
+  personaFor,
   styleById,
+  type Persona,
 } from "../tools/content-social-planner/persona.ts";
 
 /**
@@ -105,4 +110,99 @@ test("an inspiration we are not allowed to read is refused with the reason", () 
   assert.equal(asInspiration(""), null);
   assert.equal(asInspiration(null), null);
   assert.ok("error" in asInspiration("not a web address")!);
+});
+
+// ---------------------------------------------------------------------------
+// The voice they chose has to reach the writing
+// ---------------------------------------------------------------------------
+
+const read = (p: string[]) => readFileSync(join(import.meta.dirname, "..", ...p), "utf8");
+
+test("what the writers are given says the habits and the choice", () => {
+  const persona: Persona = {
+    tone: "Warm and unhurried.",
+    uses: ["pop in", "sorted", "just ask"],
+    avoids: ["bespoke", "utilise"],
+    style: "Short sentences, says you and we, a line between thoughts.",
+    chosen: "original",
+  };
+
+  const asRead = personaFor(persona, "original");
+  assert.match(asRead, /Warm and unhurried/);
+  assert.match(asRead, /pop in, sorted, just ask/);
+  assert.match(asRead, /bespoke, utilise/);
+  // Their own voice adds no instruction: it is not a style, it is what we read.
+  assert.doesNotMatch(asRead, /Write in this voice/);
+
+  const asChosen = personaFor(persona, "direct");
+  assert.match(asChosen, /Write in this voice/);
+  assert.match(asChosen, /under fifteen words/, "the writer gets the rule, not the feeling");
+  // And their own habits survive the choice: a business that says "pop in" says
+  // it whichever voice they pick.
+  assert.match(asChosen, /pop in/);
+  assert.match(asChosen, /still hold where the two do not clash/);
+
+  assert.equal(personaFor(null, "warm"), "", "no persona is no instruction, not a guess");
+});
+
+test("both writers use the voice they chose, from one place", () => {
+  /**
+   * Two copies of this would be two things to keep true, and a post in the
+   * wrong voice is the kind of wrong nobody notices until a customer does.
+   * The same failure as the guard knowing the real prices and the writer not,
+   * which cost a run on 17 September.
+   */
+  for (const [what, src] of [
+    ["the monthly writer", sourceOf("content-social-planner")],
+    ["the on-demand writer", read(["app", "workspace", "[tool]", "make-actions.ts"])],
+  ] as const) {
+    assert.match(src, /personaFor\(/, `${what} does not use the chosen voice`);
+  }
+});
+
+test("the chosen voice is read from the table, not from an old run", () => {
+  /**
+   * A run is a snapshot from whenever it happened. The whole point of Brand
+   * Persona is that they can change how they sound without waiting for the
+   * next one, so the on-demand writer reads the table and the screen puts the
+   * persona on a new run when it starts one.
+   */
+  const make = read(["app", "workspace", "[tool]", "make-actions.ts"]);
+  assert.match(make, /from\("content_voice_note"\)[\s\S]{0,120}persona, style/);
+
+  const screen = read(["app", "workspace", "[tool]", "content-social-planner.tsx"]);
+  assert.match(screen, /persona: \(persona\?\.persona \?\? null\)/, "a new run starts without the voice");
+
+  // And nothing that worked before stops: no persona falls back to the two
+  // sentences the run read for itself.
+  assert.match(sourceOf("content-social-planner"), /state\.persona\s*\?/);
+});
+
+test("a style nobody built cannot be stored", () => {
+  const sql = read(["supabase", "content-planner-2026-09-18-brand-persona.sql"]);
+  assert.match(sql, /check \(style in \('original', 'expert', 'warm', 'direct', 'uplifting', 'story'\)\)/);
+  // The list in the database and the list in the code are the same list.
+  for (const s of STYLES) assert.ok(sql.includes(`'${s.id}'`), `${s.id} is not allowed in the table`);
+});
+
+test("every class the persona screen uses exists", () => {
+  const css = read(["app", "design.css"]);
+  const used = new Set(
+    [...read(["app", "workspace", "[tool]", "persona.tsx"]).matchAll(/className=[`"]([^`"{]+)[`"]/g)]
+      .flatMap((m) => m[1].split(/\s+/))
+      .filter(Boolean),
+  );
+  const missing = [...used].filter((c) => !css.includes(`.${c}`));
+  assert.deepEqual(missing, [], `classes with no stylesheet behind them: ${missing}`);
+});
+
+test("the screen says plainly what we cannot read", () => {
+  /**
+   * Instagram and Facebook both answer "Their robots.txt asks us not to read
+   * this page." An owner who pastes a handle and watches nothing happen
+   * assumes we are broken; told once, they paste a post instead.
+   */
+  const src = read(["app", "workspace", "[tool]", "persona.tsx"]);
+  assert.match(src, /cannot read Instagram or\s*\n?\s*Facebook/);
+  assert.match(src, /do not go around that/);
 });

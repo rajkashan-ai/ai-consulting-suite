@@ -1284,3 +1284,39 @@ main{padding:0}
 /* The post itself, which is the thing they came to copy. Line breaks kept as
    written, because a caption's shape is part of the caption. */
 .made__words{white-space:pre-wrap; margin:var(--s2) 0}
+
+/* ---------------------------------------------------------------------------
+   Brand Persona.
+
+   Added 2026-09-18. It was two sentences near the bottom of the page, and it
+   is now the first thing: everything written for them is written in this
+   voice, so being able to see it and change it comes before anything it
+   produces.
+
+   The persona reads as a set of facts about their writing, laid out as pairs,
+   because "warm and professional" cannot be argued with and "words you use:
+   pop in, sorted, just ask" can.
+--------------------------------------------------------------------------- */
+.persona{display:grid; gap:var(--s3); margin:var(--s4) 0;
+  grid-template-columns:repeat(auto-fit, minmax(240px, 1fr))}
+.persona__part{display:flex; flex-direction:column; gap:2px}
+.persona__what{font-size:11px; line-height:14px; font-weight:600;
+  letter-spacing:.06em; text-transform:uppercase; color:var(--muted)}
+.persona__said{font-size:15px; line-height:22px; color:var(--ink)}
+
+/* The five, and the way back. Same shape as the intent cards, because they are
+   the same kind of choice: pick one, see what it does. */
+.voices{display:grid; gap:var(--s2); margin:var(--s4) 0;
+  grid-template-columns:repeat(auto-fill, minmax(220px, 1fr))}
+
+/* Their own voice sits first and reads as the way out, not a sixth option. */
+.voice--original{border-style:dashed}
+
+/* Before and after, side by side where there is room and stacked where there
+   is not. Reading two versions of the same post in one column means holding
+   the first in your head, which is exactly what makes them feel the same. */
+.tryout{display:grid; gap:var(--s4); margin:var(--s4) 0;
+  grid-template-columns:repeat(auto-fit, minmax(280px, 1fr))}
+.tryout__side{display:flex; flex-direction:column; gap:var(--s2)}
+.tryout__words{white-space:pre-wrap; font-size:15px; line-height:23px;
+  padding:var(--s3); background:var(--card-2); border-radius:var(--r-card)}

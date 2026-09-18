@@ -1,6 +1,8 @@
 import type { DocumentBody } from "@/tools/content-social-planner/document";
 import Make from "./make";
 import Made, { type MadePost } from "./made";
+import BrandPersona from "./persona";
+import type { Persona, StyleId } from "@/tools/content-social-planner/persona";
 import { isWrittenPost } from "@/tools/content-social-planner/stages";
 import Resizer from "./resizer";
 import SendWeek from "./send-week";
@@ -73,6 +75,7 @@ export default function PlanView({
   postState,
   corrections,
   made,
+  voice,
 }: {
   plan: DocumentBody;
   nextPlan: string;
@@ -83,6 +86,13 @@ export default function PlanView({
   corrections: string[];
   /** Posts they asked for on the day, newest first. See Made. */
   made: MadePost[];
+  /** How they sound, and the voice they chose. See BrandPersona. */
+  voice: {
+    persona: Persona | null;
+    style: StyleId;
+    samples: string[];
+    inspiration: string | null;
+  };
 }) {
   const written = plan.posts.filter(isWrittenPost);
   const blanks = written.flatMap((p) => p.words.match(/\[[^\]]+\]/g) ?? []);
@@ -103,7 +113,21 @@ export default function PlanView({
           thing they came to do. A calendar they did not ask for produces guilt;
           this is triggered by something real happening. The plan below stays
           exactly as it was. */}
+      {/* ── 0. How they sound, before anything written in it ─────────────
+          First on the page because everything below is written in this voice.
+          It used to be two sentences near the bottom, described and never
+          offered. */}
       <Band mod="band--a band--first">
+        <BrandPersona
+          workspaceId={workspaceId}
+          persona={voice.persona}
+          style={voice.style}
+          samples={voice.samples}
+          inspiration={voice.inspiration}
+        />
+      </Band>
+
+      <Band mod="band--a">
         <Make workspaceId={workspaceId} />
         <Made made={made} />
       </Band>

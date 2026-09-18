@@ -21,6 +21,7 @@ import { shapeMonth } from "./shape.ts";
 import { belowTheBar, sayBar } from "./bar.ts";
 import { houseStyle, keep, unDash, unTag, unsafe } from "./scrub.ts";
 import { POST_RULES, VOICE_RULES } from "./prompts.ts";
+import { personaFor, type Persona, type StyleId } from "./persona.ts";
 import { fetchable } from "../identity.ts";
 
 /**
@@ -91,6 +92,9 @@ export type RunState = {
   queue?: string[];
   /** Their voice, read off their own copy. Sourced like anything else. */
   voice?: { words: string; source: Cited | null };
+  /** The voice they chose, put on the run by the screen. See Brand Persona. */
+  persona?: Persona | null;
+  style?: StyleId;
   channels?: Channel[];
   recommendation?: Recommendation;
   cadence?: Cadence;
@@ -713,7 +717,11 @@ async function writing(state: RunState, business: Business, ctx: ToolContext): P
     system: POST_RULES,
     prompt:
       `${citeRules(pages)}\n\nTHEIR PAGES\n\n${text}\n\n` +
-      `HOW THEY SOUND\n${state.voice?.words ?? ""}\n\n` +
+      /* The voice they chose, where they have chosen one. Falls back to the
+         two sentences this run read, so nothing that worked before stops. */
+      (state.persona
+        ? personaFor(state.persona, state.style ?? "original")
+        : `HOW THEY SOUND\n${state.voice?.words ?? ""}\n\n`) +
       (state.before?.openings?.length
         ? `WHAT WE WROTE FOR THEM LAST MONTH, WHICH MUST NOT BE WRITTEN AGAIN\n` +
           state.before.openings.map((o) => `  ${o}`).join("\n") +
