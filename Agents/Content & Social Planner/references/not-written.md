@@ -16,16 +16,22 @@ to this export before anything checked.
 
 ### The screen is a different list, and it is also a contract
 
-    What you have posted
-    How often we suggest you post
-    What you sound like
     This week
     Resize a photo
     The rest of the month
-    What we did not write
 
-The screen holds two things the document does not, and neither belongs in a file
-sent to a customer: what has gone out so far, and the resizer.
+The screen holds one thing the document does not, and it does not belong in a
+file sent to a customer: the resizer.
+
+**Four sections were removed on 2026-09-18, on Raj's instruction**, and are not
+coming back by accident: "What you have posted", "How often we suggest you
+post", "What you sound like" and "What we did not write", along with the summary
+strip and the three number cards above them. How they sound is now Brand Persona
+at the top of the page, which is why the old voice section went. Cadence is
+fixed at whatever we recommend: the owner no longer sets it, so the picker and
+the `changeCadence` action went with the section. Removing a section from this
+list is the only way to remove one from the screen, which is the point of the
+list.
 
 **The resizer was on neither list until 2026-09-16 and was therefore dropped**,
 silently, when the screen was rebuilt for the app. It had been built, tested and

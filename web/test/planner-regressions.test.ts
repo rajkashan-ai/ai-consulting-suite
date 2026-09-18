@@ -2,12 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { decidePlan, sayNext } from "../tools/content-social-planner/freshness.ts";
+import { decidePlan } from "../tools/content-social-planner/freshness.ts";
 import { contentSocialPlanner, FIRST_STAGE } from "../tools/content-social-planner/index.ts";
 import { progressFor, type RunState, type Stage } from "../tools/content-social-planner/stages.ts";
 import { PLAN_DAYS } from "../../Agents/Content & Social Planner/src/plan-shape.ts";
-import { ANGLES, CADENCES, CADENCE_LABEL, CRITIQUES } from "../../Agents/Content & Social Planner/src/types.ts";
-import { recommendCadence } from "../../Agents/Content & Social Planner/src/recommend.ts";
+import { ANGLES, CADENCE_LABEL, CRITIQUES } from "../../Agents/Content & Social Planner/src/types.ts";
 import { sourceOf, specOf } from "./tool-source.ts";
 
 /**
@@ -126,12 +125,6 @@ test("a clock that went backwards does not strand them for a month", () => {
   assert.equal(decidePlan("not a date", new Date()).allowed, true);
 });
 
-test("what they are told about the wait is a date, not a rule", () => {
-  const said = sayNext(decidePlan("2026-09-16T09:00:00.000Z", new Date("2026-09-20T09:00:00.000Z")));
-  assert.match(said, /16 October/);
-  assert.doesNotMatch(said, /stage|cadence rule|freshness|PLAN_DAYS/i);
-});
-
 /* ── 4. The voice note is a summary, and never a report card ─────────────── */
 
 test("the voice note is capped in the shape and told not to mark their writing", () => {
@@ -147,12 +140,6 @@ test("the voice note is capped in the shape and told not to mark their writing",
   assert.match(stages, /words: \{ type: "string", minLength: 40, maxLength: 260, pattern: NO_DASH \}/);
   assert.match(stages, /never marking/i, "nothing stops it grading their copy");
   assert.match(stages, /Never call it plain, basic, functional/i, "the words it reached for are not refused");
-});
-
-test("the screen says what the voice note was read off", () => {
-  const view = screen("plan.tsx");
-  assert.match(view, /Read off/, "the reader cannot tell where this came from");
-  assert.match(view, /plan\.voice\.source/, "the address is written by hand rather than from the source");
 });
 
 /* ── 5. The screen shows the plan, and none of our machinery ─────────────── */
@@ -189,13 +176,13 @@ function contract(): string[] {
     .split("\n")
     .map((l) => l.trim())
     .filter((l) => l && !l.startsWith("#"));
-  assert.ok(names.length >= 6, `only ${names.length} sections in the screen contract`);
+  assert.ok(names.length >= 3, `only ${names.length} sections in the screen contract`);
   return names;
 }
 
 test("the spec still holds a contract worth checking against", () => {
   const sections = contract();
-  assert.ok(sections.length >= 6, `only ${sections.length} sections in the contract`);
+  assert.ok(sections.length >= 3, `only ${sections.length} sections in the contract`);
   assert.ok(sections.includes("Resize a photo"), "the resizer is out of the contract again");
 });
 
@@ -256,7 +243,7 @@ test("every control on the designed screen is on the built one", () => {
      opener in one file pair with a closer in the next and swallow everything
      between, which hid two of the resizer's buttons and reported them missing. */
   const built = [
-    "plan.tsx", "resizer.tsx", "post-controls.tsx", "plan-controls.tsx", "send-week.tsx",
+    "plan.tsx", "resizer.tsx", "post-controls.tsx", "send-week.tsx",
   ]
     .map((f) => code(screen(f)))
     .join("\n");
@@ -277,12 +264,11 @@ test("every control on the designed screen is on the built one", () => {
   const fromCritiques = built.includes("Object.values(CRITIQUES)") ? Object.values(CRITIQUES) : [];
   const rendered = [...fromConstants, ...fromCritiques];
 
-  /* Two say the same thing in different words, named here so the exception is
-     visible rather than the test being loosened until it passes. */
-  const saidDifferently: Record<string, string> = {
-    "Connect Instagram": "Connecting one is not built yet",
-    "Connect Facebook": "Connecting one is not built yet",
-  };
+  /* The screen's own words for a design label, named here so the exception is
+     visible rather than the test being loosened until it passes. Both of the
+     connect buttons used to live here; the line that explained them was inside
+     "What you have posted", which went on 2026-09-18. */
+  const saidDifferently: Record<string, string> = {};
 
   /**
    * On the mockup and deliberately not built, Raj 2026-09-16.
@@ -293,6 +279,20 @@ test("every control on the designed screen is on the built one", () => {
   const dropped: Record<string, string> = {
     Edit: "editing in the app is not how anyone posts, they write in the app the network gives them",
     "Size a photo": "the resizer is four inches below with its own heading, so a button to scroll to it was furniture",
+
+    /* Removed with their sections on 2026-09-18, on Raj's instruction. Listed
+       one by one rather than the comparison being loosened, so putting a
+       thirteenth control back on the mockup still fails here. */
+    "Connect Instagram": "connecting an account is not built, and the section that said so is gone",
+    "Connect Facebook": "connecting an account is not built, and the section that said so is gone",
+    "Once a week": "cadence is fixed at what we recommend, so the picker went with its section",
+    "A couple of times a week": "cadence is fixed at what we recommend, so the picker went with its section",
+    "Most days": "cadence is fixed at what we recommend, so the picker went with its section",
+    "Too salesy": "how they sound is Brand Persona at the top of the page now",
+    "Too formal": "how they sound is Brand Persona at the top of the page now",
+    "Not how I talk": "how they sound is Brand Persona at the top of the page now",
+    "Too long": "how they sound is Brand Persona at the top of the page now",
+    "I would not say that about myself": "how they sound is Brand Persona at the top of the page now",
   };
 
   const missing = designedControls().filter(
@@ -359,7 +359,7 @@ test("every class this tool uses is defined in a stylesheet", () => {
     [...css.matchAll(/(^|[\s,>+~])\.([a-zA-Z][a-zA-Z0-9_-]*)/g)].map((m) => m[2]),
   );
 
-  const views = ["plan.tsx", "resizer.tsx", "post-controls.tsx", "plan-controls.tsx", "send-week.tsx", "content-social-planner.tsx"];
+  const views = ["plan.tsx", "resizer.tsx", "post-controls.tsx", "send-week.tsx", "content-social-planner.tsx"];
   const used = new Set<string>();
   for (const v of views) {
     /* Interpolations are code, not classes. `className={`band ${mod}`}` was
@@ -382,7 +382,7 @@ test("the page is laid out in bands, which is the only landmark the system has",
      only thing that says "you are somewhere else now". */
   const view = screen("plan.tsx");
   const bands = [...view.matchAll(/<Band mod="([^"]+)"/g)].map((m) => m[1]);
-  assert.ok(bands.length >= 4, `only ${bands.length} bands for seven sections`);
+  assert.ok(bands.length >= 4, `only ${bands.length} bands for the sections on the screen`);
   assert.ok(bands[0].includes("band--first"), "the first band does not sit under the nav");
   assert.ok(bands[bands.length - 1].includes("band--last"), "the last band has no closing space");
   assert.equal(
@@ -396,7 +396,7 @@ test("the page is laid out in bands, which is the only landmark the system has",
      Checked across every file that renders one: this asserted plan.tsx alone
      and passed while the resizer's own heading, in its own file, stayed t-sub
      and rendered three points smaller than the six around it. */
-  const everyView = ["plan.tsx", "resizer.tsx", "post-controls.tsx", "plan-controls.tsx", "send-week.tsx"]
+  const everyView = ["plan.tsx", "resizer.tsx", "post-controls.tsx", "send-week.tsx"]
     .map(screen)
     .join("\n");
   const subHeadings = [...everyView.matchAll(/<h2 className="([^"]+)"/g)].map((m) => m[1]);
@@ -405,7 +405,7 @@ test("the page is laid out in bands, which is the only landmark the system has",
     [],
     "a section heading is not t-section",
   );
-  assert.ok(subHeadings.length >= 7, `only ${subHeadings.length} section headings found`);
+  assert.ok(subHeadings.length >= 3, `only ${subHeadings.length} section headings found`);
 });
 
 test("the preview canvas is not stretched by the stylesheet", () => {
@@ -511,7 +511,7 @@ test("no control is offered that writes nothing", () => {
   const actions = readFileSync(join(here, "..", "app", "workspace", "[tool]", "planner-actions.ts"), "utf8");
   /* saveEdit went with the Edit button. An action nothing calls is the same
      defect as a button that writes nothing, facing the other way. */
-  for (const name of ["markPosted", "toggleCritique", "changeCadence"]) {
+  for (const name of ["markPosted", "saveChannels"]) {
     assert.match(actions, new RegExp(`export async function ${name}\\b`), `${name} is wired to nothing`);
     assert.match(
       actions.slice(actions.indexOf(`export async function ${name}`)).slice(0, 2000),
@@ -578,7 +578,7 @@ test("every check in this tool is wired to something that runs", () => {
   const checks = [
     "unsafe", "houseStyle", "unDash", "hasDash", "belowTheBar",
     "expand", "cite", "numberPages", "shapeMonth", "worthReading",
-    "channelsFor", "knownFacts", "decidePlan", "sayNext", "hollow", "buildBody",
+    "channelsFor", "knownFacts", "decidePlan", "hollow", "buildBody",
   ];
 
   for (const name of checks) {
@@ -648,10 +648,13 @@ test("the run actually hands the last plan to the shape", async () => {
   assert.match(code(panel), /before: lastPlan\(document\?\.body\)/, "a new run is started knowing nothing");
 
   const actions = readFileSync(join(here, "..", "app", "workspace", "[tool]", "planner-actions.ts"), "utf8");
+  /* changeCadence was the other caller and went with its section on
+     2026-09-18. Nothing in the actions starts a run any more, so the screen is
+     the only place this can be got wrong. */
   assert.equal(
     (code(actions).match(/before: lastPlan\(/g) ?? []).length,
-    1,
-    "changing the cadence starts a run that has forgotten everything",
+    0,
+    "an action started a run again without telling it what we already suggested",
   );
 
   /**
@@ -732,7 +735,7 @@ test("this tool writes no fetch of its own", () => {
    * and queues per host, and a comment arguing an exception is how a rule stops
    * being a rule.
    */
-  const files = ["plan.tsx", "resizer.tsx", "post-controls.tsx", "plan-controls.tsx", "send-week.tsx", "channels.tsx", "content-social-planner.tsx"];
+  const files = ["plan.tsx", "resizer.tsx", "post-controls.tsx", "send-week.tsx", "channels.tsx", "content-social-planner.tsx"];
   for (const f of files) {
     assert.doesNotMatch(code(screen(f)), /\bfetch\(/, `${f} fetches the web without going through lib/research`);
   }
@@ -936,46 +939,6 @@ test("the fixture on disk is still what the reader would have produced", () => {
 });
 
 /* ── facts that live in two places, checked against each other ───────────── */
-
-test("a cadence button gives the cadence it is labelled with", () => {
-  /**
-   * The button used to send a number of hours, which `recommend.ts` turned back
-   * into a cadence using a rule that also reads how many channels they have. So
-   * with one channel, "A couple of times a week" rebuilt the month as once a
-   * week. The test that found it asserted the round trip rather than repeating
-   * the numbers, which is why it found it at all.
-   *
-   * The button sends the cadence now, so the assertion is that nothing converts
-   * it on the way and that every cadence has a button.
-   */
-  const controls = screen("plan-controls.tsx");
-  assert.doesNotMatch(controls, /HOURS/, "the button is guessing hours again");
-  assert.match(controls, /name="cadence" value=\{c\}/, "the button does not send what it says");
-
-  const actions = readFileSync(join(here, "..", "app", "workspace", "[tool]", "planner-actions.ts"), "utf8");
-  assert.match(actions, /chose: cadence/, "what they pressed is not carried to the run");
-
-  /* And it wins, whatever the channels would have suggested. One channel is the
-     case that broke: the starting point is weekly there. */
-  const known = {
-    services: ["a cut"], prices: {}, accreditations: [], awards: [], namedClients: [],
-    counts: {}, reviewThemes: [], servesAnArea: true,
-  };
-  for (const cadence of CADENCES) {
-    for (const channels of [["instagram"], ["instagram", "facebook"]]) {
-      const got = recommendCadence(known as never, { chose: cadence }, channels as never);
-      assert.equal(got.cadence, cadence, `chose ${cadence} with ${channels.length} channel(s), got ${got.cadence}`);
-      assert.ok(
-        got.because.some((r) => /you asked for/i.test(r.text)),
-        "it does not say the number came from them",
-      );
-      assert.ok(
-        !got.because.some((r) => /hours a week/i.test(r.text)),
-        "it still claims they told us how much time they have",
-      );
-    }
-  }
-});
 
 test("the angle each purpose may use is the same list in both places", () => {
   /**

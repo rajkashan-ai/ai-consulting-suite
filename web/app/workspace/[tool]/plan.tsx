@@ -7,8 +7,7 @@ import { isWrittenPost } from "@/tools/content-social-planner/stages";
 import Resizer from "./resizer";
 import SendWeek from "./send-week";
 import PostControls, { type PostState } from "./post-controls";
-import { CadenceChoice, VoiceCorrections } from "./plan-controls";
-import { CADENCE_LABEL, CHANNEL } from "../../../../Agents/Content & Social Planner/src/types";
+import { CHANNEL } from "../../../../Agents/Content & Social Planner/src/types";
 
 /**
  * A month of posts, as designed.
@@ -70,20 +69,15 @@ function Words({ words }: { words: string }) {
 
 export default function PlanView({
   plan,
-  nextPlan,
   workspaceId,
   postState,
-  corrections,
   made,
   voice,
 }: {
   plan: DocumentBody;
-  nextPlan: string;
   workspaceId: string;
   /** What the owner has already done to each post, keyed date|channel. */
   postState: Record<string, PostState>;
-  /** Corrections they have made to how we write for them. */
-  corrections: string[];
   /** Posts they asked for on the day, newest first. See Made. */
   made: MadePost[];
   /** How they sound, and the voice they chose. See BrandPersona. */
@@ -95,7 +89,6 @@ export default function PlanView({
   };
 }) {
   const written = plan.posts.filter(isWrittenPost);
-  const blanks = written.flatMap((p) => p.words.match(/\[[^\]]+\]/g) ?? []);
   /**
    * Every week, with this one marked. It used to slice(1), which dropped the
    * week they are actually in and labelled the rest "Ahead", so the section
@@ -103,19 +96,14 @@ export default function PlanView({
    * nothing about where they were standing.
    */
   const thisWeek = plan.posts.find((p) => isWrittenPost(p))?.week ?? 1;
-  const last = plan.posts.map((p) => p.date).sort().pop();
 
   return (
     <>
-      {/* ── 0. Asking for a post ───────────────────────────────────────────
-          Above the month, because the month is the prompter and this is the
-          thing they came to do. A calendar they did not ask for produces guilt;
-          this is triggered by something real happening. The plan below stays
-          exactly as it was. */}
-      {/* ── 0. How they sound, before anything written in it ─────────────
+      {/* ── 1. How they sound, before anything written in it ─────────────
           First on the page because everything below is written in this voice.
           It used to be two sentences near the bottom, described and never
-          offered. */}
+          offered, and then a section called "What you sound like" that said it
+          back without letting them change it. That went on 2026-09-18. */}
       <Band mod="band--a band--first">
         <BrandPersona
           workspaceId={workspaceId}
@@ -126,102 +114,13 @@ export default function PlanView({
         />
       </Band>
 
+      {/* ── 2. Asking for a post ─────────────────────────────────────────
+          Above the month, because the month is the prompter and this is the
+          thing they came to do. A calendar they did not ask for produces guilt;
+          this is triggered by something real happening. */}
       <Band mod="band--a">
         <Make workspaceId={workspaceId} />
         <Made made={made} />
-      </Band>
-
-      {/* ── 1. Where they are, before anything they can do ─────────────── */}
-      <Band mod="band--a">
-        <div className="strip">
-          <strong>{plan.posts.length} posts to {last ? day(last) : "the end of the month"}</strong>
-          <span>Written from your own pages.</span>
-          <span className="t-meta">{nextPlan}</span>
-        </div>
-
-        {/* One counted line, read off the plan. Nothing here is generated, for
-            the same reason nothing else on the page is: a sentence nobody can
-            check is a sentence nobody believes. */}
-        <div className="summary">
-          <p className="t-lead summary__said">
-            {written.length} written and ready.{" "}
-            {blanks.length
-              ? `${blanks.length} ${blanks.length === 1 ? "needs a line" : "need a line"} from you.`
-              : "Nothing needed from you."}
-          </p>
-          <p className="t-meta">{CADENCE_LABEL[plan.cadence]}, across {plan.channels.map((c) => CHANNEL[c].label).join(" and ")}.</p>
-        </div>
-
-        <div className="kpis">
-          <div className="kpi kpi--win">
-            <span className="kpi__n">{written.length}</span>
-            <span className="kpi__w">ready to post</span>
-            <span className="kpi__s">Written from your own pages</span>
-          </div>
-          <div className="kpi">
-            <span className="kpi__n">{blanks.length}</span>
-            <span className="kpi__w">{blanks.length === 1 ? "line from you" : "lines from you"}</span>
-            <span className="kpi__s">Each one says what to put in it</span>
-          </div>
-          <div className="kpi">
-            <span className="kpi__n">{plan.posts.length}</span>
-            <span className="kpi__w">planned this month</span>
-            <span className="kpi__s">{CADENCE_LABEL[plan.cadence]}</span>
-          </div>
-        </div>
-
-        <h2 className="t-section">What you have posted</h2>
-        <p className="t-doc-sm">Paste the link when a post goes out and we keep the count.</p>
-        <div className="card">
-          <ul>
-            {plan.channels.map((c) => {
-              const done = plan.posts.filter(
-                (p) => p.channel === c && postState[`${p.date}|${c}`]?.postedAt,
-              ).length;
-              const lastOn = plan.posts
-                .filter((p) => p.channel === c && postState[`${p.date}|${c}`]?.postedAt)
-                .map((p) => p.date)
-                .sort()
-                .pop();
-              return (
-                <li key={c}>
-                  <span className="tag tag--did">{done}</span>
-                  <strong>{CHANNEL[c].label}</strong>
-                  {done ? ` through here${lastOn ? `, last on ${day(lastOn)}` : ""}.` : " Nothing through here yet."}
-                  <span className="note">
-                    We cannot see the rest of your account. Connecting one is not built yet, so how a
-                    post did is something you can see and we cannot.
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      </Band>
-
-      {/* ── 2. The two things they can change about how we write ────────── */}
-      <Band mod="band--b">
-        <h2 className="t-section">How often we suggest you post</h2>
-        <p className="t-doc-sm">You can change this, and the whole month is written to the new number.</p>
-        <div className="card">
-          <h3 className="t-card card__head">{CADENCE_LABEL[plan.recommendation.cadence]}</h3>
-          <ul>
-            {plan.recommendation.because.map((r, i) => (
-              <li key={i}>{r.text}</li>
-            ))}
-          </ul>
-        </div>
-        <CadenceChoice workspaceId={workspaceId} current={plan.cadence} />
-
-        <h2 className="t-section">What you sound like</h2>
-        <p className="t-doc-sm">
-          Read off {plan.voice.source ? host(plan.voice.source.url) : "your own pages"}
-          {plan.voice.source ? `, ${plan.voice.source.fetchedOn}` : ""}.
-        </p>
-        <div className="panel">
-          <p className="t-doc">{plan.voice.words}</p>
-        </div>
-        <VoiceCorrections workspaceId={workspaceId} chosen={corrections} />
       </Band>
 
       {/* ── 3. What they came for. The one dark band on the screen. ─────── */}
@@ -269,7 +168,7 @@ export default function PlanView({
         <Resizer />
       </Band>
 
-      {/* ── 5. What is coming, and what is not ──────────────────────────── */}
+      {/* ── 5. What is coming ────────────────────────────────────────────── */}
       <Band mod="band--b band--last">
         <h2 className="t-section">The rest of the month</h2>
         <p className="t-doc-sm">
@@ -294,31 +193,6 @@ export default function PlanView({
                 </span>
               </li>
             ))}
-          </ul>
-        </div>
-
-        <h2 className="t-section">What we did not write</h2>
-        <div className="card">
-          <h3 className="t-card card__head">Not written, and why</h3>
-          <ul>
-            {plan.dropped.length ? (
-              plan.dropped.map((d, i) => (
-                <li key={i}>
-                  <span className="tag tag--cant">We cannot</span>
-                  {day(d.what)}
-                  <span className="note">we left it out because {d.why}</span>
-                </li>
-              ))
-            ) : (
-              <li>
-                <span className="tag tag--did">Nothing</span>
-                Everything we wrote is backed by your own pages
-                <span className="note">
-                  A gap with no reason beside it reads as a shrug, so this stays here even when it
-                  is empty
-                </span>
-              </li>
-            )}
           </ul>
         </div>
 

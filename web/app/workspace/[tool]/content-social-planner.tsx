@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { decidePlan, sayNext } from "@/tools/content-social-planner/freshness";
+import { decidePlan } from "@/tools/content-social-planner/freshness";
 import { FIRST_STAGE, lastPlan } from "@/tools/content-social-planner/index";
 import Channels from "./channels";
 import PlanView from "./plan";
@@ -138,7 +138,7 @@ export default async function ContentSocialPlanner({
         .eq("workspace_id", workspaceId),
       supabase
         .from("content_voice_note")
-        .select("corrections, persona, style, samples, inspiration")
+        .select("persona, style, samples, inspiration")
         .eq("workspace_id", workspaceId)
         .maybeSingle(),
       /**
@@ -168,10 +168,8 @@ export default async function ContentSocialPlanner({
       <>
       <PlanView
         plan={document.body as never}
-        nextPlan={sayNext(decision)}
         workspaceId={workspaceId}
         postState={postState}
-        corrections={(voice?.corrections ?? []) as string[]}
         made={(made ?? []) as never}
         voice={{
           persona: (voice?.persona ?? null) as never,

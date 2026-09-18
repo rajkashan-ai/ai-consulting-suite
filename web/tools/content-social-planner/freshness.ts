@@ -33,11 +33,3 @@ export function decidePlan(lastPlanAt: string | null, now: Date): Decision {
   return { allowed: now.getTime() >= next.getTime(), nextRunAt: next.toISOString() };
 }
 
-/** The same answer in words the owner reads, rather than a reason code. */
-export function sayNext(decision: Decision): string {
-  if (decision.allowed || !decision.nextRunAt) return "";
-  const when = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long" }).format(
-    new Date(decision.nextRunAt),
-  );
-  return `This covers the next ${PLAN_DAYS} days. The next one is ready on ${when}.`;
-}
