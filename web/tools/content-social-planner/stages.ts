@@ -16,6 +16,7 @@ import {
   validateRecommendation,
 } from "../../../Agents/Content & Social Planner/src/recommend.ts";
 import { cite, citeRules, numberPages, type Cited, type Page } from "./sources.ts";
+import { withoutMarkers } from "./paths.ts";
 import { pagesFrom } from "../../lib/research/sitemap.ts";
 import { shapeMonth } from "./shape.ts";
 import { belowTheBar, sayBar } from "./bar.ts";
@@ -579,8 +580,58 @@ async function shaping(state: RunState, business: Business, ctx: ToolContext): P
  * Listed and closed: a list on its own reads as a hint, and the fault was
  * arithmetic on real prices rather than invention from nothing.
  */
-export function priceRules(business: Business): string {
-  const prices = Object.entries(knownFacts(business).prices);
+/**
+ * How much of each page the writer is shown. The guard now reads the same
+ * slice, so a price the writer can see is a price the guard has heard of.
+ */
+export const SHOWN_CHARS = 8_000;
+
+const PRINTED = /[\u00A3$\u20AC]\s?\d[\d,]*(?:\.\d{2})?/g;
+
+/**
+ * Every price printed on a page we read, with whatever names it on the line.
+ *
+ * 2026-09-18. A photo post said "Balyage Specialist starts from \u00A3141.00" and
+ * the guard refused it as a claim nobody gave us. It was on their price list,
+ * spelled their way, in the very text we had just put in front of the model.
+ *
+ * The two halves: the writer is shown the pages, and the guard was shown only
+ * `business.services`, which holds the twelve prices the sign-up run happened
+ * to extract. Their page publishes far more than twelve. So the writer read a
+ * real price, quoted it exactly, and we threw the post away and told the owner
+ * we would not stand behind their own price list.
+ *
+ * Both halves now come from here. Printed only, never arithmetic: a number the
+ * page does not contain is still an invention, whatever it is made of.
+ */
+export function pricesTheyPrint(read: ReadPage[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const page of read) {
+    if (!page.ok) continue;
+    for (const line of page.text.slice(0, SHOWN_CHARS).split("\n")) {
+      for (const m of line.matchAll(PRINTED)) {
+        /* What sits before the figure on its own line is what names it. On a
+           price list that is the service; elsewhere it is a sentence, which
+           is still a truer label than the bare number. */
+        const name = line
+          .slice(0, m.index)
+          .replace(/\s+/g, " ")
+          .replace(/[\s\u2013\u2014:-]+$/, "")
+          .trim()
+          .slice(0, 60);
+        const key = (name || m[0]).toLowerCase();
+        if (!(key in out)) out[key] = m[0].replace(/\s/g, "");
+        /* A page of nothing but figures would otherwise carry the whole
+           prompt. Their price list runs to about forty lines. */
+        if (Object.keys(out).length >= 80) return out;
+      }
+    }
+  }
+  return out;
+}
+
+export function priceRules(business: Business, read: ReadPage[] = []): string {
+  const prices = Object.entries(knownFacts(business, read).prices);
   if (!prices.length) {
     return (
       `THEIR PRICES\nThey publish none that we could read. Write no price at all, ` +
@@ -596,12 +647,17 @@ export function priceRules(business: Business): string {
   );
 }
 
-export function knownFacts(business: Business): KnownFacts {
+export function knownFacts(business: Business, read: ReadPage[] = []): KnownFacts {
   return {
     services: business.services.map((s) => s.name),
-    prices: Object.fromEntries(
-      business.services.filter((s) => s.price).map((s) => [s.name.toLowerCase(), s.price as string]),
-    ),
+    /* What they printed, then what we stored, so a stored name and price wins
+       where both describe the same thing. */
+    prices: {
+      ...pricesTheyPrint(read),
+      ...Object.fromEntries(
+        business.services.filter((s) => s.price).map((s) => [s.name.toLowerCase(), s.price as string]),
+      ),
+    },
     accreditations: [],
     awards: [],
     namedClients: [],
@@ -701,7 +757,7 @@ async function writing(state: RunState, business: Business, ctx: ToolContext): P
 
   const text = (state.read ?? [])
     .filter((p) => p.ok)
-    .map((p) => `[${pages.findIndex((x) => x.url === p.url) + 1}] ${p.text.slice(0, 8000)}`)
+    .map((p) => `[${pages.findIndex((x) => x.url === p.url) + 1}] ${p.text.slice(0, SHOWN_CHARS)}`)
     .join("\n\n");
 
   const brief = slots
@@ -728,7 +784,7 @@ async function writing(state: RunState, business: Business, ctx: ToolContext): P
           `\n\nSame facts are fine, the same post is not. If the only thing left to say ` +
           `about a subject is what we said last month, write about something else on their pages.\n\n`
         : "") +
-      priceRules(business) +
+      priceRules(business, state.read ?? []) +
       `WRITE THESE POSTS\n${brief}\n\n` +
       `Each post is finished words, ready to paste, not a theme and an opening line. ` +
       `Each carries one line saying what to ${
@@ -826,10 +882,13 @@ export function firstLine(words: string, max: number): string {
  */
 async function checking(state: RunState, business: Business, ctx: ToolContext): Promise<Step> {
   const dropped: { what: string; why: string }[] = [];
-  const known = knownFacts(business);
+  const known = knownFacts(business, state.read ?? []);
 
-  const posts = (state.posts ?? []).map((p) => {
-    if (!isWrittenPost(p)) return p;
+  const posts = (state.posts ?? []).map((raw) => {
+    if (!isWrittenPost(raw)) return raw;
+    /* The page number belongs in `source`, which already holds it. Written
+       into the sentence as well it reaches the owner as [1] in a caption. */
+    const p = { ...raw, words: withoutMarkers(raw.words) };
     /* Two different questions, in order. `unsafe` asks whether we can stand
        behind it at all; the bar asks whether it is worth their while. A post
        nobody can source is refused before anyone judges whether it is good. */

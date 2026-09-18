@@ -109,7 +109,9 @@ export function citeRules(list: Page[]): string {
     `\n\nEvery fact you take off these pages carries "from": the number of the ` +
     `page it came from. Do not write urls or dates anywhere: they are already ` +
     `recorded against these numbers. A fact you cannot give a number for does ` +
-    `not go in the post.`
+    `not go in the post.\n\nThe number goes in "from" and nowhere else. Never ` +
+    `write [1] or [2] in the words themselves: they are a post somebody pastes ` +
+    `into Instagram, not a paper.`
   );
 }
 

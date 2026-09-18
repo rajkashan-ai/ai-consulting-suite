@@ -310,7 +310,31 @@ export type Piece = { text: string; blank: boolean };
  * and it became a single amber chip holding eighty characters. Two halves of
  * one question, found by the test written beside it.
  */
-const GAP = /^\[[^\]]{1,60}\]$/;
+const GAP = /^\[(?!\d{1,2}\])[^\]]{1,60}\]$/;
+
+/**
+ * The bracketed page numbers, taken out of the words.
+ *
+ * 2026-09-18. A photo post came back reading "our Balyage Specialist service,
+ * from \u00A3141.00 [1][2]." The prompt says "cite by number, never by url", and
+ * the number is meant to travel in the `from` field, not in the sentence. The
+ * model put it in both.
+ *
+ * Two costs, and the second is the worse one. The owner pastes a post into
+ * Instagram with academic footnote markers in it. And the gap syntax is the
+ * same brackets, so "[1]" was counted as a gap and would have been drawn as an
+ * amber chip telling them to fill in "1". Two meanings, one pair of brackets,
+ * which is why GAP above now refuses a bare number.
+ *
+ * Stripped rather than refused: the post itself is sound, its source is
+ * recorded, and there is nothing here to hold against the writer.
+ */
+export function withoutMarkers(words: string): string {
+  return words
+    .replace(/(?:\s*\[\d{1,2}\])+/g, "")
+    .replace(/[^\S\n]+([,.!?;:])/g, "$1")
+    .replace(/[^\S\n]{2,}/g, " ");
+}
 
 export function inPieces(words: string): Piece[] {
   return words

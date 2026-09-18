@@ -13,7 +13,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { blanksIn, inPieces } from "../tools/content-social-planner/paths.ts";
+import { blanksIn, inPieces, withoutMarkers } from "../tools/content-social-planner/paths.ts";
 
 const file = (...b: string[]) => readFileSync(join(import.meta.dirname, "..", ...b), "utf8");
 const code = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");
@@ -71,4 +71,35 @@ test("the screen draws the gap, and draws it as a blank", () => {
   const made = file("app", "workspace", "[tool]", "made.tsx");
   assert.match(made, /inPieces\(p\.words\)/, "the post is printed raw, brackets and all");
   assert.match(made, /className="blank"/, "a gap is drawn as ordinary text");
+});
+
+/**
+ * 2026-09-18, from the pre-live photo run.
+ *
+ * The post came back reading "our Balyage Specialist service, from \u00A3141.00
+ * [1][2]." The page number is meant to travel in `from`, which already carried
+ * it. Written into the sentence as well, it is a footnote marker in something
+ * somebody pastes into Instagram, and because a gap is the same brackets it
+ * was counted as two gaps and would have been drawn as amber chips asking them
+ * to fill in "1" and "2".
+ */
+test("a page number is not a gap", () => {
+  assert.equal(blanksIn("our Balyage Specialist service, from \u00A3141.00 [1][2]."), 0);
+  // And a real gap beside one is still a gap.
+  assert.equal(blanksIn("It took [how long] and cost \u00A341 [2]."), 1);
+});
+
+test("page numbers come out of the words, and nothing else does", () => {
+  assert.equal(
+    withoutMarkers("our Balyage Specialist service, from \u00A3141.00 [1][2]."),
+    "our Balyage Specialist service, from \u00A3141.00.",
+  );
+  assert.equal(
+    withoutMarkers("Booked [3] for [your price here] today."),
+    "Booked for [your price here] today.",
+  );
+  // Their own brackets survive: a gap is not a citation.
+  assert.equal(withoutMarkers("It took [how long]."), "It took [how long].");
+  // Line breaks are the shape of the post and are not touched.
+  assert.equal(withoutMarkers("One line [1]\n\nNext line"), "One line\n\nNext line");
 });

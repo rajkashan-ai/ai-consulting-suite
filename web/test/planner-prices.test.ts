@@ -1,7 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { Business, ToolContext } from "../tools/types.ts";
-import { advance, knownFacts, type RunState, type Stage } from "../tools/content-social-planner/stages.ts";
+import {
+  advance,
+  knownFacts,
+  priceRules,
+  pricesTheyPrint,
+  type ReadPage,
+  type RunState,
+  type Stage,
+} from "../tools/content-social-planner/stages.ts";
+import { unsafe } from "../tools/content-social-planner/scrub.ts";
 
 /**
  * 2026-09-17, from the run record of 6f3c8d7b.
@@ -93,4 +102,90 @@ test("the writer is told which prices it may state", async () => {
     /no other price|only these prices|no price that is not/i,
     "nothing tells the writer these are the only prices it may state",
   );
+});
+
+/**
+ * 2026-09-18, from the pre-live photo run.
+ *
+ * The same two halves, one layer further in. The writer is shown the pages;
+ * the guard was shown only `business.services`, which holds the twelve prices
+ * the sign-up run happened to extract. Their price list publishes far more.
+ *
+ * So the writer read "Balyage Specialist - from \u00A3141.00" off the page we put
+ * in front of it, quoted it exactly, spelling and all, and we threw the post
+ * away and told the owner we would not stand behind their own price list.
+ */
+const PRICE_LIST: ReadPage[] = [
+  {
+    url: "https://acutabovestalbans.co.uk/services-price-list/",
+    ok: true,
+    title: "Services & Price List",
+    text: [
+      "Ladies Cut & Finish - Graduate Stylist \u00A351.00",
+      "Balyage Specialist \u2013 from \u00A3141.00",
+      "Balyage & Ombre \u2013 from \u00A3126.00",
+    ].join("\n"),
+    fetchedOn: "2026-09-18",
+    note: "",
+  },
+];
+
+const POST = (words: string) => ({
+  words,
+  shot: "",
+  why: "",
+  source: { url: PRICE_LIST[0].url, fetchedOn: "2026-09-18" },
+});
+
+const PAGES = [{ url: PRICE_LIST[0].url, fetchedOn: "2026-09-18", what: "your price list" }];
+
+test("a price printed on the page we read is a price the guard knows", () => {
+  const printed = pricesTheyPrint(PRICE_LIST);
+  // "from" stays in the name. It is not decoration: it says the figure is a
+  // starting price, and dropping it would make the label a firmer promise
+  // than their page makes.
+  assert.deepEqual(printed["balyage specialist \u2013 from"], "\u00A3141.00");
+  assert.deepEqual(printed["balyage & ombre \u2013 from"], "\u00A3126.00");
+});
+
+test("the guard no longer refuses their own published price", () => {
+  const blind = unsafe(
+    POST("Balyage Specialist starts from \u00A3141.00.") as never,
+    PAGES as never,
+    knownFacts(SALON) as never,
+  );
+  assert.match(String(blind), /141/, "the twelve stored services never knew this price");
+
+  const seeing = unsafe(
+    POST("Balyage Specialist starts from \u00A3141.00.") as never,
+    PAGES as never,
+    knownFacts(SALON, PRICE_LIST) as never,
+  );
+  assert.equal(seeing, null, "a price on their own price list was refused as an invention");
+});
+
+test("a price nobody printed is still an invention", () => {
+  // 141 + 126. Arithmetic on real prices is what started all of this.
+  const refused = unsafe(
+    POST("Both together, \u00A3267.00.") as never,
+    PAGES as never,
+    knownFacts(SALON, PRICE_LIST) as never,
+  );
+  assert.match(String(refused), /267/, "a sum of two real prices passed as read");
+});
+
+test("the writer is told the prices the guard will hold it to", () => {
+  const rules = priceRules(SALON, PRICE_LIST);
+  assert.match(rules, /141\.00/, "a price the guard allows was withheld from the writer");
+  assert.match(rules, /51\.00/, "a stored price went missing when pages were added");
+});
+
+test("a page of nothing but figures cannot run away with the prompt", () => {
+  const huge: ReadPage[] = [
+    {
+      ...PRICE_LIST[0],
+      text: Array.from({ length: 500 }, (_, i) => `Thing ${i} \u00A3${i + 1}.00`).join("\n"),
+    },
+  ];
+  assert.ok(Object.keys(pricesTheyPrint(huge)).length <= 80);
 });

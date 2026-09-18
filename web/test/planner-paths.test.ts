@@ -263,7 +263,10 @@ test("the action refuses before it spends, not after", () => {
 
   // And the writing goes through the same guard as the monthly writer.
   assert.match(action, /unsafe\(post as never/, "an on-demand post skips the guard");
-  assert.match(action, /priceRules\(business\)/, "the writer is not told the real prices");
+  // With the pages, not just the twelve stored services: the guard reads the
+  // same pages, and for one run it did not.
+  assert.match(action, /priceRules\(business, read\)/, "the writer is not told the real prices");
+  assert.match(action, /knownFacts\(business, read\)/, "the guard cannot see what the writer was shown");
 });
 
 test("the action reads as the caller, so row level security decides", () => {
@@ -437,5 +440,28 @@ test("a refusal is shown where the post would have been", () => {
   assert.ok(
     code.indexOf('className="refusal"') > code.indexOf('className="make__row"'),
     "the refusal is back above the button",
+  );
+});
+
+/**
+ * 2026-09-18. The page number belongs in `source`, which already carries it.
+ * Written into the sentence as well it reaches the owner as [1] in a caption,
+ * and the gap syntax is the same brackets, so it was counted as a gap too.
+ */
+test("a page number never reaches the words we store", () => {
+  assert.match(
+    read("make-actions.ts"),
+    /withoutMarkers\(w\.words/,
+    "the stored post keeps its footnote markers",
+  );
+  assert.match(
+    sourceOf("content-social-planner"),
+    /withoutMarkers\(raw\.words\)/,
+    "the monthly writer keeps its markers",
+  );
+  assert.match(
+    sourceOf("content-social-planner"),
+    /write \[1\] or \[2\] in the words/,
+    "the writer is never told to keep the number out of the words",
   );
 });

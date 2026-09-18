@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { POST_RULES } from "@/tools/content-social-planner/prompts";
 import { cite, citeRules, tooThinToWrite, type Page } from "@/tools/content-social-planner/sources";
 import { asPhoto } from "@/tools/content-social-planner/photo";
-import { knownFacts, priceRules, type ReadPage } from "@/tools/content-social-planner/stages";
+import { knownFacts, priceRules, SHOWN_CHARS, type ReadPage } from "@/tools/content-social-planner/stages";
 import { unsafe } from "@/tools/content-social-planner/scrub";
 import {
   asNotes,
@@ -16,6 +16,7 @@ import {
   wrongWithRequest,
   type Intent,
   type Path,
+  withoutMarkers,
 } from "@/tools/content-social-planner/paths";
 import { isStyle, personaFor, type Persona } from "@/tools/content-social-planner/persona";
 import type { Business } from "@/tools/types";
@@ -141,7 +142,7 @@ export async function makePost(
   const theirWords = said && "text" in said ? said.text : null;
 
   const text = read
-    .map((p) => `[${pages.findIndex((x) => x.url === p.url) + 1}] ${p.text.slice(0, 8000)}`)
+    .map((p) => `[${pages.findIndex((x) => x.url === p.url) + 1}] ${p.text.slice(0, SHOWN_CHARS)}`)
     .join("\n\n");
 
   /**
@@ -230,7 +231,7 @@ export async function makePost(
                 text:
                   `${citeRules(pages)}\n\nTHEIR PAGES\n\n${text}\n\n` +
                   voice +
-                  priceRules(business) +
+                  priceRules(business, read) +
                   asking +
                   (sent
                     ? `TWO posts, not one, and they are different jobs.\n\n` +
@@ -412,11 +413,15 @@ export async function makePost(
     notes: sent && wanted ? wanted : null,
   });
 
+  /* One strip, before the guard reads it and before it is stored, so the
+     words we judged and the words they paste are the same words. */
+  const clean = (w: Cited): Cited => ({ ...w, words: withoutMarkers(w.words ?? "") });
+
   const drafts: { written: Cited; intent: unknown }[] = [
-    { written: cite(answer, pages) as Cited, intent: answer.intent },
+    { written: clean(cite(answer, pages) as Cited), intent: answer.intent },
   ];
   if (sent && answer.ready) {
-    drafts.push({ written: cite(answer.ready, pages) as Cited, intent: answer.ready.intent });
+    drafts.push({ written: clean(cite(answer.ready, pages) as Cited), intent: answer.ready.intent });
   }
 
   const rows: ReturnType<typeof asRow>[] = [];
@@ -428,7 +433,7 @@ export async function makePost(
       why: d.written.why ?? "",
       source: d.written.source ?? null,
     };
-    const refused = unsafe(post as never, pages as never, knownFacts(business) as never);
+    const refused = unsafe(post as never, pages as never, knownFacts(business, read) as never);
     // Dropped, never reworded: a post claiming something nobody gave us is not
     // badly written, and there is no rewrite that sources it.
     if (refused) refusals.push(refused);
