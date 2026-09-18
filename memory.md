@@ -398,3 +398,13 @@ was broken on purpose and watched go red.
   that list exists to stop. It happened to the resizer once already.
 - Emailing the posts needs AGENTMAIL_API_KEY and AGENTMAIL_INBOX. Until both are set the button
   refuses and says so. The send itself has never run.
+- **The competitor prices that "disappeared" were Melbourne's.** Runs up to 12:39 on 17 September
+  read `fresha.com/lp/en/bt/hair-salons/in/au-melbourne` and got 22 priced rows from it; the five
+  they picked were five St Albans **barbers** compared against a women's salon. At 12:47 the
+  country fix refused the Australian page and `rightTrade` stopped counting barbers, and the table
+  went empty. Nothing regressed: the product stopped lying. On the pages we can read, no women's
+  salon in St Albans publishes a price. Do not "restore" this by loosening either rule.
+- **Tailwind was imported and never used.** It emitted `.grid{display:grid}` because the tracker's
+  comparison table is called `.grid`, which destroyed table layout and put the column headings out
+  of line with the rows. Import removed; our own reset already did the preflight's job. A test now
+  fails if any utility framework is imported over our class names.

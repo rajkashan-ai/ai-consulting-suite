@@ -33,6 +33,7 @@ import {
   GRID_AREAS,
   NARRATIVE_SHAPE,
   gridShapeFor,
+  onlyComparable,
   type GridArea,
 } from "./shapes.ts";
 
@@ -1923,7 +1924,14 @@ async function write(state: RunState, business: Business, ctx: ToolContext): Pro
     if (outcome.status !== "fulfilled") continue;
     const one = (outcome.value as { comparison?: Grid[] }).comparison ?? [];
     for (const g of one) {
-      if (g?.rows?.length) comparison.push({ ...g, area: GRID_AREAS[i] });
+      /**
+       * Rows that compare nothing are dropped here, not drawn.
+       *
+       * The area still goes through when filtering empties it, so the screen
+       * shows "nothing on pricing yet" with the note explaining why. A model
+       * that returned no rows at all is a different thing and still skipped.
+       */
+      if (g?.rows?.length) comparison.push({ ...onlyComparable(g), area: GRID_AREAS[i] });
     }
   }
 

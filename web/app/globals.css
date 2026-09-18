@@ -1,4 +1,18 @@
-@import "tailwindcss";
+/* TAILWIND IS NOT IMPORTED, AND THAT IS THE POINT.
+   It was, and nothing in this product used a single Tailwind utility. What it
+   did do was emit `.grid{display:grid}`, because the Competitor Tracker's
+   comparison table is called `.grid` and Tailwind saw the name and generated
+   the utility. `display:grid` on a <table> destroys table layout: the <thead>
+   became a block, the header stopped sharing columns with the body, and the
+   six column headings sat visibly out of line with the row beneath them.
+   Measured 2026-09-18: header cells 157/87/149/102/126px against body cells of
+   120px each.
+   Nothing here sets `display` on `.grid`, so there was nothing to out-specify
+   it with. This file's own reset at design.css:166 already does everything
+   Tailwind's preflight did, so the import was cost with no benefit and one
+   silent collision. The class named `.why` colliding with another `.why` is
+   written up at the top of design.css; this is the same fault with a library
+   on the other side of it. */
 
 /* design.css is THE stylesheet for the whole suite. Every tool inherits it and
    no tool styles itself. Edit it here.

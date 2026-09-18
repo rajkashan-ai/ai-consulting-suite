@@ -425,3 +425,44 @@ export const NARRATIVE_SHAPE = {
     $defs: BATTLECARD_SHAPE.input_schema.$defs,
   },
 };
+
+/**
+ * A row nobody can be compared on is not a comparison.
+ *
+ * WHY THIS EXISTS
+ * `AREA_MEANS.pricing` has always said "Only services more than one of them
+ * publishes." That sentence was sent to the model and checked by nothing. On
+ * 2026-09-17 the model returned a pricing grid with one row, "Ladies cut and
+ * finish", where the only figure in it was the customer's own. The screen drew
+ * a six-column table with five columns of "Not published", which reads as a
+ * broken product rather than as an honest finding.
+ *
+ * The rule is not new and the row was never allowed. Nothing was enforcing it.
+ *
+ * WHAT COUNTS
+ * Two cells with a value, anywhere in the row. Your own column counts as one of
+ * them: you against one competitor is a comparison, you against nobody is a
+ * price list. A row that fails is dropped rather than repaired, because there
+ * is no honest way to invent the second figure.
+ */
+export function worthComparing(row: { cells?: { value?: unknown }[] } | null | undefined): boolean {
+  const withValue = (row?.cells ?? []).filter(
+    (c) => c?.value != null && String(c.value).trim() !== "",
+  ).length;
+  return withValue >= 2;
+}
+
+/**
+ * The same grid with the lonely rows gone.
+ *
+ * An area that loses every row keeps its note and its columns. The screen
+ * already has a state for "nothing on pricing yet", and that state plus the
+ * reason is worth more to an owner than either a table of blanks or a run that
+ * fails outright. For a salon whose competitors publish nothing, "nobody here
+ * prints a price" IS the finding.
+ */
+export function onlyComparable<T extends { rows?: { cells?: { value?: unknown }[] }[] }>(
+  grid: T,
+): T {
+  return { ...grid, rows: (grid.rows ?? []).filter(worthComparing) };
+}

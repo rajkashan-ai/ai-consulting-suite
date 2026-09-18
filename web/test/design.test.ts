@@ -205,3 +205,32 @@ test("there are no shadow tokens", () => {
    */
   assert.doesNotMatch(css, /--shadow[a-z-]*\s*:/, "a shadow token is back");
 });
+
+test("no utility framework is imported over our own class names", () => {
+  /**
+   * Tailwind was imported and no Tailwind utility was ever used. What it did
+   * was emit `.grid{display:grid}`, because the Competitor Tracker's comparison
+   * table is called `.grid` and Tailwind generates a utility for any name it
+   * sees in the source. `display:grid` on a <table> destroys table layout: the
+   * <thead> becomes a block, stops sharing columns with the body, and the six
+   * column headings sit out of line with the row beneath. Measured on
+   * 2026-09-18: header cells 157/87/149/102/126px against body cells of 120px.
+   *
+   * Nothing in our stylesheets sets `display` on `.grid`, so there was nothing
+   * to out-specify it with. The fix was to stop importing a library whose whole
+   * job is to claim short class names, in a codebase that names its components
+   * after what they are.
+   */
+  const globals = readFileSync(join(import.meta.dirname, "..", "app", "globals.css"), "utf8");
+  const code = globals.replace(/\/\*[\s\S]*?\*\//g, " ");
+  assert.doesNotMatch(code, /@import\s+["']tailwindcss["']/, "a utility framework is back over our class names");
+  /* And our own reset is still the one doing the job Tailwind's preflight did. */
+  assert.match(css, /\*\{box-sizing:border-box\}/, "the reset went with it");
+});
+
+test("the comparison table is laid out as a table", () => {
+  /* The property that was overridden. Asserted positively so the next library
+     that claims `.grid` fails here rather than on somebody's screen. */
+  assert.match(css, /\.grid \{ table-layout: fixed; \}/);
+  assert.doesNotMatch(css, /\.grid\s*\{[^}]*display:\s*grid/, ".grid is being drawn as a CSS grid");
+});
