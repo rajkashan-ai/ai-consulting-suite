@@ -156,6 +156,59 @@ export default function Resizer() {
       }
 
       /**
+       * ONE FILE IS A SAVE DIALOG, NOT A FOLDER PICKER.
+       *
+       * 2026-09-18. Raj tried to put a single resized photo on his Desktop and
+       * Chrome refused: "can't open this folder because it contains system
+       * files". It was not a bug in the fallback below, which works. It is that
+       * asking for a folder was the wrong question.
+       *
+       * Chromium's blocked-path table (chrome_file_system_access_permission_
+       * context.cc) lists the Desktop, the home folder, Documents and Downloads
+       * as kDontBlockChildren. That means the folder ITSELF cannot be handed
+       * over as a directory, while anything inside it is fine. So a directory
+       * picker can never accept the Desktop, and a save dialog writing a file
+       * onto the Desktop is allowed, because that file is a child.
+       *
+       * Every other route is worse. Telling them to pick a subfolder makes the
+       * customer work around our API choice. Dropping to downloads ignores what
+       * they asked for, which was this photo, on their Desktop.
+       *
+       * A folder still earns its place for several files: that is a folder of
+       * things, and the subfolder we create below is genuinely useful. One file
+       * is a file.
+       */
+      const saver = (
+        window as unknown as {
+          showSaveFilePicker?: (o: {
+            suggestedName?: string;
+            types?: { description: string; accept: Record<string, string[]> }[];
+          }) => Promise<FileSystemFileHandle>;
+        }
+      ).showSaveFilePicker;
+
+      if (files.length === 1 && saver) {
+        try {
+          const handle = await saver.call(window, {
+            suggestedName: files[0].name,
+            types: [{ description: "JPEG image", accept: { "image/jpeg": [".jpg"] } }],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(files[0].blob);
+          await writable.close();
+          setSaid("Saved where you put it.");
+          return;
+        } catch (e) {
+          // Cancel is a decision and gets no lecture. Anything else drops to
+          // downloads rather than dead ending: the file is already made.
+          if (e instanceof Error && e.name === "AbortError") {
+            setSaid("Nothing saved. Nothing has been lost, press it again when you want it.");
+            return;
+          }
+        }
+      }
+
+      /**
        * Their folder, if the browser can ask for one.
        *
        * `showDirectoryPicker` is Chromium only. Where it is missing the files
@@ -197,7 +250,10 @@ export default function Resizer() {
             setSaid("Nothing saved. Nothing has been lost, press it again when you want them.");
             return;
           }
-          setSaid("That folder is one the browser will not write to, so these went to your downloads instead. A folder inside Documents works.");
+          setSaid(
+            "The browser will not hand over the Desktop, Documents or Downloads themselves, " +
+              "only a folder inside one of them. These went to your downloads instead.",
+          );
         }
       }
 
@@ -312,9 +368,15 @@ export default function Resizer() {
 
             <div className="card__foot">
               <p className="t-meta">
-                {chosen.length
-                  ? `${chosen.length} file${chosen.length === 1 ? "" : "s"}. You pick the folder.`
-                  : "Tick at least one size."}
+                {/* One file gets a save dialog and can go anywhere, including
+                    the Desktop. Several get a folder, and the Desktop itself is
+                    not a folder the browser will hand over. Saying the same
+                    sentence for both promised something one of them cannot do. */}
+                {chosen.length === 1
+                  ? "1 file. You pick where it goes."
+                  : chosen.length
+                    ? `${chosen.length} files. You pick the folder, inside Documents or Desktop rather than either itself.`
+                    : "Tick at least one size."}
               </p>
               <button type="button" className="btn--ghost" onClick={() => setImage(null)}>
                 Cancel
