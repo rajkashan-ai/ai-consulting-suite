@@ -31,4 +31,49 @@ export const POST_RULES =
       "You never invent " +
       "a client, a result, a percentage, a timescale, a qualification, an award, a review, a " +
       "number of years, or a number of customers. Where a post needs something only they know, " +
-      "you leave a square bracket saying exactly what to put in it.";
+      "you leave a square bracket saying exactly what to put in it. " +
+
+      /**
+       * Cadence. The standard's first rule, and the one nothing was asking for.
+       *
+       * A model writes every sentence to the same length without being told
+       * not to, and that evenness is what makes a caption read as written by
+       * software even when every word in it is fine.
+       */
+      "You vary the length of your sentences. Some are long enough to carry a " +
+      "thought and some are four words. You never write three sentences of the " +
+      "same shape in a row. " +
+
+      /**
+       * Substance, made specific to who is reading. The standard says a
+       * seasoned domain expert would agree it is valid. The reader here is a
+       * customer, not an expert, so the bar that means the same thing is
+       * whether a rival in the same trade would recognise somebody who does
+       * the work.
+       */
+      "You say at least one thing that only somebody who does this work would " +
+      "know: why it is done that way, what goes wrong when it is not, what it " +
+      "costs in time. A post that could have been written about any business " +
+      "in this trade is not worth putting out. " +
+
+      /**
+       * Structure, for this medium. The standard asks for headings and bullet
+       * points where appropriate, and on an Instagram caption they are not:
+       * the equivalent is the first line, which is all anybody sees before
+       * they decide whether to press more.
+       */
+      "The first line stands on its own and earns the second. You break the " +
+      "post into short paragraphs with a blank line between them, never one " +
+      "block of text, and never headings or bullet points: this is a caption, " +
+      "not a page. " +
+
+      /**
+       * Endings. The standard says do not force a neat conclusion, and a post
+       * that ends "book online" is not forcing one: that is the point of it.
+       * What is banned is the sentence that sounds like an ending and says
+       * nothing.
+       */
+      "You stop when you have finished. You never add a closing line that " +
+      "lifts the mood and says nothing, and if the honest ending is an open " +
+      "question or a plain fact, you leave it there. Telling somebody how to " +
+      "book is not a closing line, it is the point.";

@@ -59,6 +59,33 @@ const HOUSE: [RegExp, string][] = [
   [/\bthe perfect blend of\b/i, "the perfect blend of"],
   [/\bcutting[- ]edge\b/i, "cutting edge"],
   [/\btake it to the next level\b/i, "the next level"],
+
+  /**
+   * Added 2026-09-18 against the content standard.
+   *
+   * Every one of these is a phrase a model reaches for and a person does not,
+   * and every one is checked below against real captions so it cannot fire on
+   * somebody's actual writing. The test for this list is the one that matters:
+   * a false positive throws away a good post and the owner never learns why.
+   */
+  [/\btestament\b/i, "testament"],
+  [/\ba tapestry of\b/i, "a tapestry of"],
+  [/\bwe(?:'ve| have) got you covered\b/i, "we have got you covered"],
+  [/\bone[- ]stop shop\b/i, "one-stop shop"],
+  [/\bthe go[- ]to\b/i, "the go-to"],
+  [/\brest assured\b/i, "rest assured"],
+  [/\bembark on\b/i, "embark on"],
+  [/\bin the world of\b/i, "in the world of"],
+  /**
+   * The manufactured upbeat ending, which is the one this product is most
+   * likely to write. Not the call to book: "book online or give us a call" is
+   * the point of the post and stays. What goes is the sentence that sounds
+   * like an ending and says nothing.
+   */
+  [/\bthe possibilities are endless\b/i, "the possibilities are endless"],
+  [/\bthe sky(?:'s| is) the limit\b/i, "the sky is the limit"],
+  [/\bat the end of the day\b/i, "at the end of the day"],
+  [/\bone thing is (?:for )?certain\b/i, "one thing is certain"],
 ];
 
 /**
