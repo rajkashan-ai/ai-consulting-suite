@@ -54,3 +54,33 @@ export function townInUrl(town: string | null | undefined): string {
  */
 export const townSquashed = (town: string | null | undefined): string =>
   townInUrl(town).replace(/-/g, "");
+
+/**
+ * A business name with a trailing town removed, or the name unchanged.
+ *
+ * The sidebar is 216px and prints the town on its own line underneath. "A Cut
+ * Above St Albans" measured 151px in a 137px box and ellipsised to "A Cut Above
+ * St Alb…", losing the half that identifies them while repeating the half
+ * directly below it.
+ *
+ * Only a trailing town comes off, and only on a word boundary: "St Albans Hair
+ * Studio" is how that salon is known and keeps its name, and a town that merely
+ * ends a longer word is not a town. A business named exactly for its town keeps
+ * its name too, because an empty rail is worse than a repeated word.
+ *
+ * Here rather than in the component because a rule that cannot be tested is a
+ * rule nobody is keeping, and node cannot load a .tsx to test one.
+ */
+export function withoutTown(name: string, town: string | null | undefined): string {
+  const trimmed = (name ?? "").trim();
+  const tail = (town ?? "").trim();
+  if (!tail || trimmed.length <= tail.length) return trimmed;
+
+  if (trimmed.slice(-tail.length).toLowerCase() !== tail.toLowerCase()) return trimmed;
+
+  const left = trimmed.slice(0, -tail.length);
+  /* A word boundary, or "Aftermath" loses its "math". */
+  if (!/[\s,\-\u2013]$/.test(left)) return trimmed;
+
+  return left.replace(/[\s,\-\u2013]+$/, "") || trimmed;
+}

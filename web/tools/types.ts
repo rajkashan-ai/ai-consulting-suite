@@ -148,6 +148,15 @@ export type Tool = {
   name: string;
   /** One line, shown while it has nothing to show. */
   does: string;
+  /**
+   * What the sidebar calls it, where 216px is the whole width.
+   *
+   * "Content & Social Planner" ellipsised to "Content & Social Plann…" in the
+   * rail, which is a name nobody can read and two tools starting the same way.
+   * The design handoff's own nav says "Content Planner", so the short name is
+   * the intent rather than a compromise. `name` stays as the page title.
+   */
+  short: string;
   /** False until somebody writes run(). The workspace says so plainly. */
   built: boolean;
   /**

@@ -2,8 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { labelFor } from "@/tools/categories";
 import { toolBySlug } from "@/tools/registry";
-import Nav from "../nav";
-import Chrome from "../chrome";
+import Shell from "../shell";
 import { LAYS_OUT_ITS_OWN_BANDS, screenFor } from "./screens";
 import { readyFor } from "./ready";
 import { refused } from "@/lib/problems";
@@ -69,16 +68,25 @@ export default async function ToolPage({
   const View = tool.built ? screenFor(tool.slug) : null;
   const ownsBands = Boolean(View) && LAYS_OUT_ITS_OWN_BANDS.includes(tool.slug);
 
-  return (
-    <div className="app">
-      <Chrome
-        staff={profile?.is_staff ?? false}
-        workspaces={workspaces}
-        current={current}
-      />
-      <Nav workspaceId={current.id} />
+  /* London, always. A date rendered in the server's timezone tells a salon in
+     St Albans what day it is somewhere else. */
+  const today = new Intl.DateTimeFormat("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: "Europe/London",
+  }).format(new Date());
 
-      <main>
+  return (
+    <Shell
+      staff={profile?.is_staff ?? false}
+      workspaces={workspaces}
+      current={current}
+      today={today}
+      savedLabel={null}
+      savedSub="Nothing measured yet. It starts once an agent has run."
+    >
+      <>
         {/* The tool's own header continues the frame rather than starting a
             white page under it. The name and the one line saying what the tool
             is belong to the frame; everything below is the answer. */}
@@ -153,7 +161,7 @@ export default async function ToolPage({
           </div>
         </div>
         )}
-      </main>
-    </div>
+      </>
+    </Shell>
   );
 }

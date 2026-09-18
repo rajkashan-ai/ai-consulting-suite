@@ -418,24 +418,13 @@ header{height:var(--header-h); display:flex; align-items:center; gap:var(--s3);
    The bar is translucent with a blur, which is Linear's --header-bg #fffc and
    --header-blur 20px. The blur changes the texture under the bar and not only
    its value, so it separates from either ground without a heavy border. */
-/* Inside the frame, not a second bar under it. Two bars, one dark and one
-   light, read as two separate headers and cost 120px before any content. */
-nav{display:flex; gap:2px; align-items:center; height:var(--nav-h);
-  padding:0 var(--s6) var(--s3); overflow-x:auto; scrollbar-width:none;
-  background:var(--chrome)}
-nav::-webkit-scrollbar{display:none}
-.navitem{display:inline-flex; align-items:center; gap:var(--s2); flex:none;
-  height:40px; padding:0 var(--s4); border:0; background:transparent;
-  border-radius:var(--r-pill); cursor:pointer; white-space:nowrap;
-  font-size:13.5px; line-height:18px; font-weight:500; letter-spacing:0;
-  color:var(--chrome-soft)}
-.navitem__ic{width:16px; height:16px; flex:none; color:var(--muted)}
-/* Driven from aria-current, not a class, so the accessible name and the drawn
-   state cannot diverge. Three signals: fill, weight, and the attribute.
-   The active icon is white, not berry: that frees an accent slot, and Linear's
-   own active nav items are monochrome. */
-.navitem[aria-current="page"]{background:var(--chrome-line); color:#fff; font-weight:600}
-.navitem[aria-current="page"] .navitem__ic{color:#fff}
+/* The horizontal nav's rules were here and went with it on 2026-09-18.
+   They outlived their markup by about an hour and collided with the sidebar:
+   `nav{align-items:center}` still matched `<nav class="side__nav">`, so five
+   items 91 to 287px wide were centred inside a 216px rail and overflowed it at
+   both edges. Deleted rather than out-specified. A rule with no markup is the
+   dead-button defect facing the other way, and .navitem__ic was referenced by
+   nothing at all. */
 
 /* -----------------------------------------------------------------------------
    6. BANDS.  Air separates sections, not a rule and not a third colour.
@@ -1446,3 +1435,109 @@ main{padding:0}
    the 1568px copy that goes to the writer. Capped in height so a portrait shot
    off a phone does not push the service buttons off the screen. */
 .make__shot{display:block;max-width:100%;max-height:220px;width:auto;border-radius:var(--r-card);border:1px solid var(--line);margin-top:var(--s3)}
+
+/* =============================================================================
+   THE SHELL. Sidebar and top bar, from the Instrument handoff of 2026-09-18.
+
+   Scoped under .app for the same reason the tokens are: the marketing site
+   shares this stylesheet and must not inherit the product's frame.
+   ========================================================================== */
+
+.app{display:grid; grid-template-columns:216px minmax(0,1fr)}
+
+.side{background:var(--shell); border-right:1px solid var(--line);
+  padding:20px 14px; display:flex; flex-direction:column; gap:24px;
+  position:sticky; top:0; height:100vh; overflow-y:auto}
+
+.side__id{display:flex; align-items:center; gap:10px; padding:0 6px}
+.side__mark{width:28px; height:28px; border-radius:var(--r-control);
+  background:var(--brand); color:var(--btn-fg); display:grid; place-items:center;
+  font-family:var(--display); font-weight:700; font-size:14px; flex:none}
+.side__who{display:flex; flex-direction:column; min-width:0}
+.side__name{font-family:var(--display); font-size:14.5px; font-weight:600;
+  letter-spacing:-.01em; color:var(--ink); overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap}
+.side__where{font-family:var(--mono); font-size:10px; color:var(--muted)}
+
+.side__nav{display:flex; flex-direction:column; gap:2px}
+
+.navitem{display:flex; align-items:center; gap:10px; padding:9px 10px;
+  border-radius:var(--r-nav); text-decoration:none; color:var(--muted);
+  transition:background var(--dur) var(--ease), color var(--dur) var(--ease)}
+.navitem:hover{background:var(--card)}
+/* Active carries three signals, not one: fill, label colour, and a berry chip.
+   Colour is never the only signal (brand.css rule 4). */
+.navitem[aria-current="page"]{background:var(--card); color:var(--ink)}
+.navitem[aria-current="page"] .navitem__chip{background:var(--brand); color:var(--btn-fg)}
+.navitem__chip{width:22px; height:22px; border-radius:6px; display:grid;
+  place-items:center; font-family:var(--mono); font-size:11px; flex:none;
+  background:var(--card); color:var(--muted)}
+.navitem__label{font-size:14px; font-weight:600; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap}
+.navitem__state{margin-left:auto; font-family:var(--mono); font-size:9.5px;
+  letter-spacing:.08em; text-transform:uppercase; color:var(--muted)}
+
+/* Not built. Visible, honest, and not clickable. */
+.navitem--off{cursor:default}
+.navitem--off:hover{background:transparent}
+.navitem--off .navitem__chip{background:#1E293B}
+
+.side__saved{margin-top:auto; padding:12px; border-radius:var(--r-card);
+  background:var(--card); border:1px solid var(--line);
+  display:flex; flex-direction:column; gap:8px}
+.side__saved-n{font-family:var(--mono); font-size:22px; color:var(--ink);
+  font-variant-numeric:tabular-nums}
+.side__saved-w{font-size:12px; line-height:1.4; color:var(--muted)}
+
+.frame{min-width:0; display:flex; flex-direction:column}
+/**
+ * Height auto, and that word is load-bearing.
+ *
+ * `header{height:var(--header-h)}` is still in this file for the preview page,
+ * and it matched this element too. So the bar was clamped to 64px while its
+ * controls wrapped onto three rows, and "Account" and "Sign out" were drawn on
+ * top of the tool name below. Second rule today to outlive its markup and land
+ * on new markup that happens to use the same element.
+ */
+.topbar{display:flex; align-items:center; justify-content:space-between;
+  gap:20px; padding:16px 28px; border-bottom:1px solid var(--line);
+  flex-wrap:wrap; height:auto; min-height:var(--header-h)}
+.topbar__when{color:var(--muted)}
+.topbar__acts{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+
+/* -----------------------------------------------------------------------------
+   Under 900px the sidebar becomes the bottom bar, per the handoff. Four items,
+   56px tall, because a thumb is not a cursor and 44px is the floor.
+   -------------------------------------------------------------------------- */
+@media (max-width:900px){
+  .app{grid-template-columns:1fr}
+  .side{position:fixed; bottom:0; left:0; right:0; top:auto; height:auto;
+    flex-direction:row; align-items:center; gap:4px; padding:0 8px;
+    border-right:0; border-top:1px solid var(--line); z-index:30;
+    overflow-x:auto; overflow-y:hidden}
+  .side__id,.side__saved{display:none}
+  .side__nav{flex-direction:row; gap:4px; width:100%; justify-content:space-around}
+  .navitem{flex-direction:column; gap:4px; min-height:56px; padding:8px 6px;
+    justify-content:center; flex:1 1 0; min-width:0}
+  /* max-width, not just overflow. The label is a flex item in a column, so it
+     sizes to its content however narrow the tab is: "Competitor Tracker" ran
+     90px wide in a 65px tab and sat on top of "Content Planner" next to it.
+     The chip above it carries the identity when the word is cut. */
+  .navitem__label{font-size:10.5px; font-weight:600; max-width:100%}
+  .navitem__state{margin-left:0; font-size:9px}
+  /* Room for the bar, or the last row of every page sits under it. */
+  .frame{padding-bottom:72px}
+  .topbar{padding:12px 18px}
+
+  /**
+   * Nothing you tap is under 44px. The handoff's floor, and WCAG 2.5.5.
+   *
+   * Measured, not assumed: six standalone controls in the top bar sat at 32px,
+   * which is a thumb target designed for a mouse. Inline links inside a
+   * sentence are deliberately left alone. "Not right?" sits mid-paragraph at
+   * 20px and stretching it would break the line it lives in, which is the
+   * inline exception WCAG 2.5.8 makes for exactly this case.
+   */
+  .btn--sm,.field--sm,.btn--ghost{min-height:44px}
+  .field--sm{padding-top:0; padding-bottom:0}
+}

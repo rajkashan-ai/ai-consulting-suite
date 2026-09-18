@@ -15,24 +15,28 @@ export const TOOLS: Tool[] = [
   {
     slug: "competitor-tracker",
     name: "Competitor Tracker",
+    short: "Competitor Tracker",
     does: "Who you are up against, what they charge, and what to do about it.",
     built: true,
   },
   {
     slug: "content-social-planner",
     name: "Content & Social Planner",
+    short: "Content Planner",
     does: "A month of finished posts, in the words already on your own site.",
     built: true,
   },
   {
     slug: "proposal-quote-builder",
     name: "Proposal & Quote Builder",
+    short: "Proposals",
     does: "A quote that looks like it came from a bigger firm.",
     built: false,
   },
   {
     slug: "lead-capture-funnel",
     name: "Lead Capture & Funnel Builder",
+    short: "Lead Capture",
     does: "Turn the people who visit your site into enquiries.",
     built: false,
   },
@@ -41,6 +45,7 @@ export const TOOLS: Tool[] = [
     // Hidden from the header while the first two are still being proven.
     hidden: true,
     name: "Pricing & Package Builder",
+    short: "Pricing",
     does: "What to charge, and how to package it so people choose.",
     built: false,
   },
@@ -49,6 +54,7 @@ export const TOOLS: Tool[] = [
     // Hidden from the header while the first two are still being proven.
     hidden: true,
     name: "Process & SOP Builder",
+    short: "Processes",
     does: "Write down how you do things, so someone else can do them.",
     built: false,
   },

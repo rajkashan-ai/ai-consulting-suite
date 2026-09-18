@@ -3,8 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { labelFor } from "@/tools/categories";
 import { TOOLS } from "@/tools/registry";
-import Nav from "./nav";
-import Chrome from "./chrome";
+import Shell from "./shell";
 
 export const metadata = { title: "Workspace" };
 
@@ -41,11 +40,15 @@ export default async function Workspace({
   const waiting = TOOLS.filter((t) => !t.built).length;
 
   return (
-    <div className="app">
-      <Chrome staff={staff} workspaces={workspaces} current={current} />
-      <Nav workspaceId={current.id} />
-
-      <main>
+    <Shell
+      staff={staff}
+      workspaces={workspaces}
+      current={current}
+      today={today}
+      savedLabel={null}
+      savedSub="Nothing measured yet. It starts once an agent has run."
+    >
+      <>
         <div className="band band--a band--first">
           <div className="band__in">
             <h1 className="t-page">{current.name ?? current.website}</h1>
@@ -111,7 +114,7 @@ export default async function Workspace({
             </ul>
           </div>
         </div>
-      </main>
-    </div>
+      </>
+    </Shell>
   );
 }
