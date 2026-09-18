@@ -336,8 +336,18 @@ button:disabled{cursor:not-allowed}
 
   /* An agent is running right now. Nothing else, ever. It never marks data. */
   --charge:#D7FF4F;
-  /* Evidence stamps only. */
-  --source:#1F7A4D;
+  /**
+   * Evidence stamps only, and it needs a lifted pair for the same reason berry
+   * does.
+   *
+   * The handoff gives #1F7A4D for the stamp and no contrast figure for it. On
+   * the app ground it computes to 3.29:1, which clears the 3:1 a 2px rule needs
+   * and fails the 4.5:1 the word "src" needs at 9.5px. So the rule keeps the
+   * handoff's green and the word gets the lift: 6.20:1 on the ground, 5.47:1 on
+   * a surface. Same family, deliberately not the minty --good, which would read
+   * as "good news" on a source line.
+   */
+  --source:#1F7A4D; --source-lift:#35AE71;
 
   /**
    * Deltas are neutral, and this is the rule the old palette broke.
@@ -1540,4 +1550,50 @@ main{padding:0}
    */
   .btn--sm,.field--sm,.btn--ghost{min-height:44px}
   .field--sm{padding-top:0; padding-bottom:0}
+}
+
+/* =============================================================================
+   EVIDENCE STAMPS and the AGENT PULSE. The two components that carry the
+   product's meaning rather than its layout. Instrument handoff, 2026-09-18.
+   ========================================================================== */
+
+.evidence{margin-top:var(--s4)}
+.evidence__list{list-style:none; margin:var(--s2) 0 0; padding:0;
+  display:flex; flex-direction:column; gap:var(--s2)}
+
+/* 2px left rule and the app ground, so a stamp reads as a thing pinned to the
+   claim rather than another card inside a card. No radius, no border, no
+   shadow: it is a fill and a rule. */
+.stamp{background:var(--sand); border-left:2px solid var(--line-hover);
+  padding:9px 11px; display:flex; flex-direction:column; gap:var(--s1)}
+.stamp--src{border-left-color:var(--source)}
+.stamp--ours{border-left-color:var(--brand)}
+
+.stamp__t{font-size:13.5px; line-height:20px; color:var(--body)}
+.stamp__line{display:flex; align-items:baseline; gap:var(--s2); flex-wrap:wrap}
+.stamp__k{font-family:var(--mono); font-size:9.5px; line-height:13px; font-weight:600;
+  letter-spacing:.12em; text-transform:uppercase; flex:none}
+.stamp--src .stamp__k{color:var(--source-lift)}
+.stamp--ours .stamp__k{color:var(--brand-ink)}
+.stamp__v{font-family:var(--mono); font-size:11px; line-height:16px;
+  color:var(--muted); word-break:break-word}
+
+/* -----------------------------------------------------------------------------
+   The pulse. One dot, one sentence, no percentage.
+   -------------------------------------------------------------------------- */
+.pulse{display:flex; align-items:center; gap:var(--s2); margin:0}
+.pulse__dot{width:6px; height:6px; border-radius:var(--r-pill); flex:none;
+  background:var(--charge); animation:pulse 2.4s var(--ease) infinite}
+/* 1.6s while a step is in flight, so waiting and working are different speeds
+   rather than the same animation with a different caption. */
+.pulse--busy .pulse__dot{animation-duration:1.6s}
+.pulse__say{font-family:var(--mono); font-size:11px; line-height:16px;
+  letter-spacing:.04em; color:var(--charge)}
+
+@keyframes pulse{0%{opacity:.35} 50%{opacity:1} 100%{opacity:.35}}
+
+/* Somebody who has asked not to see motion still gets the colour and the
+   sentence, which is where the information actually is. */
+@media (prefers-reduced-motion:reduce){
+  .pulse__dot{animation:none; opacity:1}
 }

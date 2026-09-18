@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { report } from "../../report";
 import { interactionId } from "../../interaction";
+import AgentPulse from "./pulse";
 
 /**
  * Consecutive failures to reach our own server before we stop and say so.
@@ -227,39 +228,21 @@ export default function Running({
     <>
       {since < 12 ? (
         <div className="working">
-          <span className="working__dot" aria-hidden="true" />
-          <strong className="t-row">{opening.doing}</strong>
+          <AgentPulse doing={opening.doing} busy />
           <span className="t-meta">{opening.takes}</span>
-          <p className="working__note t-meta">{opening.note}</p>
+          <p className="working__note t-doc-sm">{opening.note}</p>
         </div>
       ) : (
         <div className="working">
-          <span className="working__dot" aria-hidden="true" />
-          <strong className="t-row">{progress}</strong>
+          <AgentPulse doing={progress} busy />
           {now !== null && <span className="t-meta">{elapsed}</span>}
-          <p className="working__note t-meta">
+          <p className="working__note t-doc-sm">
             You can close this. It keeps going and it will be here when you come
             back. We read one page at a time with a pause between, so we are
             never a burden on a small business&rsquo;s website.
           </p>
         </div>
       )}
-
-      {/* Bars at the real shape of what is coming. Not a spinner: a spinner
-          says something is happening, this says what is going to be there. */}
-      <div aria-hidden="true">
-        <span className="sk sk--title" />
-        <span className="sk sk--wide" />
-        <span className="sk sk--mid" />
-        <span className="sk sk--row sk--wide" />
-        <span className="sk sk--row sk--wide" />
-        <span className="sk sk--row sk--wide" />
-        <span className="sk sk--row sk--wide" />
-        <span className="sk sk--short" />
-      </div>
-      <p className="t-meta">
-        <span className="hide">Loading.</span>
-      </p>
     </>
   );
 }

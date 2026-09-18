@@ -1,4 +1,5 @@
 import type { Claim, Competitor } from "../../../../Agents/Competitor Tracker/src/types";
+import Evidence from "./evidence";
 import { groupNotChecked } from "@/tools/competitor-tracker/coverage";
 import { gapReads } from "@/tools/competitor-tracker/rankActions";
 import { funnelReads } from "@/tools/competitor-tracker/shortfall";
@@ -255,28 +256,20 @@ export default function BattlecardView({
                 </p>
               )}
 
-              {/* Collapsed. They see the point, and open it if they want to
-                  argue with it. An argument is what evidence is for. */}
-              <details>
-                <summary className="t-meta">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="m9 18 6-6-6-6" />
-                  </svg>
-                  What this is based on
-                </summary>
-                <ul className="action__ev">
-                  {action.evidence.map((claim, i) => (
-                    <li key={i}>
-                      {claim.text}
-                      {claim.source && (
-                        <span className="cell-note">
-                          {host(claim.source.url)} &middot; {day(claim.source.fetchedOn)}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </details>
+              {/* Open, always. It was a collapsed <details>, and the reason
+                  written beside it was "they see the point, and open it if they
+                  want to argue with it". Nobody opens a disclosure to check
+                  something they already believe, so the evidence was read only
+                  by people who had already decided we were wrong. */}
+              <Evidence
+                stamps={action.evidence.map((claim) => ({
+                  kind: claim.source ? ("src" as const) : ("ours" as const),
+                  value: claim.source
+                    ? `${host(claim.source.url)} \u00b7 ${day(claim.source.fetchedOn)}`
+                    : "our read of the pages we listed",
+                  text: claim.text,
+                }))}
+              />
             </div>
           </article>
         ))}

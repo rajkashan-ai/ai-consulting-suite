@@ -193,8 +193,28 @@ test("the first screen says what it will do and roughly how long", () => {
 });
 
 test("the running screen shows the real progress line, not a fixed word", () => {
-  // "Found 32 barbers in Shrewsbury" is both proof of life and proof of work.
-  assert.match(waiting, /<strong className="t-row">\{progress\}<\/strong>/);
+  /**
+   * "Found 32 barbers in Shrewsbury" is both proof of life and proof of work.
+   *
+   * It moved into AgentPulse on 2026-09-18, so the locator is the prop rather
+   * than the markup. What is asserted is unchanged: the run's own sentence
+   * reaches the screen, and no fixed word stands in for it.
+   */
+  assert.match(waiting, /<AgentPulse doing=\{progress\}/);
+  assert.doesNotMatch(waiting, /doing="[A-Za-z]/, "a fixed word replaced the run's own line");
+});
+
+test("no spinner, no skeleton, no percentage", () => {
+  /**
+   * The handoff replaces all three with the pulse. A skeleton draws a shape
+   * that is not there yet, which is a promise about an answer nobody has, and
+   * the bars here were doing exactly that under a comment saying they were not
+   * a spinner.
+   */
+  const code = waiting.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");
+  assert.doesNotMatch(code, /className="sk\b|sk--|spinner|shimmer/, "a skeleton is still drawn");
+  assert.doesNotMatch(code, /%\s*<\/|progress(bar|Bar)|aria-valuenow/, "a percentage is claimed");
+  assert.match(code, /<AgentPulse/, "nothing says an agent is working");
 });
 
 // ---------------------------------------------------------------------------
