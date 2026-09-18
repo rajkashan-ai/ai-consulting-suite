@@ -480,45 +480,9 @@ test("we only go looking for the ones we have no page for", async () => {
 
   const step = await advance("finding" as Stage, state, aBusiness(), ctx);
 
-  /**
-   * One competitor searched for, not two. That is what this test is about: a
-   * search is about 13,500 input tokens and the one the listing already linked
-   * must cost nothing.
-   *
-   * It asserted `length === 1` until 2026-09-18. There can now be a second
-   * search for the SAME name, restricted to the platforms that print prices,
-   * and only when the first found nowhere that could carry one. Asserted as
-   * "every search is about this one business" rather than as a count, so the
-   * thing being protected is protected and the deliberate fallback is not
-   * mistaken for a runaway.
-   */
-  assert.ok(calls.search.length >= 1 && calls.search.length <= 2, `searched ${calls.search.length} times`);
-  for (const term of calls.search) {
-    assert.match(term.join(" "), /Needs Looking Up/, "a search went out for somebody else");
-    assert.doesNotMatch(term.join(" "), /Has A Page/, "we searched for one we already had");
-  }
+  assert.equal(calls.search.length, 1, "one search, for the one with nothing behind it");
+  assert.match(calls.search[0].join(" "), /Needs Looking Up/);
   assert.deepEqual(step.state.lookedUp, ["Needs Looking Up"]);
-});
-
-test("the second search is guarded, so a competitor we can already price costs one", () => {
-  /**
-   * The cost guarantee, checked at the source rather than through the fake.
-   *
-   * It was written as a pipeline test first and it could not fail: the fake's
-   * first search returns nothing tier-one for any name, so forcing the fallback
-   * to fire always changed nothing and the test passed either way. A test that
-   * cannot fail is worse than no test, so this asserts the guard itself.
-   *
-   * `hasAPricedSource` is unit tested on its own in price-sites.test.ts. What
-   * is checked here is that the second search sits behind it.
-   */
-  const src = sourceOf("competitor-tracker").replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");
-  const guard = src.indexOf("if (!hasAPricedSource(results))");
-  assert.ok(guard > -1, "the second search is no longer guarded");
-  const second = src.indexOf("searchOnPriceSites(");
-  assert.ok(second > guard, "the second search is built before anything checks whether it is needed");
-  /* And it is one extra search, not a loop. */
-  assert.equal((src.match(/searchOnPriceSites\(/g) ?? []).length, 1);
 });
 
 test("a business we cannot place is not searched for twice", async () => {

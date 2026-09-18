@@ -21,7 +21,7 @@ import type {
 import type { Business, ToolContext } from "../types.ts";
 import { isProfile, profileFor } from "./profile.ts";
 import { exhausted, isDeadEnd, type Playbook } from "./playbook.ts";
-import { bestFirst, hasAPricedSource, sitesThatPublishPrices, whereToLook } from "./where.ts";
+import { bestFirst, whereToLook } from "./where.ts";
 import { ageOf, enoughToUse, type Kept } from "./remember.ts";
 import { fetchable } from "../identity.ts";
 import { townInUrl } from "../place.ts";
@@ -51,7 +51,6 @@ import {
   namesFrom,
   judge,
   searchFor,
-  searchOnPriceSites,
   type Checked,
   type Judged,
 } from "./naming.ts";
@@ -1615,32 +1614,8 @@ async function finding(
    * business in this town", and the rules for answering it were paid for once
    * already: the right town, the right country, not a directory.
    */
-  const asked = { name: next, why: "chosen by the owner" };
-  const term = searchFor(asked, profile.town, profile.trade);
+  const term = searchFor({ name: next, why: "chosen by the owner" }, profile.town, profile.trade);
   const seen = await ctx.search([term], searchToolConfig(profile, 1));
-  let results = seen[0]?.results ?? [];
-
-  /**
-   * Nowhere that could carry a price, so ask again on the places that do.
-   *
-   * A competitor picked off Fresha's listing arrives with no link at all: that
-   * page publishes a name and a postal address in schema.org JSON and nothing
-   * else, and the word "price" does not appear in it. Verified by fetching it
-   * on 2026-09-18, 300 anchors and not one pointing at a venue. So the only
-   * route to their prices is their booking profile, and the plain search by
-   * name is a lottery: it returned a Cylex page that refused us for one of
-   * these five while a booking profile read cleanly for another.
-   *
-   * One extra search, and only when the first found no priced source, so a
-   * competitor we can already price costs exactly what it did before.
-   */
-  if (!hasAPricedSource(results)) {
-    const again = searchOnPriceSites(asked, profile.town, sitesThatPublishPrices());
-    if (again) {
-      const more = await ctx.search([again], searchToolConfig(profile, 1));
-      results = [...results, ...(more[0]?.results ?? [])];
-    }
-  }
 
   /**
    * Best page first, then let judge pick the first that verifies.
@@ -1655,7 +1630,12 @@ async function finding(
   // counts as the right place. See judge.
   const knownArea = (state.offered ?? []).find((o) => o.name === next)?.area ?? null;
 
-  const { found } = judge(asked, bestFirst(results), profile.town, knownArea);
+  const { found } = judge(
+    { name: next, why: "chosen by the owner" },
+    bestFirst(seen[0]?.results ?? []),
+    profile.town,
+    knownArea,
+  );
 
   /**
    * Recorded either way.
