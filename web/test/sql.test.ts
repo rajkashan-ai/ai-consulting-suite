@@ -78,3 +78,45 @@ test("the tick is actually scheduled, not just built", () => {
   assert.ok(tick, "nothing schedules the tick");
   assert.equal(tick.schedule, "* * * * *");
 });
+
+test("no two migrations define the same constraint", () => {
+  /**
+   * Two files both owned `content_made_photo_check`, and the runner applies
+   * files in filename order. "photo-notes" sorts before "photo-posts", so the
+   * older file ran last and put the old rule back: every photo post then failed
+   * to save against a constraint demanding a service nothing writes any more.
+   *
+   * The name sorted wrong because both were dated the same day, so the order
+   * the files were written in is not the order they run in. One constraint, one
+   * file, and this is what keeps it that way.
+   */
+  const owners: Record<string, string[]> = {};
+  for (const f of files) {
+    const sql = readFileSync(join(DIR, f), "utf8");
+    for (const m of sql.matchAll(/add constraint\s+([a-z0-9_]+)/gi)) {
+      (owners[m[1]] ??= []).push(f);
+    }
+  }
+  for (const [name, inFiles] of Object.entries(owners)) {
+    assert.equal(
+      inFiles.length,
+      1,
+      `${name} is defined in ${inFiles.length} files, and filename order decides which wins: ${inFiles.join(", ")}`,
+    );
+  }
+});
+
+test("a migration only drops a constraint in the file that defines it", () => {
+  /* Dropping it somewhere else is the same fault wearing a different hat: the
+     drop and the definition then depend on which file runs last. */
+  for (const f of files) {
+    const sql = readFileSync(join(DIR, f), "utf8");
+    for (const m of sql.matchAll(/drop constraint if exists\s+([a-z0-9_]+)/gi)) {
+      assert.match(
+        sql,
+        new RegExp(`add constraint\\s+${m[1]}\\b`, "i"),
+        `${f} drops ${m[1]} and never puts it back`,
+      );
+    }
+  }
+});

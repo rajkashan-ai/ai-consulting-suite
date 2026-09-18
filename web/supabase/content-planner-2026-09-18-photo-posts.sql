@@ -39,14 +39,23 @@ alter table public.content_made
   add column if not exists service text;
 
 -- A photo post says so and says when. Anything else must not claim one.
+-- A photo post says so and says when. Anything else must not claim one.
+--
+-- Corrected on 2026-09-18 when notes replaced the chosen service: this used to
+-- require `service is not null`, and nothing writes service any more, so every
+-- photo post failed to save. Corrected HERE rather than in the newer file
+-- because this one sorts last and would otherwise put the old rule back.
 alter table public.content_made
   drop constraint if exists content_made_photo_check;
 
 alter table public.content_made
+  add column if not exists notes text;
+
+alter table public.content_made
   add constraint content_made_photo_check
   check (
-    (from_photo and path = 'asset' and photo_on is not null and service is not null)
-    or (not from_photo and photo_on is null and service is null)
+    (from_photo and path = 'asset' and photo_on is not null)
+    or (not from_photo and photo_on is null and service is null and notes is null)
   );
 
 comment on column public.content_made.from_photo is

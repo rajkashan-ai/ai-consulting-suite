@@ -1,5 +1,13 @@
 -- Notes instead of a chosen service, and both of them optional.
 --
+-- THE CONSTRAINT IS NOT IN THIS FILE, AND THAT IS DELIBERATE.
+-- It lives in content-planner-2026-09-18-photo-posts.sql, which is the file
+-- that sorts LAST. This one defined it too, and lost: the runner applies files
+-- in filename order, "photo-notes" sorts before "photo-posts", and the older
+-- file put the old rule back. Every photo post then failed to save against a
+-- constraint that still demanded a service nothing writes any more.
+-- One constraint, one file, and it is the last one to run.
+--
 -- The photo path asked the owner to pick one of their services from a list.
 -- For a salon whose site lists twelve grades of the same cut that is twelve
 -- long buttons and a decision nobody wants to make on a phone between clients,
@@ -16,19 +24,6 @@
 -- same guards as every other post.
 alter table public.content_made
   add column if not exists notes text;
-
--- `service` stays, nullable, because rows written before today have one and
--- deleting a column to tidy up is how a record of what we told somebody goes
--- missing. Nothing writes it any more.
-alter table public.content_made
-  drop constraint if exists content_made_photo_check;
-
-alter table public.content_made
-  add constraint content_made_photo_check
-  check (
-    (from_photo and path = 'asset' and photo_on is not null)
-    or (not from_photo and photo_on is null and service is null and notes is null)
-  );
 
 comment on column public.content_made.notes is
   'What the owner asked us to mention, in their own words. Optional: a photo '
