@@ -385,3 +385,57 @@ test("with no notes the post is still written, and nothing extra is asked of the
      nothing" and "they wrote a blank" are the same fact in the database. */
   assert.match(code, /notes: sent && wanted \? wanted : null/);
 });
+
+test("the photo path writes two posts, and one of them needs nothing", () => {
+  /**
+   * Raj, 2026-09-18: also generate a post that needs no input, just an
+   * elaboration of what you can see. So the first post may carry gaps where a
+   * figure is theirs to supply, and the second carries no figure and no gap at
+   * all, which means there is always something on the screen that can go
+   * straight out.
+   *
+   * Only on the photo path. The other two ask for one post and always did.
+   */
+  const action = read("make-actions.ts");
+  const code = action.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");
+
+  assert.match(code, /ready: \{/, "nothing asks for a second post");
+  assert.match(code, /\.\.\.\(sent \? \["ready"\] : \[\]\)/, "the second post is optional, so a silent model would pass");
+  /* Only on the photo path: the second post is inside a `sent` guard. */
+  assert.ok(
+    code.lastIndexOf("...(sent", code.indexOf("ready: {")) > -1,
+    "the second post is asked for on every path, not just the photo one",
+  );
+  /* And it is told to need nothing. Matched on a fragment that is not split
+     across the template literal's line breaks. */
+  assert.match(action, /no square brackets/, "the second post is allowed to need something");
+  assert.match(action, /TWO posts, not one/, "the writer is not told to write two");
+});
+
+test("one post being refused does not throw the other away", () => {
+  /**
+   * The second post exists so there is always something usable. Dropping it
+   * because the first cited a page wrongly would undo the reason it is written.
+   */
+  const code = read("make-actions.ts").replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");
+  assert.match(code, /if \(refused\) refusals\.push\(refused\);\s*else rows\.push/, "a refusal still stops everything");
+  assert.match(code, /if \(!rows\.length\)/, "the owner is told nothing was written even when something was");
+  assert.match(code, /insert\(rows\)/, "the posts are saved one at a time");
+});
+
+test("a refusal is shown where the post would have been", () => {
+  /**
+   * Raj, on finding one: "I had to look for it as I was searching for the
+   * post." It sat above the button in ordinary body text, so somebody
+   * scrolling down to read their new post went straight past it.
+   */
+  const screen = read("make.tsx");
+  const code = screen.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");
+  assert.match(code, /className="refusal"/, "the refusal is drawn as ordinary text again");
+  assert.match(code, /role="alert"/, "nothing announces it to a reader who cannot see it");
+  /* Below the button, so it is the last thing before the posts. */
+  assert.ok(
+    code.indexOf('className="refusal"') > code.indexOf('className="make__row"'),
+    "the refusal is back above the button",
+  );
+});

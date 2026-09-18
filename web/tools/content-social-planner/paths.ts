@@ -247,3 +247,48 @@ export function asNotes(raw: unknown): string {
   if (typeof raw !== "string") return "";
   return raw.trim().replace(/\s+/g, " ").slice(0, NOTES_MAX);
 }
+
+/**
+ * A post split into the words we wrote and the blanks only they can fill.
+ *
+ * WHY A BLANK AND NOT A REFUSAL
+ * The writer needed a figure nobody had given it and invented £141.00, which
+ * `findInventedClaims` caught and the whole post was thrown away. The owner saw
+ * "we wrote one and would not stand behind it" and got nothing.
+ *
+ * Refusing was right about the number and wrong about the outcome. The honest
+ * move is to leave the gap where the number goes and say whose it is, which is
+ * what the monthly plan always did: `[your price for this]` renders as an amber
+ * chip carrying its own instruction, and the owner types over it.
+ *
+ * Square brackets because that is the shape the planner has always used, and
+ * because a model asked for a placeholder invents a plausible one unless the
+ * shape is spelled out.
+ */
+export type Piece = { text: string; blank: boolean };
+
+/**
+ * What a gap looks like, written once and used twice.
+ *
+ * It was `startsWith("[") && endsWith("]")` on the piece, which is not the same
+ * question as "did this match the pattern we split on". A model that pastes a
+ * paragraph inside brackets produces one piece that begins and ends with them,
+ * and it became a single amber chip holding eighty characters. Two halves of
+ * one question, found by the test written beside it.
+ */
+const GAP = /^\[[^\]]{1,60}\]$/;
+
+export function inPieces(words: string): Piece[] {
+  return words
+    .split(/(\[[^\]]{1,60}\])/g)
+    .filter((part) => part !== "")
+    .map((part) =>
+      GAP.test(part)
+        ? { text: part.slice(1, -1).trim(), blank: true }
+        : { text: part, blank: false },
+    );
+}
+
+/** How many gaps are waiting on them. Nothing to fill is the common case. */
+export const blanksIn = (words: string): number =>
+  inPieces(words).filter((p) => p.blank).length;

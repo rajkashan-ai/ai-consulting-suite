@@ -1663,3 +1663,18 @@ main{padding:0}
  */
 .receipt{font-family:var(--mono); font-variant-numeric:tabular-nums;
   letter-spacing:0; word-break:break-word}
+
+/**
+ * A refusal, where the post would have been.
+ *
+ * Amber and not red: nothing is broken and nothing was lost. We wrote something
+ * and would not stand behind it, which is the product working. Red is for a
+ * fault; this is a decision, and it reads as one.
+ *
+ * It carries its meaning in words as well as colour, like every other state on
+ * this screen, so the left rule is a second signal rather than the only one.
+ */
+.refusal{margin:var(--s4) 0 0; padding:var(--s3) var(--s4);
+  border-left:2px solid var(--warn); background:var(--warn-wash);
+  color:var(--ink); font-size:15px; line-height:23px; max-width:var(--measure);
+  border-radius:0 var(--r-chip) var(--r-chip) 0}

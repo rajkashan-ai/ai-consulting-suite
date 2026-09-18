@@ -1,4 +1,4 @@
-import { INTENTS, type Intent } from "@/tools/content-social-planner/paths";
+import { INTENTS, inPieces, type Intent } from "@/tools/content-social-planner/paths";
 import { creditLine } from "@/tools/content-social-planner/sources";
 import DeletePost from "./delete-post";
 
@@ -58,7 +58,20 @@ export default function Made({ made }: { made: MadePost[] }) {
                   says what it says, and they should not have to remember. */}
               {p.thought ? <span className="pick__reads">You said: {p.thought}</span> : null}
 
-              <span className="t-doc made__words">{p.words}</span>
+              {/* The blanks only they can fill, marked where they are. A gap
+                  the writer left rather than a number it invented: see
+                  inPieces. */}
+              <span className="t-doc made__words">
+                {inPieces(p.words).map((piece, i) =>
+                  piece.blank ? (
+                    <span className="blank" key={i}>
+                      {piece.text}
+                    </span>
+                  ) : (
+                    <span key={i}>{piece.text}</span>
+                  ),
+                )}
+              </span>
 
               {p.shot ? <span className="pick__where">Photograph: {p.shot}</span> : null}
               {p.why ? <span className="pick__reads">{p.why}</span> : null}

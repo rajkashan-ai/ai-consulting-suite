@@ -247,16 +247,32 @@ export default function Make({
         </div>
       )}
 
-      {error ? <p className="t-doc">{error}</p> : null}
-
       <div className="make__row">
         <button className="btn" onClick={ask} disabled={busy || !ready}>
           {busy ? "Writing" : "Write it"}
         </button>
         <span className="t-meta">
-          {busy ? "About twenty seconds." : "One post, ready to paste."}
+          {busy ? "About twenty seconds." : "Two posts, ready to paste."}
         </span>
       </div>
+
+      {/**
+       * The refusal goes where the post would have gone.
+       *
+       * It used to sit above the button in ordinary body text, so somebody
+       * scrolling down to read their new post passed it without seeing it and
+       * carried on looking for something that was never written. Raj, on
+       * finding one: "I had to look for it as I was searching for the post."
+       *
+       * At the foot of the panel it is the last thing before the list of posts,
+       * which is where they are already looking, and `role="alert"` says it to
+       * a reader who cannot see it at all.
+       */}
+      {error ? (
+        <p className="refusal" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -190,7 +190,8 @@ export async function makePost(
     : `WHAT THIS POST IS FOR\n${intentAsks(intent as Intent)}\n\n` +
       `Write one post that does that, about something on their pages below.\n\n`;
 
-  let answer: { words?: string; shot?: string; why?: string; from?: unknown; intent?: string; fits?: boolean };
+  type Draft = { words?: string; shot?: string; why?: string; from?: unknown; intent?: string };
+  let answer: Draft & { fits?: boolean; ready?: Draft };
   try {
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
@@ -232,9 +233,19 @@ export async function makePost(
                   priceRules(business) +
                   asking +
                   (sent
-                    ? `One post, finished words ready to paste, one line saying ` +
-                      `why this post is worth putting out, and for the photograph ` +
-                      `line say how to shoot the next one like it.`
+                    ? `TWO posts, not one, and they are different jobs.\n\n` +
+                      `The first uses their facts. If it needs a figure nobody has ` +
+                      `given you, do not invent one and do not leave it out: write a ` +
+                      `gap in square brackets saying whose it is, like [your price ` +
+                      `for this] or [how long it took]. Every price you DO state must ` +
+                      `be one of theirs above, exactly as written.\n\n` +
+                      `The second needs nothing from them at all. No price, no ` +
+                      `figure, no gap, no square brackets anywhere. It is what you ` +
+                      `can see in the photograph, said well enough to be worth ` +
+                      `reading, and why that is worth showing people.\n\n` +
+                      `For each: finished words ready to paste, one line saying why ` +
+                      `the post is worth putting out, and for the photograph line ` +
+                      `say how to shoot the next one like it.`
                     : `One post, finished words ready to paste, one line saying what to ` +
                       `photograph that they can do on their phone today, and one line ` +
                       `saying why this post is worth putting out.`),
@@ -288,8 +299,43 @@ export async function makePost(
                       },
                     }
                   : {}),
+                /**
+                 * The second post, on the photo path only.
+                 *
+                 * Raj, 2026-09-18: also write one that needs nothing from
+                 * them. The first can carry gaps where a figure is theirs to
+                 * supply; this one carries no figure and no gap at all, so
+                 * there is always something on the screen that can go straight
+                 * out. Two posts from one call and one photo, rather than two
+                 * calls.
+                 */
+                ...(sent
+                  ? {
+                      ready: {
+                        type: "object",
+                        description:
+                          "A second post that needs nothing from them: no price, no figure, " +
+                          "no square brackets. What the photograph shows, and why it is worth showing.",
+                        properties: {
+                          words: { type: "string" },
+                          shot: { type: "string", maxLength: 180 },
+                          why: { type: "string", maxLength: 180 },
+                          intent: {
+                            type: "string",
+                            enum: ["educate", "inspire", "entertain", "inform", "connect", "prove", "promote", "engage"],
+                          },
+                          from: { type: "integer" },
+                        },
+                        required: ["words", "shot", "why", "intent", "from"],
+                      },
+                    }
+                  : {}),
               },
-              required: ["words", "shot", "why", "intent", "from", ...(sent && wanted ? ["fits"] : [])],
+              required: [
+                "words", "shot", "why", "intent", "from",
+                ...(sent && wanted ? ["fits"] : []),
+                ...(sent ? ["ready"] : []),
+              ],
             },
           } as never,
         ],
@@ -334,47 +380,66 @@ export async function makePost(
     };
   }
 
-  const written = cite(answer, pages) as { words?: string; shot?: string; why?: string; source?: { url?: string; fetchedOn?: string } };
-
-  const post = {
-    words: written.words ?? "",
-    shot: written.shot ?? "",
-    why: written.why ?? "",
-    source: written.source ?? null,
-  };
-
-  const refused = unsafe(post as never, pages as never, knownFacts(business) as never);
-  if (refused) {
-    // Dropped, never reworded: a post claiming something nobody gave us is not
-    // badly written, and there is no rewrite that sources it.
-    return { error: `We wrote one and would not stand behind it: ${refused}. Try again.` };
-  }
-
-  /**
-   * That a photo was behind it is ours to record, never the model's to claim.
-   *
-   * We were handed one or we were not. Letting the writer say so would be a
-   * source the writer could invent, which is the one thing this whole file is
-   * arranged to stop. The photo itself is not written anywhere: it goes out of
-   * scope with this function.
-   */
   const today = new Date().toISOString().slice(0, 10);
 
-  const { error: saving } = await supabase.from("content_made").insert({
+  /**
+   * Both posts, each judged on its own.
+   *
+   * One of the two failing must not take the other with it. The second exists
+   * precisely so there is always something on the screen that can go straight
+   * out, and throwing it away because the first cited a page wrongly would undo
+   * the reason it is written.
+   */
+  /* After cite(): the page number has become a source carrying its url. */
+  type Cited = { words?: string; shot?: string; why?: string; source?: { url?: string; fetchedOn?: string } };
+  const asRow = (w: Cited, intentOf: unknown) => ({
     workspace_id: workspaceId,
     path,
-    intent: isIntent(answer.intent) ? answer.intent : (intent ?? null),
+    intent: isIntent(intentOf) ? intentOf : (intent ?? null),
     thought: theirWords,
-    words: post.words,
-    shot: post.shot,
-    why: post.why,
-    source_url: post.source?.url ?? "",
-    source_on: post.source?.fetchedOn ?? null,
+    words: w.words ?? "",
+    shot: w.shot ?? "",
+    why: w.why ?? "",
+    source_url: w.source?.url ?? "",
+    source_on: w.source?.fetchedOn ?? null,
+    /**
+     * That a photo was behind it is ours to record, never the model's to
+     * claim. We were handed one or we were not.
+     */
     from_photo: Boolean(sent),
     photo_on: sent ? today : null,
     service: null,
     notes: sent && wanted ? wanted : null,
   });
+
+  const drafts: { written: Cited; intent: unknown }[] = [
+    { written: cite(answer, pages) as Cited, intent: answer.intent },
+  ];
+  if (sent && answer.ready) {
+    drafts.push({ written: cite(answer.ready, pages) as Cited, intent: answer.ready.intent });
+  }
+
+  const rows: ReturnType<typeof asRow>[] = [];
+  const refusals: string[] = [];
+  for (const d of drafts) {
+    const post = {
+      words: d.written.words ?? "",
+      shot: d.written.shot ?? "",
+      why: d.written.why ?? "",
+      source: d.written.source ?? null,
+    };
+    const refused = unsafe(post as never, pages as never, knownFacts(business) as never);
+    // Dropped, never reworded: a post claiming something nobody gave us is not
+    // badly written, and there is no rewrite that sources it.
+    if (refused) refusals.push(refused);
+    else rows.push(asRow(d.written, d.intent));
+  }
+
+  if (!rows.length) {
+    return { error: `We wrote one and would not stand behind it: ${refusals[0]}. Try again.` };
+  }
+
+  const { error: saving } = await supabase.from("content_made").insert(rows);
 
   if (saving) {
     console.error(`[make] could not save the post for ${workspaceId}: ${saving.message}`);
