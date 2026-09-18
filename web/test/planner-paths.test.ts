@@ -191,6 +191,38 @@ test("the photo is downscaled here and stored nowhere", () => {
   assert.match(src, /not kept/i, "nothing tells them it is not stored");
 });
 
+test("a photo that is not the service they named is refused, not written around", () => {
+  /**
+   * Found on a live call, 2026-09-18. Handed a photo of a desk and told it was
+   * a Ladies Cut & Finish, the writer described the desk accurately, said in
+   * the shot line that no haircut was visible, and attached the £51 cut price
+   * anyway. Honest about the picture and wrong for the owner.
+   *
+   * It can plainly tell. It was never asked. So it is asked, and the decision
+   * is ours: on the same photo it now answers shows:false and still writes a
+   * post, because a model told to write nothing writes something. We do not
+   * depend on it obeying, only on it observing.
+   */
+  const action = read("make-actions.ts");
+  const code = action.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");
+
+  assert.match(code, /shows: \{/, "the writer is never asked whether the photo is the service");
+  assert.match(code, /required: \["words", "shot", "why", "intent", "from", \.\.\.\(sent \? \["shows"\] : \[\]\)\]/,
+    "shows is optional, so a silent model would pass the check");
+  assert.match(code, /answer\.shows === false/, "the answer is asked for and not read");
+
+  /* Refused before anything is saved, and before the guard, because the guard
+     cannot see this: a real price cited to a real page passes every check. */
+  assert.ok(
+    code.indexOf("answer.shows === false") < code.indexOf('from("content_made")'),
+    "a mismatched photo is saved and then refused",
+  );
+
+  /* In their words, naming the service, with something to do about it. */
+  const refusal = /does not look like \$\{service\}[^`]*/.exec(action)?.[0] ?? "";
+  assert.match(refusal, /Pick the service it shows|choose another photo/i, "the refusal says nothing to do");
+});
+
 test("the action is handed a photo and never a file", () => {
   /**
    * A server action takes a body of 1 MB before Next refuses it with a 413,
@@ -303,7 +335,12 @@ test("a post is asked for in the shape cite understands", () => {
   const schema = action.slice(action.indexOf("input_schema"), action.indexOf("tool_choice"));
 
   assert.match(schema, /from: \{ type: "integer"/, "the model is not asked for a page number as `from`");
-  assert.match(schema, /required: \[[^\]]*"from"\]/, "the page number is optional, so a post can arrive unsourced");
+  /* The required list, read as a line rather than with a bracket-counting
+     pattern: it carries a conditional spread now, because `shows` is required
+     on the photo path and not on the other two, and the old pattern stopped at
+     the first close bracket inside it. What is being asserted is unchanged. */
+  const required = schema.slice(schema.indexOf("required: [")).split("\n")[0];
+  assert.match(required, /"from"/, "the page number is optional, so a post can arrive unsourced");
   assert.doesNotMatch(schema, /source: \{/, "it asks for a `source` shape cite does not expand");
 
   // And the word matches the one cite actually looks for, rather than a word

@@ -166,7 +166,11 @@ export async function makePost(
     `Everything else, the price and how to book, comes off the pages above and ` +
     `carries "from" like any other fact. Say which of these the post turned ` +
     `out to be: educate, inspire, entertain, inform, connect, prove, promote, ` +
-    `engage.\n\n`;
+    `engage.\n\n` +
+    `First, answer "shows": is this photo actually a photo of ${service}? If it ` +
+    `is not, say false and write nothing. Do not write a post about what is in ` +
+    `the picture instead, and do not attach the price of work the picture does ` +
+    `not show.\n\n`;
 
   const asking = sent
     ? aboutThePhoto
@@ -179,7 +183,7 @@ export async function makePost(
     : `WHAT THIS POST IS FOR\n${intentAsks(intent as Intent)}\n\n` +
       `Write one post that does that, about something on their pages below.\n\n`;
 
-  let answer: { words?: string; shot?: string; why?: string; from?: unknown; intent?: string };
+  let answer: { words?: string; shot?: string; why?: string; from?: unknown; intent?: string; shows?: boolean };
   try {
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
@@ -260,8 +264,25 @@ export async function makePost(
                  * question end up disagreeing, which is the second time today.
                  */
                 from: { type: "integer", description: "The page its facts came off." },
+                /**
+                 * Only on the photo path, and it earns its place.
+                 *
+                 * Handed a photo of a desk and told it was a cut and finish,
+                 * the writer described the desk accurately, said in the shot
+                 * line that no haircut was visible, and then attached the cut
+                 * and finish price anyway. Honest about the picture and wrong
+                 * for the owner. It plainly can tell; it was never asked.
+                 */
+                ...(sent
+                  ? {
+                      shows: {
+                        type: "boolean",
+                        description: "Is this photo actually a photo of the service they named?",
+                      },
+                    }
+                  : {}),
               },
-              required: ["words", "shot", "why", "intent", "from"],
+              required: ["words", "shot", "why", "intent", "from", ...(sent ? ["shows"] : [])],
             },
           } as never,
         ],
@@ -290,6 +311,20 @@ export async function makePost(
    * does it. A number the model invented expands to nothing, and an invented
    * url would not.
    */
+  /**
+   * The photo is not of the thing they said it was.
+   *
+   * Refused rather than written around. A post about whatever happens to be in
+   * the picture, carrying the price of work the picture does not show, is the
+   * two halves disagreeing again: the photo backs one thing and the page backs
+   * another, and nothing on the screen would say so.
+   */
+  if (sent && answer.shows === false) {
+    return {
+      error: `That photo does not look like ${service}. Pick the service it shows, or choose another photo.`,
+    };
+  }
+
   const written = cite(answer, pages) as { words?: string; shot?: string; why?: string; source?: { url?: string; fetchedOn?: string } };
 
   const post = {
