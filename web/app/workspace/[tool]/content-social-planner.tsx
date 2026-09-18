@@ -4,6 +4,7 @@ import { FIRST_STAGE, lastPlan } from "@/tools/content-social-planner/index";
 import Channels from "./channels";
 import PlanView from "./plan";
 import { isStyle } from "@/tools/content-social-planner/persona";
+import { servicesToOffer } from "@/tools/content-social-planner/sources";
 import Running from "./running";
 import { tooOldToResume } from "@/tools/cadence";
 
@@ -49,7 +50,7 @@ export default async function ContentSocialPlanner({
       .eq("tool", "content-social-planner")
       .order("started_at", { ascending: false })
       .limit(1),
-    supabase.from("workspaces").select("channels, website").eq("id", workspaceId).maybeSingle(),
+    supabase.from("workspaces").select("channels, website, services").eq("id", workspaceId).maybeSingle(),
   ]);
 
   const confirmed = (workspace?.channels ?? null) as string[] | null;
@@ -151,7 +152,7 @@ export default async function ContentSocialPlanner({
        */
       supabase
         .from("content_made")
-        .select("id, path, intent, thought, words, shot, why, source_url, source_on, made_at")
+        .select("id, path, intent, thought, words, shot, why, source_url, source_on, from_photo, photo_on, service, made_at")
         .eq("workspace_id", workspaceId)
         .order("made_at", { ascending: false })
         .limit(30),
@@ -171,6 +172,7 @@ export default async function ContentSocialPlanner({
         workspaceId={workspaceId}
         postState={postState}
         made={(made ?? []) as never}
+        services={servicesToOffer(workspace?.services as never)}
         voice={{
           persona: (voice?.persona ?? null) as never,
           style: (isStyle(voice?.style) ? voice.style : "original") as never,

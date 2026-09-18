@@ -43,16 +43,35 @@ test("the 80/20 split is five that build trust and three that ask", () => {
   assert.equal(CONVERTS.size / INTENTS.length, 0.375, "three of eight, which is the ratio to show");
 });
 
-test("starting from a photo is offered and refused, not half built", () => {
+test("starting from a photo is built, and asks for both halves", () => {
   /**
-   * Nothing in this product uploads a file: no bucket, no route, no image into
-   * a model call. It is on the screen disabled so the shape of the tool is
-   * honest, and the action refuses it rather than failing somewhere deeper.
+   * Built 2026-09-18. A photo on its own can only produce a description: it
+   * carries no price and no booking line. So the path asks for two things, and
+   * refuses with the reason rather than failing somewhere deeper.
    */
   assert.ok((PATHS as readonly string[]).includes("asset"));
-  assert.ok(NOT_BUILT.has("asset"));
-  assert.match(wrongWithRequest("asset", "prove", null)!, /not ready yet/i);
-  assert.doesNotMatch(wrongWithRequest("asset", "prove", null)!, /bucket|upload|storage|null|undefined/i);
+  assert.equal(NOT_BUILT.has("asset"), false, "the path is built and still marked as not");
+
+  const photo = "data:image/jpeg;base64,/9j/4AAQ";
+  assert.match(wrongWithRequest("asset", null, null, null, null)!, /choose a photo/i);
+  assert.match(wrongWithRequest("asset", null, null, photo, null)!, /which of your services/i);
+  assert.match(wrongWithRequest("asset", null, null, photo, "   ")!, /which of your services/i);
+  assert.equal(wrongWithRequest("asset", null, null, photo, "Balayage"), null);
+
+  /* A category is not what this path asks for, so supplying one changes
+     nothing: the photo and the service are the two halves. */
+  assert.match(wrongWithRequest("asset", "prove", null, null, "Balayage")!, /choose a photo/i);
+});
+
+test("nothing that is still unbuilt can be selected or run", () => {
+  /**
+   * NOT_BUILT is empty now. It is kept rather than deleted because it is the
+   * one place a half built path is disabled, and this checks the mechanism
+   * still works rather than checking the set is empty.
+   */
+  for (const path of NOT_BUILT) {
+    assert.match(wrongWithRequest(path, "prove", null, null, null)!, /not ready yet/i);
+  }
 });
 
 test("a thought has to be a thought", () => {
@@ -147,20 +166,44 @@ test("every hook sits above anything that uses it", () => {
   );
 });
 
-test("starting from a photo is on screen, disabled, and says so", () => {
-  const src = read("make.tsx");
-  const tab = /From a photo[\s\S]{0,120}/.exec(src)?.[0] ?? "";
-  assert.match(src, /<button className="tab" role="tab" aria-selected=\{false\} disabled>/);
-  assert.match(tab, /Not yet/);
+test("the photo is downscaled here and stored nowhere", () => {
   /**
-   * And nothing behind it: no upload, no bucket, no half-written storage.
+   * The promise on the screen is that the photo never leaves their machine at
+   * full size and is never kept. That is two claims, and both are checkable.
    *
-   * Comments stripped first. The component explains why there is no upload,
+   * Comments stripped first. The component explains why there is no bucket,
    * and a test that fires on its own explanation is a test that can never
-   * pass. Third time this has happened in this codebase.
+   * pass. Fourth time this has happened in this codebase.
    */
+  const src = read("make.tsx");
   const code = src.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");
-  assert.doesNotMatch(code, /input type="file"|FormData|storage\.from|\.upload\(/i);
+
+  /* Taken in, drawn small, and turned into a string, all in the browser. */
+  assert.match(code, /type="file"/, "there is no way to choose a photo");
+  assert.match(code, /drawAt\(/, "the photo is sent at whatever size it arrived");
+  assert.match(code, /toDataURL\(SENT_AS, QUALITY\)/, "it is not written out as our one format");
+
+  /* And nowhere to put it. A bucket is the thing this design does not have. */
+  assert.doesNotMatch(code, /storage\.from|\.upload\(|createBucket/i, "the photo is being stored");
+
+  /* Said to them, not only to us. */
+  assert.match(src, /never leaves your computer/i, "nothing tells them where the photo goes");
+  assert.match(src, /not kept/i, "nothing tells them it is not stored");
+});
+
+test("the action is handed a photo and never a file", () => {
+  /**
+   * A server action takes a body of 1 MB before Next refuses it with a 413,
+   * which reaches the owner as a failure with no explanation. The photo is
+   * downscaled to a string on their machine, so what crosses is small and is
+   * never a file upload.
+   */
+  const action = read("make-actions.ts");
+  const code = action.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");
+  assert.match(code, /asPhoto\(photo\)/, "the data url is not checked before it is sent");
+  assert.doesNotMatch(code, /FormData|storage\.from|\.upload\(/i, "a file is crossing to the server");
+  assert.match(code, /type: "image"/, "the photo never reaches the writer");
+  assert.match(code, /from_photo: Boolean\(sent\)/, "the model is trusted to say a photo was there");
 });
 
 test("the action refuses before it spends, not after", () => {

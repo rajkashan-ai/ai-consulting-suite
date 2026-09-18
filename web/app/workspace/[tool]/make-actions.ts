@@ -5,6 +5,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { POST_RULES } from "@/tools/content-social-planner/prompts";
 import { cite, citeRules, tooThinToWrite, type Page } from "@/tools/content-social-planner/sources";
+import { asPhoto } from "@/tools/content-social-planner/photo";
 import { knownFacts, priceRules, type ReadPage } from "@/tools/content-social-planner/stages";
 import { unsafe } from "@/tools/content-social-planner/scrub";
 import {
@@ -37,9 +38,21 @@ export async function makePost(
   path: Path,
   intent: Intent | null,
   thought: string | null,
+  photo: string | null = null,
+  service: string | null = null,
 ): Promise<{ error: string | null }> {
-  const wrong = wrongWithRequest(path, intent, thought);
+  const wrong = wrongWithRequest(path, intent, thought, photo, service);
   if (wrong) return { error: wrong };
+
+  /**
+   * The photo, split into what the API takes, before anything else is read.
+   *
+   * Refused here rather than deeper: a data url handed to the API whole fails
+   * as a decode error a long way from the screen, and the owner would see "we
+   * could not reach the writer" for a problem that is theirs to fix in one tap.
+   */
+  const sent = path === "asset" ? asPhoto(photo) : null;
+  if (sent && "error" in sent) return { error: sent.error };
 
   const supabase = await createClient();
   const {
@@ -130,7 +143,34 @@ export async function makePost(
     .map((p) => `[${pages.findIndex((x) => x.url === p.url) + 1}] ${p.text.slice(0, 8000)}`)
     .join("\n\n");
 
-  const asking = theirWords
+  /**
+   * What the photo is allowed to be a source for.
+   *
+   * The look, and nothing else. A photo carries no price and no booking line,
+   * so those still come off the numbered pages and still carry `from`, which
+   * is what keeps `unsafe` meaningful on this path rather than merely passed.
+   *
+   * And never the person. The photo is of somebody's customer, who did not
+   * agree to be described in a caption. The work is the subject; whoever is
+   * wearing it is not.
+   */
+  const aboutThePhoto =
+    `A PHOTO THEY JUST TOOK, ATTACHED ABOVE\n` +
+    `They say it shows: ${service}\n\n` +
+    `Describe what you can actually see of the work. That description is the ` +
+    `one thing the photo is a source for, so do not stretch it: if the photo ` +
+    `does not show it, do not say it.\n\n` +
+    `Never describe the person. Not their face, their age, their body, their ` +
+    `clothes or who they might be. The work is the subject. A customer sat in ` +
+    `a chair did not agree to be written about.\n\n` +
+    `Everything else, the price and how to book, comes off the pages above and ` +
+    `carries "from" like any other fact. Say which of these the post turned ` +
+    `out to be: educate, inspire, entertain, inform, connect, prove, promote, ` +
+    `engage.\n\n`;
+
+  const asking = sent
+    ? aboutThePhoto
+    : theirWords
     ? `SOMETHING THAT JUST HAPPENED, IN THEIR WORDS\n"${theirWords}"\n\n` +
       `Write this up as one post. Keep what they said true: you are giving it ` +
       `words, not a different story. Say which of these it turned out to be, ` +
@@ -155,14 +195,40 @@ export async function makePost(
         messages: [
           {
             role: "user",
-            content:
-              `${citeRules(pages)}\n\nTHEIR PAGES\n\n${text}\n\n` +
-              voice +
-              priceRules(business) +
-              asking +
-              `One post, finished words ready to paste, one line saying what to ` +
-              `photograph that they can do on their phone today, and one line ` +
-              `saying why this post is worth putting out.`,
+            /**
+             * The photo first, then the words about it.
+             *
+             * Anthropic's own examples put the image block before the text
+             * that refers to it, and this call has a lot of text: the pages,
+             * the voice and the price rules all sit in front of the question.
+             * An image buried under four thousand words of price list is an
+             * image the question has to reach back for.
+             */
+            content: [
+              ...(sent
+                ? [
+                    {
+                      type: "image" as const,
+                      source: { type: "base64" as const, media_type: sent.media_type as never, data: sent.data },
+                    },
+                  ]
+                : []),
+              {
+                type: "text" as const,
+                text:
+                  `${citeRules(pages)}\n\nTHEIR PAGES\n\n${text}\n\n` +
+                  voice +
+                  priceRules(business) +
+                  asking +
+                  (sent
+                    ? `One post, finished words ready to paste, one line saying ` +
+                      `why this post is worth putting out, and for the photograph ` +
+                      `line say how to shoot the next one like it.`
+                    : `One post, finished words ready to paste, one line saying what to ` +
+                      `photograph that they can do on their phone today, and one line ` +
+                      `saying why this post is worth putting out.`),
+              },
+            ],
           },
         ],
         tools: [
@@ -240,6 +306,16 @@ export async function makePost(
     return { error: `We wrote one and would not stand behind it: ${refused}. Try again.` };
   }
 
+  /**
+   * That a photo was behind it is ours to record, never the model's to claim.
+   *
+   * We were handed one or we were not. Letting the writer say so would be a
+   * source the writer could invent, which is the one thing this whole file is
+   * arranged to stop. The photo itself is not written anywhere: it goes out of
+   * scope with this function.
+   */
+  const today = new Date().toISOString().slice(0, 10);
+
   const { error: saving } = await supabase.from("content_made").insert({
     workspace_id: workspaceId,
     path,
@@ -250,6 +326,9 @@ export async function makePost(
     why: post.why,
     source_url: post.source?.url ?? "",
     source_on: post.source?.fetchedOn ?? null,
+    from_photo: Boolean(sent),
+    photo_on: sent ? today : null,
+    service: sent ? service : null,
   });
 
   if (saving) {

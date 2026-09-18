@@ -1,4 +1,5 @@
 import { INTENTS, type Intent } from "@/tools/content-social-planner/paths";
+import { creditLine } from "@/tools/content-social-planner/sources";
 
 export type MadePost = {
   id: string;
@@ -10,6 +11,9 @@ export type MadePost = {
   why: string | null;
   source_url: string;
   source_on: string | null;
+  from_photo: boolean;
+  photo_on: string | null;
+  service: string | null;
   made_at: string;
 };
 
@@ -59,9 +63,12 @@ export default function Made({ made }: { made: MadePost[] }) {
               {p.why ? <span className="pick__reads">{p.why}</span> : null}
 
               {/* Where it came from, said once, at the bottom. A claim nobody
-                  can check is a claim nobody believes. */}
+                  can check is a claim nobody believes, and a claim pointed at
+                  the wrong source is worse: it looks checked. A post written
+                  from a photo says so, because no page of theirs describes the
+                  work in it. */}
               <span className="t-micro">
-                From your own page{p.source_on ? `, read ${p.source_on}` : ""}
+                {creditLine(p.from_photo, p.source_on, p.photo_on)}
               </span>
             </span>
           </div>

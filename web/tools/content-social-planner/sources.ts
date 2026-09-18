@@ -135,3 +135,44 @@ export function tooThinToWrite(
   if (pages.length && read.some((p) => p.ok)) return null;
   return "We have not read your website yet. Run the planner once and then come back.";
 }
+
+/**
+ * The services to offer beside a photo, best first.
+ *
+ * Read off their own site rather than typed here, for the reason everything
+ * else in this tool is: a list we invent contains services they do not sell,
+ * and the owner picking one would have us write a post about work they do not
+ * do. Priced ones come first because a photo paired with one of those can carry
+ * a real price and a real booking line, which is the whole point of the pairing.
+ *
+ * Takes the shape rather than a Business, so this file stays free of the
+ * workspace types and can be tested with two objects.
+ */
+export function servicesToOffer(
+  services: readonly { name: string; price?: string | null }[] | null | undefined,
+): string[] {
+  if (!services?.length) return [];
+  const named = services.filter((s) => s?.name?.trim());
+  const priced = named.filter((s) => s.price).map((s) => s.name.trim());
+  const rest = named.filter((s) => !s.price).map((s) => s.name.trim());
+  return [...new Set([...priced, ...rest])];
+}
+
+/**
+ * What the owner reads under a post, saying what is actually behind it.
+ *
+ * Two sources, not one, on the photo path. The page backs the price and the
+ * booking line; the photo backs the description of the work. Stamping a post
+ * that describes a haircut with "from your own page" would point the receipt at
+ * something that does not say it, and that line is the whole promise of this
+ * tool: the moment it points at the wrong thing it is decoration.
+ */
+export function creditLine(
+  fromPhoto: boolean,
+  readOn: string | null,
+  photoOn: string | null,
+): string {
+  const page = `your own page${readOn ? `, read ${readOn}` : ""}`;
+  if (!fromPhoto) return `From ${page}`;
+  return `From your photo${photoOn ? `, added ${photoOn}` : ""}, and ${page}`;
+}

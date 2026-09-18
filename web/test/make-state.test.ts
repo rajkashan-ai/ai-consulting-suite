@@ -18,6 +18,8 @@ import {
   THOUGHT_MIN,
   next,
   readyToAsk,
+  showsIntents,
+  showsPhotoBox,
   showsThoughtBox,
   type MakeState,
 } from "../tools/content-social-planner/paths.ts";
@@ -69,12 +71,78 @@ test("a refusal stays up while they are still on the same request", () => {
   assert.equal(s.error, "Choose what the post is for.");
 });
 
-test("the photo tab cannot become the path, however it is clicked", () => {
+test("a path we have not built cannot become the path, however it is clicked", () => {
+  /* Empty since the photo path was built. The mechanism is what is checked. */
   for (const path of NOT_BUILT) {
     const s = next(START, { did: "pick-path", path });
     assert.equal(s.path, "category", `${path} became the path`);
     assert.deepEqual(s, START, `${path} changed the screen`);
   }
+});
+
+/* ── starting from a photo ──────────────────────────────────────────────── */
+
+const PHOTO = "data:image/jpeg;base64,/9j/4AAQSkZJRg";
+
+test("exactly one of the three views is drawn, whatever the path", () => {
+  for (const path of ["category", "thought", "asset"] as const) {
+    const s: MakeState = { ...START, path };
+    const drawn = [showsIntents(s), showsThoughtBox(s), showsPhotoBox(s)].filter(Boolean);
+    assert.equal(drawn.length, 1, `${path} drew ${drawn.length} views`);
+  }
+});
+
+test("the photo path needs the photo and the service, in either order", () => {
+  const photoFirst = walk(
+    { did: "pick-path", path: "asset" },
+    { did: "pick-photo", photo: PHOTO },
+  );
+  assert.equal(readyToAsk(photoFirst), false, "asked with no service to price it against");
+  assert.equal(readyToAsk(next(photoFirst, { did: "pick-service", service: "Balayage" })), true);
+
+  const serviceFirst = walk(
+    { did: "pick-path", path: "asset" },
+    { did: "pick-service", service: "Balayage" },
+  );
+  assert.equal(readyToAsk(serviceFirst), false, "asked with no photo");
+  assert.equal(readyToAsk(next(serviceFirst, { did: "pick-photo", photo: PHOTO })), true);
+});
+
+test("taking the photo back takes the button with it", () => {
+  const ready = walk(
+    { did: "pick-path", path: "asset" },
+    { did: "pick-photo", photo: PHOTO },
+    { did: "pick-service", service: "Balayage" },
+  );
+  assert.equal(readyToAsk(ready), true);
+  assert.equal(readyToAsk(next(ready, { did: "pick-photo", photo: null })), false);
+});
+
+test("a written photo post leaves nothing of the last one on screen", () => {
+  const after = next(
+    walk(
+      { did: "pick-path", path: "asset" },
+      { did: "pick-photo", photo: PHOTO },
+      { did: "pick-service", service: "Balayage" },
+    ),
+    { did: "written" },
+  );
+  assert.equal(after.photo, null, "the photo is still held after the post was written");
+  assert.equal(after.service, null);
+  assert.equal(readyToAsk(after), false, "the same photo could be sent twice");
+});
+
+test("switching away from the photo path does not send the photo", () => {
+  /* Held, because coming back to it should not mean choosing the file again.
+     What matters is that the other paths cannot carry it: the action is told
+     the photo only when the path is asset. */
+  const s = walk(
+    { did: "pick-path", path: "asset" },
+    { did: "pick-photo", photo: PHOTO },
+    { did: "pick-path", path: "category" },
+  );
+  assert.equal(s.path, "category");
+  assert.equal(readyToAsk(s), false, "a photo made the category path ready without a category");
 });
 
 test("switching to the box does not carry the chosen category into it", () => {

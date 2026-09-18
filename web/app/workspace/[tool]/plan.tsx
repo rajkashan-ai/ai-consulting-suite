@@ -72,6 +72,7 @@ export default function PlanView({
   workspaceId,
   postState,
   made,
+  services,
   voice,
 }: {
   plan: DocumentBody;
@@ -80,6 +81,8 @@ export default function PlanView({
   postState: Record<string, PostState>;
   /** Posts they asked for on the day, newest first. See Made. */
   made: MadePost[];
+  /** Their own services, off their own site, for the photo path. See Make. */
+  services: string[];
   /** How they sound, and the voice they chose. See BrandPersona. */
   voice: {
     persona: Persona | null;
@@ -119,7 +122,7 @@ export default function PlanView({
           thing they came to do. A calendar they did not ask for produces guilt;
           this is triggered by something real happening. */}
       <Band mod="band--a">
-        <Make workspaceId={workspaceId} />
+        <Make workspaceId={workspaceId} services={services} />
         <Made made={made} />
       </Band>
 

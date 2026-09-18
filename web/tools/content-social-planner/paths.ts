@@ -57,14 +57,15 @@ export const PATHS = ["category", "thought", "asset"] as const;
 export type Path = (typeof PATHS)[number];
 
 /**
- * Asset-first is on the screen and does nothing yet.
+ * Paths on the screen that do nothing yet.
  *
- * Nothing in this product uploads a file: no bucket, no route, no image into a
- * model call. Writing that unbacked would be worse than the gap. It is shown
- * disabled so the shape of the tool is honest about what is coming, and this
- * set is what the action refuses.
+ * Empty since 2026-09-18, when starting from a photo was built. It stays as a
+ * set rather than being deleted: it is the mechanism that keeps a half built
+ * path honest on screen, and the next one will want it. `next` refuses to
+ * select anything in here and the action refuses to run it, so a path is
+ * disabled in one place rather than three.
  */
-export const NOT_BUILT: ReadonlySet<Path> = new Set(["asset"]);
+export const NOT_BUILT: ReadonlySet<Path> = new Set();
 
 export const isPath = (x: unknown): x is Path =>
   typeof x === "string" && (PATHS as readonly string[]).includes(x);
@@ -93,13 +94,34 @@ export function asThought(raw: unknown): { text: string } | { error: string } {
   return { text };
 }
 
-/** Why a request cannot be run, in the owner's words, or null. */
-export function wrongWithRequest(path: unknown, intent: unknown, thought: unknown): string | null {
+/**
+ * Why a request cannot be run, in the owner's words, or null.
+ *
+ * The photo path asks for one thing the other two do not: which service the
+ * photo shows. A photo carries no price and no booking link, so on its own it
+ * can only produce a description. Pairing it with a service they actually sell
+ * is what lets the facts come off the page while the look comes off the photo.
+ */
+export function wrongWithRequest(
+  path: unknown,
+  intent: unknown,
+  thought: unknown,
+  photo: unknown = null,
+  service: unknown = null,
+): string | null {
   if (!isPath(path)) return "Choose how you want to start.";
-  if (NOT_BUILT.has(path)) return "Starting from a photo is not ready yet.";
+  if (NOT_BUILT.has(path)) return "That way of starting is not ready yet.";
 
   if (path === "category") {
     return isIntent(intent) ? null : "Choose what the post is for.";
+  }
+
+  if (path === "asset") {
+    if (typeof photo !== "string" || !photo) return "Choose a photo.";
+    if (typeof service !== "string" || !service.trim()) {
+      return "Which of your services is this? We need it for the price and the link.";
+    }
+    return null;
   }
 
   // A thought on its own is enough: they have told us what happened, and what
@@ -126,15 +148,28 @@ export type MakeState = {
   path: Path;
   intent: Intent | null;
   thought: string;
+  /** The downscaled photo as a data url, held in memory and never stored. */
+  photo: string | null;
+  /** Which of their own services the photo shows. Their words, off their page. */
+  service: string | null;
   error: string | null;
 };
 
-export const START: MakeState = { path: "category", intent: null, thought: "", error: null };
+export const START: MakeState = {
+  path: "category",
+  intent: null,
+  thought: "",
+  photo: null,
+  service: null,
+  error: null,
+};
 
 export type MakeAction =
   | { did: "pick-path"; path: Path }
   | { did: "pick-intent"; intent: Intent }
   | { did: "type"; thought: string }
+  | { did: "pick-photo"; photo: string | null }
+  | { did: "pick-service"; service: string }
   | { did: "refused"; error: string }
   | { did: "written" };
 
@@ -158,19 +193,27 @@ export function next(state: MakeState, action: MakeAction): MakeState {
     case "type":
       return { ...state, thought: action.thought, error: null };
 
+    case "pick-photo":
+      return { ...state, photo: action.photo, error: null };
+
+    case "pick-service":
+      return { ...state, service: action.service, error: null };
+
     case "refused":
       return { ...state, error: action.error };
 
     // Written and saved. The screen is ready for the next one, and the words
     // they used are gone rather than sitting there looking unsent.
     case "written":
-      return { ...state, intent: null, thought: "", error: null };
+      return { ...state, intent: null, thought: "", photo: null, service: null, error: null };
   }
 }
 
 /** Whether the button is live. The same rule the action applies, asked once. */
 export const readyToAsk = (s: MakeState): boolean =>
-  wrongWithRequest(s.path, s.intent, s.thought) === null;
+  wrongWithRequest(s.path, s.intent, s.thought, s.photo, s.service) === null;
 
-/** Which half of the screen is drawn. */
-export const showsThoughtBox = (s: MakeState): boolean => s.path !== "category";
+/** Which of the three the screen is drawing. One path, one answer. */
+export const showsThoughtBox = (s: MakeState): boolean => s.path === "thought";
+export const showsPhotoBox = (s: MakeState): boolean => s.path === "asset";
+export const showsIntents = (s: MakeState): boolean => s.path === "category";
