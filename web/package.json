@@ -10,7 +10,7 @@
     "setup": "node setup.mjs",
     "key": "node set-key.mjs",
     "code": "node get-code.mjs",
-    "typecheck": "rm -rf .next && tsc --noEmit",
+    "typecheck": "rm -rf .next/types .next/dev/types && tsc --noEmit",
     "check": "npm run typecheck && npm test",
     "db": "node db.mjs",
     "playbook-sources": "npx tsx scripts/playbook-sources.ts",
