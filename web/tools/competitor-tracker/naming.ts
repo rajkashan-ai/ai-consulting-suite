@@ -81,6 +81,26 @@ export const searchFor = (n: Named, town: string, trade: string): string =>
   `"${n.name}" ${town} ${trade}`;
 
 /**
+ * The same business, asked for on the platforms that print prices.
+ *
+ * Only used when the plain search came back with nowhere that could carry a
+ * price. A competitor picked off Fresha's listing arrives with no link, because
+ * that page publishes a name and a postal address and nothing else, so the only
+ * way to their prices is to go and find their booking profile.
+ *
+ * Sites come from the source registry, so this asks for what we have recorded
+ * as reachable and price-carrying rather than a list written here. An empty
+ * list returns null, and the caller does not search: a second search with no
+ * sites in it is the first search again, at the same cost and no new answer.
+ */
+export const searchOnPriceSites = (
+  n: Named,
+  town: string,
+  sites: readonly string[],
+): string | null =>
+  sites.length ? `"${n.name}" ${town} (${sites.map((s) => `site:${s}`).join(" OR ")})` : null;
+
+/**
  * Does a search result actually show this business?
  *
  * Deliberately strict about the name and forgiving about everything else. The

@@ -53,7 +53,7 @@ test("a directory is still read when nothing better verifies", () => {
 test("the lookup ranks before it judges", () => {
   // judge takes the first result that really is this business in this town, so
   // ranking after it would change nothing.
-  assert.match(sourceOf("competitor-tracker"), /bestFirst\(seen\[0\]\?\.results \?\? \[\]\)/);
+  assert.match(sourceOf("competitor-tracker"), /bestFirst\(results\)/);
 });
 
 // ---------------------------------------------------------------------------

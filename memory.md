@@ -398,6 +398,12 @@ was broken on purpose and watched go red.
   that list exists to stop. It happened to the resizer once already.
 - Emailing the posts needs AGENTMAIL_API_KEY and AGENTMAIL_INBOX. Until both are set the button
   refuses and says so. The send itself has never run.
+- **Fresha's listing page publishes no venue links and no prices.** Fetched 2026-09-18: 217KB of
+  server HTML, schema.org JSON-LD carrying a name and a postal address per business, 300 anchors
+  and not one pointing at a venue, and the string "price" absent from the page entirely. So
+  `fetchable()` correctly stores no url for anyone picked off it, and the only route to their
+  prices is their booking profile, which has to be searched for. Do not expect a Fresha listing to
+  yield a price or a link; Booksy's does yield both.
 - **The competitor prices that "disappeared" were Melbourne's.** Runs up to 12:39 on 17 September
   read `fresha.com/lp/en/bt/hair-salons/in/au-melbourne` and got 22 priced rows from it; the five
   they picked were five St Albans **barbers** compared against a women's salon. At 12:47 the

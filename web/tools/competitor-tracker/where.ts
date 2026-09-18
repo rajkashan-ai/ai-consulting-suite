@@ -203,3 +203,40 @@ export function tierOf(url: string): 1 | 2 | 3 {
 export const bestFirst = <T extends { url: string }>(results: T[]): T[] =>
   results.map((r, i) => ({ r, i })).sort((a, b) => tierOf(a.r.url) - tierOf(b.r.url) || a.i - b.i)
     .map(({ r }) => r);
+
+/**
+ * The hosts that publish a price and that we can actually reach.
+ *
+ * WHY A SECOND SEARCH EXISTS AT ALL
+ * A competitor picked off a listing often arrives with no link. Fresha's
+ * listing page is the case that proved it: its server HTML carries schema.org
+ * JSON-LD with a name and a postal address for each business and nothing else.
+ * No venue link, and the string "price" does not appear in the page at all.
+ * Checked by fetching it on 2026-09-18: 300 anchors, none pointing at a venue.
+ *
+ * So `fetchable()` correctly stores no url, and the only route to that
+ * business's prices is to go and find their page on a platform that prints
+ * them. The general search by name is a lottery: it returned a Cylex directory
+ * that refused us for one of these five, and a booking profile that read
+ * cleanly at 12,000 characters for another.
+ *
+ * Read off the registry rather than typed here, so adding a platform to
+ * `uk-directories.ts` is the only edit needed, and a platform we have recorded
+ * as blocked is never searched for.
+ */
+export function sitesThatPublishPrices(): string[] {
+  return [...GENERAL, ...SPECIALIST]
+    .filter((d) => d.carries.includes("prices") && d.reachable.state !== "blocked")
+    .map((d) => d.host.replace(/^www\./, "").toLowerCase())
+    .filter((h, i, all) => all.indexOf(h) === i);
+}
+
+/**
+ * Whether a search gave us anywhere that could carry a price.
+ *
+ * Tier one is exactly "a source that carries prices or ratings and is not
+ * blocked", so this asks the question `tierOf` already answers rather than
+ * inventing a second definition of a good result.
+ */
+export const hasAPricedSource = (results: readonly { url: string }[]): boolean =>
+  results.some((r) => tierOf(r.url) === 1);
