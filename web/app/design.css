@@ -41,7 +41,19 @@
      Option C, chosen 2026-09-16: the permanent dark frame and mono figures of
      the instrument, on the warm ground and reading measure of the document.
      =========================================================================== */
-  --ink:#1c2b40; --ink-soft:#3f4a5a; --muted:#6b7280;
+  /**
+   * --muted is brand.css's #5a6472, not #6b7280.
+   *
+   * The two files drifted and the app's value was the looser one. Measured on
+   * the rendered /account page: `.t-kind` at 11px came out at 4.18:1 on
+   * --card-2 and 4.52:1 on --sand, so the label above every value on that page
+   * failed AA. brand.css is the declared source of truth and its value clears
+   * every ground in this theme, worst case 5.19:1 on --card-2.
+   *
+   * Pre-existing and nothing to do with the Instrument refresh, which does not
+   * reach outside .app. Found by sweeping a page the refresh never touched.
+   */
+  --ink:#1c2b40; --ink-soft:#3f4a5a; --muted:#5a6472;
 
   /* Sand is the ground. Paper is the lift. Card is the surface. */
   /* Sand was #f6f2ec and read slightly bright. Duller and a shade lighter:
@@ -319,6 +331,10 @@ button:disabled{cursor:not-allowed}
   --line:#263449;
   --line-soft:#1E2A3A;    /* row separators inside a list */
   --line-hover:#3A4C68;
+  /* The handoff's row hover. Deliberately not --card: that is the active nav
+     fill, and hovering an inactive tool made it look like the page you were
+     already on. */
+  --row-hover:#16202D;
 
   /* The colours you read. --muted is the floor: nothing dimmer carries text. */
   --ink:#FAFAF8;
@@ -618,7 +634,14 @@ main{padding:0}
    Tracker session; shape settled by Raj the same day.
    Grouped rather than fixed in the markup, because a modifier that only works
    when someone remembers to write the base class is the same trap again. */
-.btn,.btn--ghost,.btn--sm{border-radius:var(--r-pill)}
+/* And the BOX belongs to the family too, for the same reason the radius does.
+   `.btn--ghost` used standalone stayed `display:inline`, so its `height:40px`
+   did nothing: "Download everything" on /account rendered as 20px of inline
+   text wearing a border. Measured at 375px, where it was also the last control
+   in the product under the 44px floor. The radius half of this was fixed when
+   it was found; the layout half was not, and nothing looked again. */
+.btn,.btn--ghost,.btn--sm{border-radius:var(--r-pill); display:inline-flex;
+  align-items:center; justify-content:center; box-sizing:border-box}
 .btn:active,.btn--ghost:active,.btn--sm:active{transform:scale(.97)}
 .btn:disabled,.btn--ghost:disabled,.btn--sm:disabled{opacity:.5; cursor:not-allowed}
 
@@ -1474,7 +1497,15 @@ main{padding:0}
 .navitem{display:flex; align-items:center; gap:10px; padding:9px 10px;
   border-radius:var(--r-nav); text-decoration:none; color:var(--muted);
   transition:background var(--dur) var(--ease), color var(--dur) var(--ease)}
-.navitem:hover{background:var(--card)}
+/**
+ * Hover is not the active state.
+ *
+ * This said `background:var(--card)`, which is exactly what
+ * `.navitem[aria-current="page"]` uses, so moving the mouse down the rail made
+ * every tool look like the one you were on. `:not()` as well, because the
+ * current item should not change under the pointer at all.
+ */
+.navitem:not([aria-current="page"]):hover{background:var(--row-hover)}
 /* Active carries three signals, not one: fill, label colour, and a berry chip.
    Colour is never the only signal (brand.css rule 4). */
 .navitem[aria-current="page"]{background:var(--card); color:var(--ink)}
@@ -1521,6 +1552,10 @@ main{padding:0}
    -------------------------------------------------------------------------- */
 @media (max-width:900px){
   .app{grid-template-columns:1fr}
+  /* The preview draws two shells on one page. A fixed bottom bar each means
+     two bars stacked on each other, which is a gallery artefact rather than a
+     product fault, so a still keeps its rail in the flow. */
+  .app--still .side{position:static; border-top:1px solid var(--line)}
   .side{position:fixed; bottom:0; left:0; right:0; top:auto; height:auto;
     flex-direction:row; align-items:center; gap:4px; padding:0 8px;
     border-right:0; border-top:1px solid var(--line); z-index:30;
@@ -1597,3 +1632,18 @@ main{padding:0}
 @media (prefers-reduced-motion:reduce){
   .pulse__dot{animation:none; opacity:1}
 }
+
+/**
+ * A receipt is set in the mono face, like every other date in the product.
+ *
+ * The tracker's evidence stamps already do this and the planner's credit line
+ * did not, so the same idea, a source and the date we read it, had two
+ * treatments a few hundred pixels apart. The handoff's typography rule is
+ * unambiguous: every price, date, count and timestamp is JetBrains Mono, and
+ * prose never is.
+ *
+ * Measured after the change, not assumed: mono is wider, and these lines wrap
+ * rather than clip.
+ */
+.receipt{font-family:var(--mono); font-variant-numeric:tabular-nums;
+  letter-spacing:0; word-break:break-word}

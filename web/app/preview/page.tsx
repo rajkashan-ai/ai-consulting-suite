@@ -111,9 +111,7 @@ export default function Preview() {
         title="The workspace"
         note="Where you land after entering a website. Your staff account gets the business chooser and Test another. A customer gets neither."
       >
-        <div className="app app--inline">
-          <Bar />
-          <NavBar on="Home" />
+        <ShellStill on="Home">
           <div className="band band--a band--first">
             <div className="band__in">
               <h1 className="t-page">The Barber Shop Shrewsbury</h1>
@@ -157,7 +155,7 @@ export default function Preview() {
               </ul>
             </div>
           </div>
-        </div>
+        </ShellStill>
       </Screen>
 
       <Screen
@@ -165,9 +163,7 @@ export default function Preview() {
         title="Opening a tool that is not written yet"
         note="This is what all six do today. It says so, rather than showing an empty screen that looks broken."
       >
-        <div className="app app--inline">
-          <Bar />
-          <NavBar on="Competitor Tracker" />
+        <ShellStill on="Competitor Tracker">
           <div className="band band--a band--first band--last">
             <div className="band__in">
               <h1 className="t-page">Competitor Tracker</h1>
@@ -190,7 +186,7 @@ export default function Preview() {
               </div>
             </div>
           </div>
-        </div>
+        </ShellStill>
       </Screen>
 
       <Screen
@@ -260,41 +256,66 @@ export default function Preview() {
   );
 }
 
-function Bar() {
+/**
+ * A still of the real shell, and the second copy of it in this codebase.
+ *
+ * This was the old top bar and horizontal nav, hand drawn. When that markup
+ * left the product on 2026-09-18 its CSS went with it, and this copy lost its
+ * layout and overlapped itself 23 ways. The comment it carried at the time said
+ * "a preview that draws these differently is a preview that lies about the
+ * product", which is exactly what it had become.
+ *
+ * Redrawn to the Instrument shell. It is still a copy, and it will drift again:
+ * the real fix is for this page to mount `Shell` and `Side`, which it cannot do
+ * today because those navigate and this is a gallery of stills. Recorded rather
+ * than papered over.
+ */
+function ShellStill({ on, children }: { on: string; children: React.ReactNode }) {
   return (
-    <header>
-      <span className="logo">
-        <span className="logo__mark" />
-        Suite
-      </span>
-      <span className="chooser">
-        <span className="field field--filled field--sm">
-          The Barber Shop Shrewsbury
-        </span>
-        <span className="btn--sm btn--ghost">Open</span>
-      </span>
-      <span className="btn--sm btn--ghost">Test another</span>
-      {/* One style for the lot, as in the real header. A preview that draws
-          these differently is a preview that lies about the product. */}
-      <span className="btn--sm btn--ghost">Account</span>
-      <span className="btn--sm btn--ghost">Sign out</span>
-    </header>
-  );
-}
+    <div className="app app--still">
+      <aside className="side">
+        <div className="side__id">
+          <span className="side__mark" aria-hidden="true">B</span>
+          <span className="side__who">
+            <span className="side__name">The Barber Shop</span>
+            <span className="side__where">Shrewsbury</span>
+          </span>
+        </div>
+        <nav className="side__nav" aria-label="Your tools">
+          {[{ label: "Home", key: "HO", built: true }, ...TOOLS.filter((t) => !t.hidden).map((t) => ({
+            label: t.short,
+            key: t.short.replace(/&/g, " ").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase(),
+            built: t.built,
+          }))].map((item) => (
+            <span
+              key={item.label}
+              className={`navitem${item.built ? "" : " navitem--off"}`}
+              aria-current={item.label === on ? "page" : undefined}
+            >
+              <span className="navitem__chip" aria-hidden="true">{item.key}</span>
+              <span className="navitem__label">{item.label}</span>
+              {item.built ? null : <span className="navitem__state">soon</span>}
+            </span>
+          ))}
+        </nav>
+        <div className="side__saved">
+          <span className="t-kind">this month</span>
+          <span className="side__saved-n">nothing yet</span>
+          <span className="side__saved-w">It starts once an agent has run.</span>
+        </div>
+      </aside>
 
-function NavBar({ on }: { on: string }) {
-  return (
-    <nav>
-      {["Home", ...TOOLS.map((t) => t.name)].map((name) => (
-        <span
-          key={name}
-          className="navitem"
-          aria-current={name === on ? "page" : undefined}
-        >
-          {name}
-        </span>
-      ))}
-    </nav>
+      <div className="frame">
+        <header className="topbar">
+          <span className="t-kind topbar__when">Monday 15 September</span>
+          <div className="topbar__acts">
+            <span className="btn--sm btn--ghost">Account</span>
+            <span className="btn--sm btn--ghost">Sign out</span>
+          </div>
+        </header>
+        <main>{children}</main>
+      </div>
+    </div>
   );
 }
 

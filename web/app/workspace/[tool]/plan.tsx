@@ -144,7 +144,7 @@ export default function PlanView({
             thirty repetitions of the same line in the Tracker's first table,
             and the rule that came out of it is that repeated support moves to
             a footer rather than going away: CLAUDE.md 1.4a. */}
-        <p className="t-meta">
+        <p className="t-meta receipt">
           Every post above was written from your own pages:{" "}
           {plan.pages.map((p) => host(p.url)).join(", ")}, read{" "}
           {plan.pages[0]?.fetchedOn ?? ""}.

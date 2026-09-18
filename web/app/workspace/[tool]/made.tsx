@@ -68,7 +68,7 @@ export default function Made({ made }: { made: MadePost[] }) {
                   the wrong source is worse: it looks checked. A post written
                   from a photo says so, because no page of theirs describes the
                   work in it. */}
-              <span className="t-micro">
+              <span className="t-micro receipt">
                 {creditLine(p.from_photo, p.source_on, p.photo_on)}
               </span>
 
